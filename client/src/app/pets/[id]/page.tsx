@@ -9,7 +9,9 @@ import { useCart } from "@/store/useCartStore"
 import { Loading } from "@/app/components/loading"
 import Image from "next/image"
 import MiniCart from "@/app/carts/_components/MiniCart"
+import ReviewSection from "@/app/pets/_components/ReviewSection"
 import useSWR from "swr"
+import axiosInstance from "@/lib/utils/axios"
 import type { Pet } from "@/types/Pet"
 
 // Interface cho API Response từ backend
@@ -46,32 +48,36 @@ interface PetDetailDTO {
   updatedAt?: string;
 }
 
-// Fetcher cho SWR
+// Fetcher cho SWR (dùng axiosInstance)
 const fetcher = async (url: string): Promise<PetDetailDTO> => {
-  const response = await fetch(url);
-  const apiResponse: ApiResponse<PetDetailDTO> = await response.json();
-  
-  if (apiResponse.status !== 200 || !apiResponse.data) {
-    throw new Error(apiResponse.message || 'Không tìm thấy thú cưng');
+  try {
+    const response = await axiosInstance.get<ApiResponse<PetDetailDTO>>(url);
+    const apiResponse = response.data;
+    
+    if (apiResponse.status !== 200 || !apiResponse.data) {
+      throw new Error(apiResponse.message || 'Không tìm thấy thú cưng');
+    }
+    
+    return apiResponse.data;
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { message?: string } }; message?: string };
+    throw new Error(err.response?.data?.message || err.message || 'Không tìm thấy thú cưng');
   }
-  
-  return apiResponse.data;
 };
 
 export default function PetDetailPage() {
   const params = useParams()
   const router = useRouter()
   const petId = params.id as string
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   
   const [quantity, setQuantity] = useState(1)
   const [isWishlisted, setIsWishlisted] = useState(false)
   
   const { addItem, openMiniCart } = useCart()
   
-  // Fetch pet data từ backend API
+  // Fetch pet data từ backend API (dùng axiosInstance với relative path)
   const { data: pet, error, isLoading } = useSWR<PetDetailDTO>(
-    `${apiUrl}/pets/${petId}`,
+    `/pets/${petId}`,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -420,6 +426,12 @@ export default function PetDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Reviews Section */}
+      <div className="max-w-7xl mx-auto px-4 pb-12">
+        <ReviewSection petId={petId} />
+      </div>
+
       <MiniCart />
     </main>
   )

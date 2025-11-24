@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
-import axios from "axios";
+import axiosInstance from "@/lib/utils/axios";
 import Image from "next/image";
 import { Loading } from "../components/loading";
 import { useCart } from "@/store/useCartStore";
@@ -46,35 +46,36 @@ interface PetSearchRequest {
   sortDirection?: string;
 }
 
-// SWR fetcher cho GET request (dùng fetch thông thường)
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+// SWR fetcher cho GET request (dùng axiosInstance)
+const fetcher = async (url: string) => {
+  const response = await axiosInstance.get(url);
+  return response.data;
+};
 
-// Axios fetcher cho POST search request
+// Axios fetcher cho POST search request (dùng axiosInstance)
 const axiosSearchFetcher = async ([url, body]: [string, PetSearchRequest]) => {
   try {
     console.log('🚀 Calling Search API:', { url, body });
-    const response = await axios.post(url, body);
+    const response = await axiosInstance.post(url, body);
     console.log('✅ Search API Response:', response.data);
     return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error('❌ Search API Error:', error.response?.data || error.message);
-      // Nếu là 404 (không tìm thấy), trả về empty response thay vì throw error
-      if (error.response?.status === 404) {
-        return {
-          content: [],
-          totalElements: 0,
-          page: body.page || 0,
-          size: body.pageSize || 6,
-        };
-      }
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: unknown; status?: number }; message?: string };
+    console.error('❌ Search API Error:', err.response?.data || err.message);
+    // Nếu là 404 (không tìm thấy), trả về empty response thay vì throw error
+    if (err.response?.status === 404) {
+      return {
+        content: [],
+        totalElements: 0,
+        page: body.page || 0,
+        size: body.pageSize || 6,
+      };
     }
     throw error;
   }
 };
 
 export default function PetsPage() {
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   const pageSize = 6;
   const [page, setPage] = useState(0);
   const { addItem, openMiniCart } = useCart();
@@ -84,15 +85,15 @@ export default function PetsPage() {
   const [searchInput, setSearchInput] = useState(""); // Input từ user
   const [sortBy, setSortBy] = useState("default");
 
-  // Fetch categories từ API (dùng SWR với fetch)
+  // Fetch categories từ API (dùng axiosInstance với relative path)
   const { data: categoriesData } = useSWR<Category[]>(
-    `${apiUrl}/categories/list`,
+    '/pets/categories',
     fetcher
   );
 
   // Tính count cho mỗi category và lấy giá cao nhất dựa trên tất cả pets (không phân trang)
   const { data: allPetsData } = useSWR<PetResponse>(
-    `${apiUrl}/pets?page=0&size=1000`,
+    '/pets?page=0&size=1000',
     fetcher
   );
 
@@ -145,7 +146,7 @@ export default function PetsPage() {
       request.maxFinalPrice = priceRange[1];
     }
 
-    // Sort mapping - LUÔN gửi sortBy và sortDirection
+    // Sort mapping - Rating sẽ được sort ở client side
     switch (sortBy) {
       case "price-low":
         request.sortBy = "price";
@@ -156,7 +157,9 @@ export default function PetsPage() {
         request.sortDirection = "desc";
         break;
       case "rating":
-        request.sortBy = "rating";
+        // Không gửi sortBy cho rating vì field này không có trong DB
+        // Sẽ sort ở client side sau khi nhận data
+        request.sortBy = "createdAt";
         request.sortDirection = "desc";
         break;
       case "latest":
@@ -198,8 +201,8 @@ export default function PetsPage() {
   // Fetch data với search API (POST) hoặc get all API (GET với SWR fetch)
   const { data, error, isLoading } = useSWR<PetResponse>(
     shouldUseSearch 
-      ? [`${apiUrl}/pets/search`, searchRequest]
-      : `${apiUrl}/pets?page=${page}&size=${pageSize}`,
+      ? ['/pets/search', searchRequest]
+      : `/pets?page=${page}&size=${pageSize}`,
     shouldUseSearch
       ? axiosSearchFetcher
       : fetcher
@@ -214,15 +217,36 @@ export default function PetsPage() {
       maxPrice,
       priceRange,
       isPriceRangeInitialized,
-      categoriesData,
-      apiUrl
+      categoriesData
     });
-  }, [shouldUseSearch, selectedCategory, searchRequest, maxPrice, priceRange, isPriceRangeInitialized, categoriesData, apiUrl]);
+  }, [shouldUseSearch, selectedCategory, searchRequest, maxPrice, priceRange, isPriceRangeInitialized, categoriesData]);
 
-  const pets = data?.content || [];
+  // Sort pets theo rating ở client side nếu cần
+  const pets = useMemo(() => {
+    const petsData = data?.content || [];
+    
+    // Nếu sort by rating, sort ở client side
+    if (sortBy === "rating") {
+      return [...petsData].sort((a, b) => {
+        const ratingA = a.rating || 0;
+        const ratingB = b.rating || 0;
+        return ratingB - ratingA; // Sort descending (cao đến thấp)
+      });
+    }
+    
+    return petsData;
+  }, [data?.content, sortBy]);
+  
   const totalElements = data?.totalElements || 0;
 
-  const categories = (categoriesData || []).map(cat => {
+  // Xử lý categoriesData - có thể là array trực tiếp hoặc object wrapper
+  const categoriesArray: Category[] = Array.isArray(categoriesData) 
+    ? categoriesData 
+    : (categoriesData && typeof categoriesData === 'object' && 'data' in categoriesData) 
+      ? (categoriesData as { data: Category[] }).data 
+      : [];
+
+  const categories = categoriesArray.map((cat: Category) => {
     const count = (allPetsData?.content || []).filter(pet => pet.categoryName === cat.name).length;
     return {
       ...cat,
@@ -371,7 +395,7 @@ export default function PetsPage() {
                     <option value="default">Sắp xếp mặc định</option>
                     <option value="price-low">Giá: Thấp đến cao</option>
                     <option value="price-high">Giá: Cao đến thấp</option>
-                    <option value="rating">Đánh giá cao nhất</option>
+                    <option value="rating">Đánh giá: Cao đến thấp</option>
                     <option value="latest">Mới nhất</option>
                   </select>
                   <ChevronDown
