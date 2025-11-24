@@ -1,0 +1,238 @@
+"use client";
+
+import { useState } from "react";
+import useSWR from "swr";
+import axiosInstance from "@/lib/utils/axios";
+import { Star, User } from "lucide-react";
+import { Review, PageResponse } from "@/types/Review";
+
+interface ReviewSectionProps {
+  petId: string;
+}
+
+// SWR fetcher
+const fetcher = async (url: string) => {
+  try {
+    const response = await axiosInstance.get(url);
+    
+    // Xử lý trường hợp 204 No Content
+    if (response.status === 204 || !response.data) {
+      return {
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0
+      };
+    }
+    
+    return response.data;
+  } catch (error: unknown) {
+    const err = error as { 
+      response?: { status?: number }; 
+    };
+    
+    // Nếu là 404 hoặc 204, trả về empty response thay vì throw error
+    if (err.response?.status === 404 || err.response?.status === 204) {
+      return {
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0
+      };
+    }
+    
+    throw error;
+  }
+};
+
+export default function ReviewSection({ petId }: ReviewSectionProps) {
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+
+  // Fetch reviews từ API
+  const { data, error, isLoading } = useSWR<PageResponse<Review>>(
+    `/pets/${petId}/reviews?page=${page}&size=${pageSize}`,
+    fetcher
+  );
+
+  const reviews = data?.content || [];
+  const totalElements = data?.totalElements || 0;
+  const totalPages = Math.ceil(totalElements / pageSize);
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  // Render stars
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex gap-1">
+        {[...Array(5)].map((_, i) => (
+          <Star
+            key={i}
+            size={16}
+            className={
+              i < rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+            }
+          />
+        ))}
+      </div>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="py-8">
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B6B]"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="py-8">
+        <p className="text-center text-red-500">Không thể tải đánh giá</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-8">
+      <h2 className="text-2xl font-bold text-foreground mb-6">
+        Đánh giá của khách hàng
+        {totalElements > 0 && (
+          <span className="text-muted-foreground text-lg ml-2">
+            ({totalElements} đánh giá)
+          </span>
+        )}
+      </h2>
+
+      {reviews.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <p className="text-gray-500 text-lg">
+            Chưa có đánh giá nào cho thú cưng này
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {reviews.map((review) => (
+            <div
+              key={review.reviewId}
+              className="border border-gray-200 rounded-lg p-6 bg-white"
+            >
+              {/* User info và rating */}
+              <div className="flex items-start gap-4 mb-4">
+                {/* Avatar */}
+                <div className="flex-shrink-0">
+                  {review.userAvatar ? (
+                    <img
+                      src={review.userAvatar}
+                      alt={review.userFullName || "User"}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                      <User size={24} className="text-gray-500" />
+                    </div>
+                  )}
+                </div>
+
+                {/* User name, rating, date */}
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-foreground">
+                      {review.userFullName || "Người dùng ẩn danh"}
+                    </h3>
+                    <span className="text-sm text-muted-foreground">
+                      {formatDate(review.createdAt)}
+                    </span>
+                  </div>
+                  {renderStars(review.rating)}
+                </div>
+              </div>
+
+              {/* Comment */}
+              <div className="mb-4">
+                <p className="text-foreground leading-relaxed">
+                  {review.comment}
+                </p>
+              </div>
+
+              {/* Review image nếu có */}
+              {review.reviewImageUrl && (
+                <div className="mb-4">
+                  <img
+                    src={review.reviewImageUrl}
+                    alt="Review image"
+                    className="rounded-lg object-cover w-[200px] h-[200px]"
+                  />
+                </div>
+              )}
+
+              {/* Reply từ shop nếu có */}
+              {review.reply && (
+                <div className="mt-4 ml-16 p-4 bg-gray-50 rounded-lg border-l-4 border-[#FF6B6B]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold text-[#FF6B6B]">
+                      Phản hồi từ cửa hàng
+                    </span>
+                    {review.replyDate && (
+                      <span className="text-sm text-muted-foreground">
+                        • {formatDate(review.replyDate)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-foreground">{review.reply}</p>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex gap-3 justify-center mt-8">
+              <button
+                className="w-10 h-10 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center text-gray-600 hover:border-[#FF6B6B] hover:text-[#FF6B6B] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                ←
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i).map((num) => (
+                <button
+                  key={num}
+                  className={`w-10 h-10 rounded-full ${
+                    num === page
+                      ? "bg-[#FF6B6B] text-white"
+                      : "bg-white text-gray-600 hover:border-[#FF6B6B] hover:text-[#FF6B6B]"
+                  } border-2 ${
+                    num === page ? "border-[#FF6B6B]" : "border-gray-300"
+                  } flex items-center justify-center transition-all duration-300`}
+                  onClick={() => setPage(num)}
+                >
+                  {num + 1}
+                </button>
+              ))}
+              <button
+                className="w-10 h-10 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center text-gray-600 hover:border-[#FF6B6B] hover:text-[#FF6B6B] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={page === totalPages - 1}
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              >
+                →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
