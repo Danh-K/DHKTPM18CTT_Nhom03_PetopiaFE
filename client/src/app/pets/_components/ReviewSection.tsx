@@ -47,6 +47,7 @@ const fetcher = async (url: string) => {
 
 export default function ReviewSection({ petId }: ReviewSectionProps) {
   const [page, setPage] = useState(0);
+  const [filterType, setFilterType] = useState<'all' | 'latest' | '1' | '2' | '3' | '4' | '5'>('all');
   const pageSize = 10;
 
   // Fetch reviews từ API
@@ -55,9 +56,28 @@ export default function ReviewSection({ petId }: ReviewSectionProps) {
     fetcher
   );
 
-  const reviews = data?.content || [];
+  const allReviews = data?.content || [];
+  
+  // Lọc reviews dựa trên filterType
+  const filteredReviews = allReviews.filter((review) => {
+    if (filterType === 'all') return true;
+    if (filterType === 'latest') return true; // Sẽ sắp xếp sau
+    return review.rating === parseInt(filterType);
+  });
+
+  // Sắp xếp theo mới nhất nếu chọn filter "latest"
+  const reviews = filterType === 'latest' 
+    ? [...filteredReviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    : filteredReviews;
+
   const totalElements = data?.totalElements || 0;
   const totalPages = Math.ceil(totalElements / pageSize);
+
+  // Reset về trang 0 khi thay đổi filter
+  const handleFilterChange = (newFilter: typeof filterType) => {
+    setFilterType(newFilter);
+    setPage(0);
+  };
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -115,10 +135,95 @@ export default function ReviewSection({ petId }: ReviewSectionProps) {
         )}
       </h2>
 
+      {/* Bộ lọc đánh giá */}
+      <div className="mb-6 flex flex-wrap gap-3">
+        <button
+          onClick={() => handleFilterChange('all')}
+          className={`px-4 py-2 rounded-full font-medium transition-all duration-300 ${
+            filterType === 'all'
+              ? 'bg-[#FF6B6B] text-white shadow-md'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B6B] hover:text-[#FF6B6B]'
+          }`}
+        >
+          Tất cả
+        </button>
+        <button
+          onClick={() => handleFilterChange('latest')}
+          className={`px-4 py-2 rounded-full font-medium transition-all duration-300 ${
+            filterType === 'latest'
+              ? 'bg-[#FF6B6B] text-white shadow-md'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B6B] hover:text-[#FF6B6B]'
+          }`}
+        >
+          Mới nhất
+        </button>
+        <button
+          onClick={() => handleFilterChange('5')}
+          className={`px-4 py-2 rounded-full font-medium transition-all duration-300 flex items-center gap-2 ${
+            filterType === '5'
+              ? 'bg-[#FF6B6B] text-white shadow-md'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B6B] hover:text-[#FF6B6B]'
+          }`}
+        >
+          5 <Star size={16} className={filterType === '5' ? 'fill-white' : 'fill-yellow-400 text-yellow-400'} />
+        </button>
+        <button
+          onClick={() => handleFilterChange('4')}
+          className={`px-4 py-2 rounded-full font-medium transition-all duration-300 flex items-center gap-2 ${
+            filterType === '4'
+              ? 'bg-[#FF6B6B] text-white shadow-md'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B6B] hover:text-[#FF6B6B]'
+          }`}
+        >
+          4 <Star size={16} className={filterType === '4' ? 'fill-white' : 'fill-yellow-400 text-yellow-400'} />
+        </button>
+        <button
+          onClick={() => handleFilterChange('3')}
+          className={`px-4 py-2 rounded-full font-medium transition-all duration-300 flex items-center gap-2 ${
+            filterType === '3'
+              ? 'bg-[#FF6B6B] text-white shadow-md'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B6B] hover:text-[#FF6B6B]'
+          }`}
+        >
+          3 <Star size={16} className={filterType === '3' ? 'fill-white' : 'fill-yellow-400 text-yellow-400'} />
+        </button>
+        <button
+          onClick={() => handleFilterChange('2')}
+          className={`px-4 py-2 rounded-full font-medium transition-all duration-300 flex items-center gap-2 ${
+            filterType === '2'
+              ? 'bg-[#FF6B6B] text-white shadow-md'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B6B] hover:text-[#FF6B6B]'
+          }`}
+        >
+          2 <Star size={16} className={filterType === '2' ? 'fill-white' : 'fill-yellow-400 text-yellow-400'} />
+        </button>
+        <button
+          onClick={() => handleFilterChange('1')}
+          className={`px-4 py-2 rounded-full font-medium transition-all duration-300 flex items-center gap-2 ${
+            filterType === '1'
+              ? 'bg-[#FF6B6B] text-white shadow-md'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-[#FF6B6B] hover:text-[#FF6B6B]'
+          }`}
+        >
+          1 <Star size={16} className={filterType === '1' ? 'fill-white' : 'fill-yellow-400 text-yellow-400'} />
+        </button>
+      </div>
+
+      {/* Hiển thị số lượng đánh giá sau khi lọc */}
+      {filterType !== 'all' && reviews.length > 0 && (
+        <div className="mb-4">
+          <p className="text-gray-600">
+            Tìm thấy <span className="font-semibold text-[#FF6B6B]">{reviews.length}</span> đánh giá
+          </p>
+        </div>
+      )}
+
       {reviews.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <p className="text-gray-500 text-lg">
-            Chưa có đánh giá nào cho thú cưng này
+            {allReviews.length === 0 
+              ? "Chưa có đánh giá nào cho thú cưng này"
+              : "Không có đánh giá nào phù hợp với bộ lọc"}
           </p>
         </div>
       ) : (
