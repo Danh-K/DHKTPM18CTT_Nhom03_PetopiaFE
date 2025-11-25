@@ -31,7 +31,7 @@ const FavoritesPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F5D7B7] to-[#FDF6E3]">
+    <div className="min-h-screen bg-white">
         {/* Favorites Title */}
         <div className="relative py-24">
           <div className="absolute inset-0">

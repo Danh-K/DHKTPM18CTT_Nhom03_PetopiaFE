@@ -1,10 +1,19 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
-import { Minus, Plus } from 'lucide-react'
+import { Minus, Plus, ChevronDown, ChevronUp } from 'lucide-react'
 import { useCart } from '@/store/useCartStore'
 import Link from 'next/link'
+import axiosInstance from '@/lib/utils/axios'
+import useSWR from 'swr'
+import type { Promotion, PromotionResponse } from '@/types/Promotion'
+
+// Fetcher for SWR
+const fetcher = async (url: string) => {
+  const response = await axiosInstance.get(url)
+  return response.data
+}
 
 const CartPage = () => {
   const { 
@@ -15,6 +24,167 @@ const CartPage = () => {
     calculateItemTotal,
     calculateItemSavings 
   } = useCart()
+
+  // Customer Info State
+  const [customerInfo, setCustomerInfo] = useState({
+    gender: 'male',
+    fullName: '',
+    phone: '',
+    email: '',
+    deliveryType: 'home',
+    province: '',
+    district: '',
+    address: '',
+    note: '',
+    recipientGender: 'male',
+    recipientName: '',
+    recipientPhone: '',
+    saveRecipient: false,
+    paymentMethod: 'cash' // cash or bank
+  })
+
+  // Promotion code state
+  const [promoCode, setPromoCode] = useState('')
+  const [discount, setDiscount] = useState(0)
+  const [voucherInfo, setVoucherInfo] = useState<{
+    description: string
+    discountType: string
+    discountValue: number
+  } | null>(null)
+  const [promoError, setPromoError] = useState('')
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false)
+  const [showPromotions, setShowPromotions] = useState(false)
+  const [selectedPromotion, setSelectedPromotion] = useState<string | null>(null) // Chỉ cho chọn 1 khuyến mãi
+
+  // Fetch promotions
+  const { data: promotionsData } = useSWR<PromotionResponse>('/pets/promotions?page=0&size=100', fetcher)
+
+  // Tính giảm giá từ khuyến mãi đã chọn (chỉ 1)
+  const promotionDiscount = (() => {
+    if (!selectedPromotion) return 0
+    
+    const promo = promotionsData?.content.find(p => p.code === selectedPromotion)
+    if (!promo) return 0
+    
+    // Nếu discountValue <= 100 và promotionType = "DISCOUNT" thì giảm theo %
+    // Nếu discountValue > 100 thì giảm cố định
+    if (promo.discountValue <= 100 && promo.promotionType === 'DISCOUNT') {
+      // Giảm theo phần trăm
+      return (subtotal * promo.discountValue) / 100
+    } else {
+      // Giảm cố định
+      return promo.discountValue
+    }
+  })()
+
+  // Tổng discount = promotion discount + voucher discount
+  const totalDiscount = promotionDiscount + discount
+
+  const handleApplyPromo = async () => {
+    // Reset error và voucher info
+    setPromoError('')
+    setVoucherInfo(null)
+    
+    if (!promoCode.trim()) {
+      setPromoError('Vui lòng nhập mã khuyến mãi')
+      return
+    }
+
+    setIsApplyingPromo(true)
+    
+    try {
+      const response = await axiosInstance.post('/pets/vouchers/apply', {
+        voucherCode: promoCode.trim(),
+        orderAmount: subtotal
+      })
+
+      const voucher = response.data
+      
+      console.log('✅ Voucher Response:', voucher)
+      console.log('📊 Subtotal:', subtotal)
+      
+      // Tính toán giảm giá
+      let discountAmount = 0
+      const discountType = (voucher.discountType || '').toUpperCase()
+      
+      if (discountType === 'PERCENTAGE') {
+        // Giảm theo phần trăm
+        discountAmount = (subtotal * (voucher.discountValue || 0)) / 100
+        console.log('💰 Discount (PERCENTAGE):', discountAmount, `= ${subtotal} * ${voucher.discountValue} / 100`)
+      } else if (discountType === 'FIXED_AMOUNT') {
+        // Giảm giá cố định
+        discountAmount = voucher.discountValue || 0
+        console.log('💰 Discount (FIXED_AMOUNT):', discountAmount)
+      } else {
+        console.warn('⚠️ Unknown discount type:', voucher.discountType)
+      }
+
+      console.log('🎯 Final discount amount:', discountAmount)
+      
+      setDiscount(discountAmount)
+      setVoucherInfo({
+        description: voucher.description,
+        discountType: voucher.discountType,
+        discountValue: voucher.discountValue
+      })
+      setPromoError('')
+    } catch (error: any) {
+      console.error('Error applying voucher:', error)
+      
+      if (error.response?.status === 204) {
+        setPromoError('Mã khuyến mãi không hợp lệ hoặc không áp dụng được cho đơn hàng này')
+      } else if (error.response?.status === 400) {
+        setPromoError('Đơn hàng không đủ điều kiện áp dụng mã này')
+      } else {
+        setPromoError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau')
+      }
+      setDiscount(0)
+    } finally {
+      setIsApplyingPromo(false)
+    }
+  }
+
+  const shippingFee = 0 // Miễn phí
+  const finalTotal = subtotal - totalDiscount + shippingFee
+
+  // Districts by province
+  const districtsByProvince: { [key: string]: string[] } = {
+    'hcm': [
+      'Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 6', 'Quận 7', 'Quận 8', 
+      'Quận 9', 'Quận 10', 'Quận 11', 'Quận 12', 'Quận Bình Tân', 'Quận Bình Thạnh', 
+      'Quận Gò Vấp', 'Quận Phú Nhuận', 'Quận Tân Bình', 'Quận Tân Phú', 'Quận Thủ Đức',
+      'Huyện Bình Chánh', 'Huyện Cần Giờ', 'Huyện Củ Chi', 'Huyện Hóc Môn', 'Huyện Nhà Bè'
+    ],
+    'dongnai': [
+      'Thành phố Biên Hòa', 'Thành phố Long Khánh', 'Huyện Cẩm Mỹ', 'Huyện Định Quán', 
+      'Huyện Long Thành', 'Huyện Nhơn Trạch', 'Huyện Thống Nhất', 'Huyện Trảng Bom', 
+      'Huyện Vĩnh Cửu', 'Huyện Xuân Lộc', 'Huyện Tân Phú'
+    ],
+    'khanhhoa': [
+      'Thành phố Nha Trang', 'Thành phố Cam Ranh', 'Thị xã Ninh Hòa', 'Huyện Cam Lâm', 
+      'Huyện Diên Khánh', 'Huyện Khánh Sơn', 'Huyện Khánh Vĩnh', 'Huyện Trường Sa', 
+      'Huyện Vạn Ninh'
+    ],
+    'hanoi': [
+      'Quận Ba Đình', 'Quận Hoàn Kiếm', 'Quận Tây Hồ', 'Quận Long Biên', 'Quận Cầu Giấy', 
+      'Quận Đống Đa', 'Quận Hai Bà Trưng', 'Quận Hoàng Mai', 'Quận Thanh Xuân', 'Quận Hà Đông', 
+      'Quận Nam Từ Liêm', 'Quận Bắc Từ Liêm', 'Huyện Ba Vì', 'Huyện Chương Mỹ', 'Huyện Đan Phượng', 
+      'Huyện Đông Anh', 'Huyện Gia Lâm', 'Huyện Hoài Đức', 'Huyện Mê Linh', 'Huyện Mỹ Đức', 
+      'Huyện Phú Xuyên', 'Huyện Phúc Thọ', 'Huyện Quốc Oai', 'Huyện Sóc Sơn', 'Huyện Thạch Thất', 
+      'Huyện Thanh Oai', 'Huyện Thanh Trì', 'Huyện Thường Tín', 'Huyện Ứng Hòa', 'Thị xã Sơn Tây'
+    ],
+    'ninhthuan': [
+      'Thành phố Phan Rang-Tháp Chàm', 'Huyện Bác Ái', 'Huyện Ninh Hải', 'Huyện Ninh Phước', 
+      'Huyện Ninh Sơn', 'Huyện Thuận Bắc', 'Huyện Thuận Nam'
+    ]
+  }
+
+  const getDistricts = () => {
+    if (customerInfo.deliveryType === 'store') {
+      return ['P. Hạnh Thông']
+    }
+    return districtsByProvince[customerInfo.province] || []
+  }
 
   const handleUpdateQuantity = (petId: string, change: number) => {
     const item = items.find(i => i.pet.petId === petId)
@@ -29,7 +199,7 @@ const CartPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F5D7B7] to-[#FDF6E3]">
+    <div className="min-h-screen bg-white">
         {/* Cart Title */}
         <div className="relative py-24">
           <div className="absolute inset-0">
@@ -186,37 +356,561 @@ const CartPage = () => {
                 </div>
               )
             })}
-          </div>
 
-          {/* Cart Totals */}
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            {/* Header */}
-            <div className="bg-[#7B4F35] text-white px-6 py-4">
-              <h2 className="font-bold text-2xl text-center">Tổng giỏ hàng</h2>
-            </div>
-
-            <div className="p-6">
-             
-
-              {/* Subtotal */}
-              <div className="flex justify-between items-center py-4 border-b border-gray-200">
-                <span className="text-gray-700 font-semibold text-lg">Tạm tính</span>
-                <span className="text-gray-800 font-bold text-xl">{subtotal.toLocaleString('vi-VN')}₫</span>
-              </div>
-
-              {/* Total */}
-              <div className="flex justify-between items-center py-6">
-                <span className="text-[#7B4F35] font-bold text-2xl">Tổng cộng</span>
-                <span className="text-[#7B4F35] font-bold text-3xl">{subtotal.toLocaleString('vi-VN')}₫</span>
+            {/* Subtotal Summary */}
+            <div className="bg-white px-6 py-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700 font-medium">Tạm tính ({items.length} sản phẩm):</span>
+                <span className="text-gray-800 font-bold text-xl">{subtotal.toLocaleString('vi-VN')}đ</span>
               </div>
             </div>
-          </div>
 
-          {/* Checkout Button */}
-          <div className="mt-8 flex justify-start">
-            <button className="bg-[#7B4F35] text-white px-12 py-4 rounded-full font-bold text-lg hover:bg-[#C46C2B] transition-colors shadow-lg uppercase tracking-wide">
-              Thanh toán
-            </button>
+            {/* Customer Information Section */}
+            <div className="px-6 py-4">
+              <h2 className="font-bold text-xl text-gray-800">THÔNG TIN KHÁCH HÀNG</h2>
+            </div>
+            <div className="px-6 pb-6 space-y-4">
+              {/* Gender */}
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="gender"
+                    value="male"
+                    checked={customerInfo.gender === 'male'}
+                    onChange={(e) => setCustomerInfo({...customerInfo, gender: e.target.value})}
+                    className="w-5 h-5 text-[#7B4F35] accent-[#7B4F35]"
+                  />
+                  <span className="text-lg">Anh</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="gender"
+                    value="female"
+                    checked={customerInfo.gender === 'female'}
+                    onChange={(e) => setCustomerInfo({...customerInfo, gender: e.target.value})}
+                    className="w-5 h-5 text-[#7B4F35] accent-[#7B4F35]"
+                  />
+                  <span className="text-lg">Chị</span>
+                </label>
+              </div>
+
+              {/* Name and Phone */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 mb-2">
+                    Họ và tên <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nhập họ và tên"
+                    value={customerInfo.fullName}
+                    onChange={(e) => setCustomerInfo({...customerInfo, fullName: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 mb-2">
+                    Số điện thoại <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="Số điện thoại"
+                    value={customerInfo.phone}
+                    onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35]"
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-gray-700 mb-2">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  placeholder="Nhập địa chỉ email"
+                  value={customerInfo.email}
+                  onChange={(e) => setCustomerInfo({...customerInfo, email: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35]"
+                />
+              </div>
+            </div>
+
+            {/* Delivery Method Section */}
+            <div className="px-6 py-4">
+              <h2 className="font-bold text-xl text-gray-800">HÌNH THỨC GIAO HÀNG</h2>
+            </div>
+            <div className="px-6 pb-6 space-y-4">
+              {/* Delivery Type */}
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="deliveryType"
+                    value="home"
+                    checked={customerInfo.deliveryType === 'home'}
+                    onChange={(e) => setCustomerInfo({...customerInfo, deliveryType: e.target.value})}
+                    className="w-5 h-5 text-[#7B4F35] accent-[#7B4F35]"
+                  />
+                  <span className="text-lg">Giao hàng tận nơi</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="deliveryType"
+                    value="store"
+                    checked={customerInfo.deliveryType === 'store'}
+                    onChange={(e) => setCustomerInfo({...customerInfo, deliveryType: e.target.value})}
+                    className="w-5 h-5 text-[#7B4F35] accent-[#7B4F35]"
+                  />
+                  <span className="text-lg">Nhận hàng tại cửa hàng</span>
+                </label>
+              </div>
+
+                  {/* Province and District */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-700 mb-2">
+                        Tỉnh thành <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={customerInfo.deliveryType === 'store' ? 'hcm' : customerInfo.province}
+                        onChange={(e) => setCustomerInfo({...customerInfo, province: e.target.value, district: ''})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35] bg-white"
+                      >
+                        <option value="">Chọn tỉnh thành</option>
+                        <option value="hcm">Thành phố Hồ Chí Minh</option>
+                        {customerInfo.deliveryType === 'home' && (
+                          <>
+                            <option value="dongnai">Đồng Nai</option>
+                            <option value="khanhhoa">Khánh Hòa</option>
+                            <option value="ninhthuan">Ninh Thuận</option>
+                            <option value="hanoi">Hà Nội</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 mb-2">
+                        Phường xã <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={customerInfo.deliveryType === 'store' ? 'P. Hạnh Thông' : customerInfo.district}
+                        onChange={(e) => setCustomerInfo({...customerInfo, district: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35] bg-white"
+                        disabled={!customerInfo.province && customerInfo.deliveryType === 'home'}
+                      >
+                        {customerInfo.deliveryType === 'store' ? (
+                          <option value="P. Hạnh Thông">P. Hạnh Thông</option>
+                        ) : (
+                          <>
+                            <option value="">Chọn phường / xã</option>
+                            {getDistricts().map((district) => (
+                              <option key={district} value={district}>{district}</option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Address */}
+                  <div>
+                    <label className="block text-gray-700 mb-2">
+                      Tên đường số nhà <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Nhập tên đường / số nhà"
+                      value={customerInfo.deliveryType === 'store' ? 'Số 12 Nguyễn Văn Bảo' : customerInfo.address}
+                      onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35]"
+                      disabled={customerInfo.deliveryType === 'store'}
+                    />
+                  </div>              {/* Note */}
+              <div>
+                <label className="block text-gray-700 mb-2">
+                  Yêu cầu khác (nếu có)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nhập yêu cầu"
+                  value={customerInfo.note}
+                  onChange={(e) => setCustomerInfo({...customerInfo, note: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35]"
+                />
+              </div>
+
+              {/* Save Recipient Checkbox */}
+              <div className="flex items-start gap-2 p-4">
+                <input
+                  type="checkbox"
+                  id="saveRecipient"
+                  checked={customerInfo.saveRecipient}
+                  onChange={(e) => setCustomerInfo({...customerInfo, saveRecipient: e.target.checked})}
+                  className="w-5 h-5 mt-0.5 text-[#7B4F35] accent-[#7B4F35] cursor-pointer"
+                />
+                <label htmlFor="saveRecipient" className="text-gray-700 cursor-pointer">
+                  Gọi người khác nhận hàng (Nếu có)
+                </label>
+              </div>
+
+              {/* Recipient Info (conditional) */}
+              {customerInfo.saveRecipient && (
+                <div className="p-4 space-y-4 border-2 border-gray-200 rounded-lg">
+                  {/* Recipient Gender */}
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="recipientGender"
+                        value="male"
+                        checked={customerInfo.recipientGender === 'male'}
+                        onChange={(e) => setCustomerInfo({...customerInfo, recipientGender: e.target.value})}
+                        className="w-5 h-5 text-[#7B4F35] accent-[#7B4F35]"
+                      />
+                      <span className="text-lg">Anh</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="recipientGender"
+                        value="female"
+                        checked={customerInfo.recipientGender === 'female'}
+                        onChange={(e) => setCustomerInfo({...customerInfo, recipientGender: e.target.value})}
+                        className="w-5 h-5 text-[#7B4F35] accent-[#7B4F35]"
+                      />
+                      <span className="text-lg">Chị</span>
+                    </label>
+                  </div>
+
+                  {/* Recipient Name and Phone */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-700 mb-2">
+                        Họ và tên người nhận <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Nhập họ và tên"
+                        value={customerInfo.recipientName}
+                        onChange={(e) => setCustomerInfo({...customerInfo, recipientName: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 mb-2">
+                        Số điện thoại <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="Nhập số điện thoại"
+                        value={customerInfo.recipientPhone}
+                        onChange={(e) => setCustomerInfo({...customerInfo, recipientPhone: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Payment Method Section */}
+            <div className="px-6 py-4">
+              <h2 className="font-bold text-xl text-gray-800">Hình thức thanh toán</h2>
+            </div>
+            <div className="px-6 pb-6 space-y-4">
+              {/* Cash Payment */}
+              <label className="flex items-start gap-3 cursor-pointer p-4 border-2 border-gray-200 rounded-lg hover:border-[#7B4F35] transition-colors">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="cash"
+                  checked={customerInfo.paymentMethod === 'cash'}
+                  onChange={(e) => setCustomerInfo({...customerInfo, paymentMethod: e.target.value})}
+                  className="w-5 h-5 mt-0.5 text-[#7B4F35] accent-[#7B4F35] cursor-pointer"
+                />
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                      <line x1="1" y1="10" x2="23" y2="10"/>
+                    </svg>
+                  </div>
+                  <span className="text-lg font-medium text-gray-800">Thanh toán tiền mặt khi nhận hàng</span>
+                </div>
+              </label>
+
+              {/* Bank Transfer */}
+              <label className="flex items-start gap-3 cursor-pointer p-4 border-2 border-gray-200 rounded-lg hover:border-[#7B4F35] transition-colors">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="bank"
+                  checked={customerInfo.paymentMethod === 'bank'}
+                  onChange={(e) => setCustomerInfo({...customerInfo, paymentMethod: e.target.value})}
+                  className="w-5 h-5 mt-0.5 text-[#7B4F35] accent-[#7B4F35] cursor-pointer"
+                />
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    </svg>
+                  </div>
+                  <span className="text-lg font-medium text-gray-800">Chuyển khoản ngân hàng</span>
+                </div>
+              </label>
+            </div>
+
+            {/* Cart Totals Section */}
+            <div className="px-6 py-4">
+              <h2 className="font-bold text-xl text-gray-800">CHI TIẾT THANH TOÁN</h2>
+            </div>
+            <div className="px-6 pb-6">
+              {/* Tiền hàng */}
+              <div className="flex justify-between items-center py-3">
+                <span className="text-gray-700">Tiền hàng:</span>
+                <span className="text-gray-800 font-semibold">{subtotal.toLocaleString('vi-VN')} đ</span>
+              </div>
+
+              {/* Phí vận chuyển */}
+              <div className="flex justify-between items-center py-3">
+                <span className="text-gray-700">Phí vận chuyển:</span>
+                <span className="text-gray-800 font-semibold">{shippingFee === 0 ? 'Miễn phí' : `${shippingFee.toLocaleString('vi-VN')} đ`}</span>
+              </div>
+
+              {/* Khuyến mãi (Promotions) */}
+              <div className="py-3 border-b border-gray-300">
+                <div className="flex justify-between items-center mb-3">
+                  <button
+                    onClick={() => setShowPromotions(!showPromotions)}
+                    className="flex items-center gap-2 text-gray-700 hover:text-[#7B4F35] transition-colors"
+                  >
+                    <span className="font-semibold">Khuyến mãi có sẵn</span>
+                    {showPromotions ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                </div>
+
+                {/* Danh sách khuyến mãi */}
+                {showPromotions && (
+                  <div className="mb-4 max-h-64 overflow-y-auto space-y-2">
+                    {promotionsData?.content && promotionsData.content.length > 0 ? (
+                      promotionsData.content
+                        .filter((promo) => {
+                          // Chỉ hiển thị khuyến mãi còn hạn
+                          const now = new Date()
+                          const startDate = new Date(promo.startDate)
+                          const endDate = new Date(promo.endDate)
+                          return now >= startDate && now <= endDate
+                        })
+                        .map((promo) => {
+                          const now = new Date()
+                          const startDate = new Date(promo.startDate)
+                          const endDate = new Date(promo.endDate)
+                          const isValid = now >= startDate && now <= endDate
+                          const canApply = isValid && (!promo.minOrderAmount || subtotal >= promo.minOrderAmount)
+                        
+                        const isSelected = selectedPromotion === promo.code
+                        
+                        return (
+                          <div
+                            key={promo.promotionId}
+                            className={`p-3 border rounded-lg cursor-pointer ${
+                              canApply 
+                                ? isSelected
+                                  ? 'border-green-500 bg-green-100'
+                                  : 'border-green-300 bg-green-50 hover:border-green-500'
+                                : 'border-gray-300 bg-gray-50 opacity-60 cursor-not-allowed'
+                            }`}
+                            onClick={() => {
+                              if (canApply) {
+                                // Nếu đã chọn thì bỏ chọn, nếu chưa chọn thì chọn
+                                setSelectedPromotion(isSelected ? null : promo.code)
+                              }
+                            }}
+                          >
+                            <div className="flex items-start gap-3">
+                              {/* Radio button */}
+                              <input
+                                type="radio"
+                                checked={isSelected}
+                                disabled={!canApply}
+                                onChange={() => {}}
+                                className="w-5 h-5 mt-1 text-green-600 accent-green-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
+                              
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-bold text-[#7B4F35]">{promo.code}</span>
+                                  {canApply ? (
+                                    <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded">Có thể dùng</span>
+                                  ) : (
+                                    <span className="text-xs bg-gray-400 text-white px-2 py-0.5 rounded">Không đủ điều kiện</span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-700 mb-1">{promo.description}</p>
+                                <div className="text-xs text-gray-600 space-y-0.5">
+                                  <p>
+                                    <span className="font-semibold">Giảm:</span> {
+                                      promo.discountValue <= 100 && promo.promotionType === 'DISCOUNT'
+                                        ? `${promo.discountValue}%`
+                                        : `${promo.discountValue.toLocaleString('vi-VN')}đ`
+                                    }
+                                  </p>
+                                  {promo.minOrderAmount && (
+                                    <p>
+                                      <span className="font-semibold">Đơn tối thiểu:</span> {promo.minOrderAmount.toLocaleString('vi-VN')}đ
+                                    </p>
+                                  )}
+                                  <p>
+                                    <span className="font-semibold">HSD:</span> {new Date(promo.endDate).toLocaleDateString('vi-VN')}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <p className="text-gray-500 text-sm text-center py-4">Không có khuyến mãi nào</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Tổng giảm giá từ Khuyến mãi đã chọn */}
+              {selectedPromotion && (
+                <div className="py-3 border-b border-gray-300">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-gray-700 font-semibold">Giảm giá từ Khuyến mãi:</span>
+                    <span className="text-red-600 font-semibold">-{promotionDiscount.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    <span>• {selectedPromotion}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Mã giảm giá (Voucher) */}
+              <div className="py-3 border-b border-gray-300">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-700 font-semibold">Mã giảm giá (Voucher):</span>
+                  <span className="text-red-600 font-semibold">-{discount.toLocaleString('vi-VN')} đ</span>
+                </div>
+
+                <div className="flex gap-2 mb-3">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      placeholder="Nhập mã khuyến mãi"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value.toUpperCase())
+                        setPromoError('')
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !isApplyingPromo && !voucherInfo) {
+                          handleApplyPromo()
+                        }
+                      }}
+                      disabled={isApplyingPromo || !!voucherInfo}
+                      className="w-full px-4 py-2 pr-10 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#7B4F35] disabled:bg-gray-100 disabled:cursor-not-allowed uppercase"
+                    />
+                    {voucherInfo && (
+                      <button
+                        onClick={() => {
+                          setPromoCode('')
+                          setDiscount(0)
+                          setVoucherInfo(null)
+                          setPromoError('')
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-600 transition-colors p-1"
+                        title="Xóa mã"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleApplyPromo}
+                    disabled={isApplyingPromo || !!voucherInfo}
+                    className="bg-[#FF6B6B] text-white px-6 py-2 rounded font-semibold hover:bg-[#FF5555] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed min-w-[100px]"
+                  >
+                    {isApplyingPromo ? 'Đang xử lý...' : 'Áp dụng'}
+                  </button>
+                </div>
+
+                {/* Voucher description - Dưới ô nhập */}
+                {voucherInfo && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg mb-3">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                      </svg>
+                      <div className="flex-1">
+                        <p className="text-green-800 font-medium text-sm">{voucherInfo.description}</p>
+                        <p className="text-green-600 text-xs mt-1">
+                          Giảm {voucherInfo.discountType === 'PERCENTAGE' 
+                            ? `${voucherInfo.discountValue}%` 
+                            : `${(voucherInfo.discountValue || 0).toLocaleString('vi-VN')}đ`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Error message - Dưới ô nhập */}
+                {promoError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
+                      </svg>
+                      <p className="text-red-800 text-sm">{promoError}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tổng cộng */}
+              <div className="flex justify-between items-center py-4">
+                <span className="text-gray-800 font-bold text-lg">Tổng cộng:</span>
+                <span className="text-red-600 font-bold text-2xl">{finalTotal.toLocaleString('vi-VN')} đ</span>
+              </div>
+
+              {/* Terms Notice */}
+              <div className="py-4 border-t border-gray-200">
+                <div className="text-gray-700 text-sm">
+                  <span className="inline-flex items-start gap-1">
+                    <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                    </svg>
+                    <span>
+                      Bằng việc tiến hành đặt mua hàng, bạn đồng ý với{' '}
+                      <a href="#" className="text-blue-600 underline hover:text-blue-800">Điều khoản sử dụng</a>
+                      {' '}và{' '}
+                      <a href="#" className="text-blue-600 underline hover:text-blue-800">Chính sách xử lý dữ liệu</a>
+                      {' '}của Petopia.
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Checkout Button */}
+              <div className="mt-4">
+                <button 
+                  className="w-full px-12 py-4 rounded-full font-bold text-lg uppercase tracking-wide transition-colors bg-[#7B4F35] text-white hover:bg-[#C46C2B] cursor-pointer shadow-lg"
+                >
+                  Thanh toán
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
