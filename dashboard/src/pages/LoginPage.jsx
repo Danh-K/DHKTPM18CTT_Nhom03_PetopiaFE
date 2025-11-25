@@ -14,16 +14,7 @@ export default function LoginPage({ onLoginSuccess, onRegisterClick, onForgotPas
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
 
-  // Load thông tin ghi nhớ
-  useEffect(() => {
-    const savedEmail = localStorage.getItem("rememberedEmail");
-    const savedPass = localStorage.getItem("rememberedPassword");
-    if (savedEmail) {
-      setEmail(savedEmail);
-      setPassword(savedPass || "");
-      setRememberMe(true);
-    }
-  }, []);
+  useEffect(() => {}, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -34,14 +25,6 @@ export default function LoginPage({ onLoginSuccess, onRegisterClick, onForgotPas
     setError("");
     const result = await dispatch(loginUser({ identifier: email.trim(), password }));
     if (loginUser.fulfilled.match(result)) {
-      // Lưu ghi nhớ
-      if (rememberMe) {
-        localStorage.setItem("rememberedEmail", email.trim());
-        localStorage.setItem("rememberedPassword", password);
-      } else {
-        localStorage.removeItem("rememberedEmail");
-        localStorage.removeItem("rememberedPassword");
-      }
       onLoginSuccess?.();
     } else {
       setError("Thông tin đăng nhập không đúng");
@@ -68,18 +51,18 @@ export default function LoginPage({ onLoginSuccess, onRegisterClick, onForgotPas
               Email hoặc Username
             </label>
             <div className="relative">
-                <HiOutlineMail
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400"
-                    size={20}
-                />
-                <input
-                    type="text"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com hoặc username"
-                    disabled={loading}
-                    className=" w-full pl-14 pr-4 py-3 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-                />
+              <HiOutlineMail
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400"
+                size={20}
+              />
+              <input
+                type="text"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com hoặc username"
+                disabled={loading}
+                className=" w-full pl-14 pr-4 py-3 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+              />
             </div>
           </div>
 
@@ -88,18 +71,18 @@ export default function LoginPage({ onLoginSuccess, onRegisterClick, onForgotPas
               Mật khẩu
             </label>
             <div className="relative">
-                <HiOutlineLockClosed
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400"
-                    size={20}
-                />
-                <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Nhập mật khẩu của bạn"
-                    className="w-full pl-14 pr-4 py-3 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
-                    disabled={loading}
-                />
+              <HiOutlineLockClosed
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400"
+                size={20}
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Nhập mật khẩu của bạn"
+                className="w-full pl-14 pr-4 py-3 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+                disabled={loading}
+              />
             </div>
           </div>
 
