@@ -22,9 +22,10 @@ interface Product {
 interface ProductCardProps {
   product: Product
   onAddToCart: () => void
+  onBuyNow?: () => void
 }
 
-export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
+export default function ProductCard({ product, onAddToCart, onBuyNow }: ProductCardProps) {
   const rating = product.rating || 4 // Default rating
   const router = useRouter()
   const { addItem, removeItem, isFavorite } = useFavorite()
@@ -40,7 +41,13 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
 
   const handleBuyNow = (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent card click when clicking buy now
-    router.push(`/pets/${product.petId}`)
+    if (onBuyNow) {
+      onBuyNow() // Add item to cart
+      router.push('/carts') // Redirect to cart page
+    } else {
+      // Fallback: redirect to detail page
+      router.push(`/pets/${product.petId}`)
+    }
   }
 
   const handleAddToCart = (e: React.MouseEvent) => {
