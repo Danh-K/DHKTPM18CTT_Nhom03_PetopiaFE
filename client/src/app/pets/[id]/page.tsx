@@ -6,6 +6,9 @@ import { Heart, Minus, Plus, Star, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useCart } from "@/store/useCartStore"
+import { useFavorite } from "@/store/useFavoriteStore"
+import { useAuthStore } from "@/store/useAuthStore"
+import { useToast } from "@/hook/useToast"
 import { Loading } from "@/app/components/loading"
 import Image from "next/image"
 import MiniCart from "@/app/carts/_components/MiniCart"
@@ -71,9 +74,14 @@ export default function PetDetailPage() {
   const petId = params.id as string
   
   const [quantity, setQuantity] = useState(1)
-  const [isWishlisted, setIsWishlisted] = useState(false)
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false)
   
   const { addItem, openMiniCart } = useCart()
+  const { addItem: addToFavorite, removeItem: removeFromFavorite, isFavorite } = useFavorite()
+  const { isAuthenticated } = useAuthStore()
+  const { success, error: showError, ToastContainer } = useToast()
+  
+  const isWishlisted = isFavorite(petId)
   
   // Fetch pet data từ backend API (dùng axiosInstance với relative path)
   const { data: pet, error, isLoading } = useSWR<PetDetailDTO>(
@@ -177,8 +185,45 @@ export default function PetDetailPage() {
     router.push('/carts')
   }
 
+  const handleToggleWishlist = async () => {
+    if (!isAuthenticated) {
+      showError('Chưa đăng nhập', 'Vui lòng đăng nhập để thêm vào yêu thích')
+      return
+    }
+
+    if (isTogglingWishlist) return
+
+    setIsTogglingWishlist(true)
+
+    try {
+      const response = await axiosInstance.post(`/wishlists/toggle/${petId}`)
+      
+      if (response.data.status === 200) {
+        const action = response.data.data // "Added" or "Removed"
+        
+        if (action === "Added") {
+          addToFavorite({
+            pet: convertToPetType(),
+            img: thumbnailImage,
+          })
+          success('Đã thêm vào yêu thích', `${pet.name} đã được thêm vào danh sách yêu thích`)
+        } else {
+          removeFromFavorite(petId)
+          success('Đã xóa khỏi yêu thích', `${pet.name} đã được xóa khỏi danh sách yêu thích`)
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling wishlist:', err)
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể thêm vào yêu thích'
+      showError('Lỗi', errorMessage)
+    } finally {
+      setIsTogglingWishlist(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background">
+      <ToastContainer />
       {/* Back Button */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <button
@@ -407,10 +452,16 @@ export default function PetDetailPage() {
 
                 {/* Wishlist Button */}
                 <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
-                  className="p-4 bg-white border-2 border-gray-200 rounded-full transition-all duration-300 cursor-pointer group"
+                  onClick={handleToggleWishlist}
+                  disabled={isTogglingWishlist}
+                  className={`p-4 bg-white border-2 rounded-full transition-all duration-300 cursor-pointer group ${
+                    isWishlisted ? 'border-red-500' : 'border-gray-200'
+                  } ${isTogglingWishlist ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <Heart size={20} className={isWishlisted ? "fill-red-500 text-red-500" : "text-gray-400 group-hover:text-red-500"} />
+                  <Heart 
+                    size={20} 
+                    className={isWishlisted ? "fill-red-500 text-red-500" : "text-gray-400 group-hover:text-red-500"} 
+                  />
                 </button>
               </div>
 
