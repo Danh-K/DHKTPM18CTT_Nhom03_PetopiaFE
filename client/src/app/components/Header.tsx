@@ -122,13 +122,15 @@ export default function Header() {
         </Button>
 
         {/* Heart/Wishlist */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group cursor-pointer"
-        >
-          <Heart size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
-        </Button>
+        <Link href="/favorites" className="cursor-pointer">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group cursor-pointer"
+          >
+            <Heart size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
+          </Button>
+        </Link>
 
         {/* Cart */}
         <Link href="/carts" className="relative cursor-pointer">

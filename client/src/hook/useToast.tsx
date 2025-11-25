@@ -27,7 +27,8 @@ export function useToast() {
       duration,
     };
 
-    setNotifications(prev => [...prev, newToast]);
+    // Chỉ hiển thị 1 toast - thay thế toast cũ bằng toast mới
+    setNotifications([newToast]);
   };
 
   const removeToast = (id: number) => {
@@ -76,4 +77,6 @@ export function useToast() {
     ToastContainer,
   };
 }
+
+
 
