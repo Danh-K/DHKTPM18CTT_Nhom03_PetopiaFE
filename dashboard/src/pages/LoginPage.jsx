@@ -133,12 +133,12 @@ export default function LoginPage({ onLoginSuccess, onRegisterClick, onForgotPas
         </form>
 
         <div className="text-center mt-8 text-sm text-amber-800">
-          Chưa có tài khoản?{" "}
+          Cần trợ giúp?{" "}
           <button
             onClick={onRegisterClick}
             className="font-bold text-amber-600 hover:text-amber-700 underline transition"
           >
-            Đăng ký ngay
+            Liên hệ hỗ trợ
           </button>
         </div>
       </div>

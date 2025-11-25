@@ -1,13 +1,20 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { login } from "../api/authService";
 
+
 export const loginUser = createAsyncThunk(
   "auth/login",
   async ({ identifier, password }, { rejectWithValue }) => {
     try {
-      return await login(identifier, password);
+      const { user, token } = await login(identifier, password);
+
+      if (!user?.role || user.role.toUpperCase() !== "ADMIN") {
+        return rejectWithValue("Bạn không có quyền truy cập trang quản trị. Chỉ dành cho Admin.");
+      }
+
+      return { user, token };
     } catch (err) {
-      return rejectWithValue("Thông tin đăng nhập không đúng");
+      return rejectWithValue(err.message || "Tên đăng nhập hoặc mật khẩu không đúng");
     }
   }
 );
