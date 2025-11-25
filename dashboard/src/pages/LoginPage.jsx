@@ -9,8 +9,9 @@ import {
   HiOutlineHeart,
   HiOutlineShieldCheck,
 } from "react-icons/hi";
+import ForgotPasswordPage from "./ForgotPasswordPage";
 
-export default function LoginPage({ onLoginSuccess, onForgotPasswordClick }) {
+export default function LoginPage({ onLoginSuccess }) {
   const dispatch = useDispatch();
   const { loading } = useSelector((state) => state.auth);
 
@@ -18,6 +19,7 @@ export default function LoginPage({ onLoginSuccess, onForgotPasswordClick }) {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
+  const [forgotForm, setForgotForm] = useState(false);
 
   useEffect(() => {
     const savedEmail = localStorage.getItem("rememberedEmail");
@@ -51,6 +53,10 @@ export default function LoginPage({ onLoginSuccess, onForgotPasswordClick }) {
     } else {
       setError(result.payload || "Thông tin đăng nhập không đúng");
     }
+  };
+
+  const onForgotPasswordClick = () => {
+    setForgotForm(true);
   };
 
   return (
@@ -138,99 +144,111 @@ export default function LoginPage({ onLoginSuccess, onForgotPasswordClick }) {
           </div>
         </div>
 
-        <div className="w-full max-w-md mx-auto">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 border border-amber-100">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-amber-900">
-                Đăng nhập tài khoản
-              </h1>
-              <p className="text-amber-700 mt-2">
-                Chào mừng bạn quay lại Petopia!
-              </p>
-            </div>
-
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-300 text-red-700 rounded-xl text-sm font-medium text-center animate-pulse">
-                {error}
+        {forgotForm ? (
+          <ForgotPasswordPage onBackToLogin={() => setForgotForm(false)} />
+        ) : (
+          <div className="w-full max-w-md mx-auto">
+            <div className="bg-white rounded-3xl shadow-2xl p-8 border border-amber-100">
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold text-amber-900">
+                  Đăng nhập tài khoản
+                </h1>
+                <p className="text-amber-700 mt-2">
+                  Chào mừng bạn quay lại Petopia!
+                </p>
               </div>
-            )}
 
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-amber-900 mb-2">
-                  Email hoặc Username
-                </label>
-                <div className="relative">
-                  <HiOutlineMail
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400"
-                    size={20}
-                  />
-                  <input
-                    type="text"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com hoặc username"
-                    disabled={loading}
-                    className="w-full pl-14 pr-4 py-3 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition placeholder:text-gray-800 placeholder:opacity-50"
-                  />
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-300 text-red-700 rounded-xl text-sm font-medium text-center animate-pulse">
+                  {error}
                 </div>
-              </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-semibold text-amber-900 mb-2">
-                  Mật khẩu
-                </label>
-                <div className="relative">
-                  <HiOutlineLockClosed
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400"
-                    size={20}
-                  />
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Nhập mật khẩu của bạn"
-                    disabled={loading}
-                    className="w-full pl-14 pr-4 py-3 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition placeholder:text-gray-800 placeholder:opacity-50"
-                  />
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-amber-900 mb-2">
+                    Email hoặc Username
+                  </label>
+                  <div className="relative">
+                    <HiOutlineMail
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400"
+                      size={20}
+                    />
+                    <input
+                      type="text"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com hoặc username"
+                      disabled={loading}
+                      className="w-full pl-14 pr-4 py-3 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition placeholder:text-gray-800 placeholder:opacity-50"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center text-amber-800 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
-                    disabled={loading}
-                  />
-                  <span className="ml-2">Ghi nhớ đăng nhập</span>
-                </label>
+                <div>
+                  <label className="block text-sm font-semibold text-amber-900 mb-2">
+                    Mật khẩu
+                  </label>
+                  <div className="relative">
+                    <HiOutlineLockClosed
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400"
+                      size={20}
+                    />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu của bạn"
+                      disabled={loading}
+                      className="w-full pl-14 pr-4 py-3 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition placeholder:text-gray-800 placeholder:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center text-amber-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                      disabled={loading}
+                    />
+                    <span className="ml-2">Ghi nhớ đăng nhập</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={onForgotPasswordClick}
+                    className="text-amber-600 hover:text-amber-700 font-medium transition"
+                  >
+                    Quên mật khẩu?
+                  </button>
+                </div>
+
                 <button
-                  type="button"
-                  onClick={onForgotPasswordClick}
-                  className="text-amber-600 hover:text-amber-700 font-medium transition"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-amber-700 to-orange-600 text-white font-bold py-4 rounded-full hover:from-amber-800 hover:to-orange-700 transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  Quên mật khẩu?
+                  {loading ? "Đang đăng nhập..." : "Đăng nhập"}
                 </button>
+              </form>
+
+              {/* Bạn đã bỏ đăng ký → để trống hoặc thêm hỗ trợ */}
+              <div className="text-center mt-8 text-sm text-amber-700">
+                Cần hỗ trợ? Liên hệ{" "}
+                <a
+                  href={`https://mail.google.com/mail/?view=cm&to=nguyentuananh11a1.lhpt@gmail.com&su=Tôi%20cần%20hỗ%20trợ&body=Xin%20chào...`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-medium hover:text-amber-900"
+                >
+                  nguyentuananh11a1.lhpt@gmail.com
+                </a>
               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-amber-700 to-orange-600 text-white font-bold py-4 rounded-full hover:from-amber-800 hover:to-orange-700 transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {loading ? "Đang đăng nhập..." : "Đăng nhập"}
-              </button>
-            </form>
-
-            {/* Bạn đã bỏ đăng ký → để trống hoặc thêm hỗ trợ */}
-            <div className="text-center mt-8 text-sm text-amber-700">
-              Cần hỗ trợ? Liên hệ admin@petopia.vn
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

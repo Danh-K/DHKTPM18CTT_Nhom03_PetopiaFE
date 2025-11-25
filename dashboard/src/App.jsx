@@ -106,10 +106,7 @@ if (loading) {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-400 to-yellow-300">
-        <LoginPage
-          onLoginSuccess={handleLoginSuccess}
-          onRegisterClick={() => alert("Chức năng đăng ký đang phát triển...")}
-          onForgotPasswordClick={() => alert("Chức năng quên mật khẩu đang phát triển...")}
+        <LoginPage onLoginSuccess={handleLoginSuccess}
         />
       </div>
     );
