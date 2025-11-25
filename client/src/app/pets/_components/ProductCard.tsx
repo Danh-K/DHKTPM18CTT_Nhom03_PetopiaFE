@@ -3,6 +3,11 @@
 import { ShoppingCart, Star, Heart } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { useFavorite } from "@/store/useFavoriteStore"
+import { useAuthStore } from "@/store/useAuthStore"
+import { useToast } from "@/hook/useToast"
+import axiosInstance from "@/lib/utils/axios"
+import { useState } from "react"
 
 interface Product {
   petId: string
@@ -22,6 +27,12 @@ interface ProductCardProps {
 export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const rating = product.rating || 4 // Default rating
   const router = useRouter()
+  const { addItem, removeItem, isFavorite } = useFavorite()
+  const { isAuthenticated } = useAuthStore()
+  const { success, error, ToastContainer } = useToast()
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false)
+
+  const isInWishlist = isFavorite(product.petId)
 
   const handleCardClick = () => {
     router.push(`/pets/${product.petId}`)
@@ -37,17 +48,72 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
     onAddToCart()
   }
 
+  const handleToggleWishlist = async (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent card click when clicking wishlist
+
+    if (!isAuthenticated) {
+      error('Chưa đăng nhập', 'Vui lòng đăng nhập để thêm vào yêu thích')
+      return
+    }
+
+    if (isTogglingWishlist) return
+
+    setIsTogglingWishlist(true)
+
+    try {
+      const response = await axiosInstance.post(`/wishlists/toggle/${product.petId}`)
+      
+      if (response.data.status === 200) {
+        const action = response.data.data // "Added" or "Removed"
+        
+        if (action === "Added") {
+          addItem({
+            pet: {
+              petId: product.petId,
+              name: product.name,
+              price: product.price,
+              discountPrice: product.discountPrice,
+              rating: product.rating,
+              mainImageUrl: product.image,
+            },
+            img: product.image,
+          })
+          success('Đã thêm vào yêu thích', `${product.name} đã được thêm vào danh sách yêu thích`)
+        } else {
+          removeItem(product.petId)
+          success('Đã xóa khỏi yêu thích', `${product.name} đã được xóa khỏi danh sách yêu thích`)
+        }
+      }
+    } catch (err) {
+        console.error('Error toggling wishlist:', err)
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể thêm vào yêu thích'
+      error('Lỗi', errorMessage)
+    } finally {
+      setIsTogglingWishlist(false)
+    }
+  }
+
   return (
-    <div 
-      onClick={handleCardClick}
-      className="group rounded-2xl bg-[#fff0f0] p-4 shadow-lg hover:shadow-xl hover:bg-[#FF6B6B] transition-all duration-300 relative cursor-pointer"
-    >
-      {/* Heart Icon - appears on hover */}
-      <div className="absolute top-6 left-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 cursor-pointer">
-        <div className="w-10 h-10 bg-[#FF6B6B] rounded-full flex items-center justify-center shadow-md hover:bg-[#102937] transition-colors duration-300">
-          <Heart size={18} className="text-white" />
+    <>
+      <ToastContainer />
+      <div 
+        onClick={handleCardClick}
+        className="group rounded-2xl bg-[#fff0f0] p-4 shadow-lg hover:shadow-xl hover:bg-[#FF6B6B] transition-all duration-300 relative cursor-pointer"
+      >
+        {/* Heart Icon - appears on hover */}
+        <div 
+          className="absolute top-6 left-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 cursor-pointer"
+          onClick={handleToggleWishlist}
+        >
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md hover:bg-[#102937] transition-colors duration-300 ${
+            isInWishlist ? 'bg-red-500' : 'bg-[#FF6B6B]'
+          }`}>
+            <Heart 
+              size={18} 
+              className={`text-white ${isInWishlist ? 'fill-white' : ''}`}
+            />
+          </div>
         </div>
-      </div>
 
       {/* Shopping Cart Icon - appears on hover */}
       <div 
@@ -108,6 +174,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
       >
         Mua ngay
       </button>
-    </div>
+      </div>
+    </>
   )
 }
