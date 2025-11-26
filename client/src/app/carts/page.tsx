@@ -13,6 +13,7 @@ import useSWR from 'swr'
 import type { PromotionResponse } from '@/types/Promotion'
 import type { User } from '@/types/User'
 import type { Address } from '@/types/Address'
+import type { Order } from '@/types/Order'
 
 // Fetcher for SWR
 const fetcher = async (url: string) => {
@@ -264,7 +265,7 @@ const CartPage = () => {
     }
   }
 
-  const shippingFee: number = 0 // Miễn phí
+  const shippingFee: number = 0 // Miễn phí vận chuyển
   const finalTotal = subtotal - totalDiscount + shippingFee
 
   // Handle checkout
@@ -383,9 +384,11 @@ const CartPage = () => {
       console.log('📦 Order Data:', orderData)
 
       // Gửi request lên backend
-      const response = await axiosInstance.post('/orders', orderData)
+      const response = await axiosInstance.post<{ status: number; message: string; data: Order }>('/orders', orderData)
 
       console.log('✅ Order Response:', response.data)
+
+      const orderResult = response.data.data
 
       // Hiển thị thông báo thành công
       success('Đặt hàng thành công', 'Đơn hàng của bạn đã được tạo thành công')
@@ -393,10 +396,18 @@ const CartPage = () => {
       // Clear giỏ hàng
       clearCart()
 
-      // Redirect đến trang đơn hàng sau 2 giây
-      setTimeout(() => {
-        router.push('/orders')
-      }, 2000)
+      // Kiểm tra phương thức thanh toán
+      if (orderResult.paymentMethod === 'BANK_TRANSFER' && orderResult.paymentUrl) {
+        // Redirect đến trang thanh toán SePay ngay lập tức
+        setTimeout(() => {
+          router.push(`/payment/${orderResult.orderId}`)
+        }, 1500)
+      } else {
+        // COD: Redirect đến trang đơn hàng
+        setTimeout(() => {
+          router.push('/orders')
+        }, 2000)
+      }
 
     } catch (err: unknown) {
       const error_ = err as { response?: { data?: { message?: string }; status?: number }; message?: string }
