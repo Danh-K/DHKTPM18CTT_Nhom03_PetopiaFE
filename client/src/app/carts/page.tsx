@@ -1,18 +1,55 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Minus, Plus, ChevronDown, ChevronUp } from 'lucide-react'
 import { useCart } from '@/store/useCartStore'
+import { useAuthStore } from '@/store/useAuthStore'
+import { useToast } from '@/hook/useToast'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import axiosInstance from '@/lib/utils/axios'
 import useSWR from 'swr'
-import type { Promotion, PromotionResponse } from '@/types/Promotion'
+import type { PromotionResponse } from '@/types/Promotion'
+import type { User } from '@/types/User'
+import type { Address } from '@/types/Address'
 
 // Fetcher for SWR
 const fetcher = async (url: string) => {
   const response = await axiosInstance.get(url)
   return response.data
+}
+
+// Districts by province (moved outside component to avoid re-creation)
+const districtsByProvince: { [key: string]: string[] } = {
+  'hcm': [
+    'Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 6', 'Quận 7', 'Quận 8', 
+    'Quận 9', 'Quận 10', 'Quận 11', 'Quận 12', 'Quận Bình Tân', 'Quận Bình Thạnh', 
+    'Quận Gò Vấp', 'Quận Phú Nhuận', 'Quận Tân Bình', 'Quận Tân Phú', 'Quận Thủ Đức',
+    'Huyện Bình Chánh', 'Huyện Cần Giờ', 'Huyện Củ Chi', 'Huyện Hóc Môn', 'Huyện Nhà Bè'
+  ],
+  'dongnai': [
+    'Thành phố Biên Hòa', 'Thành phố Long Khánh', 'Huyện Cẩm Mỹ', 'Huyện Định Quán', 
+    'Huyện Long Thành', 'Huyện Nhơn Trạch', 'Huyện Thống Nhất', 'Huyện Trảng Bom', 
+    'Huyện Vĩnh Cửu', 'Huyện Xuân Lộc', 'Huyện Tân Phú'
+  ],
+  'khanhhoa': [
+    'Thành phố Nha Trang', 'Thành phố Cam Ranh', 'Thị xã Ninh Hòa', 'Huyện Cam Lâm', 
+    'Huyện Diên Khánh', 'Huyện Khánh Sơn', 'Huyện Khánh Vĩnh', 'Huyện Trường Sa', 
+    'Huyện Vạn Ninh'
+  ],
+  'hanoi': [
+    'Quận Ba Đình', 'Quận Hoàn Kiếm', 'Quận Tây Hồ', 'Quận Long Biên', 'Quận Cầu Giấy', 
+    'Quận Đống Đa', 'Quận Hai Bà Trưng', 'Quận Hoàng Mai', 'Quận Thanh Xuân', 'Quận Hà Đông', 
+    'Quận Nam Từ Liêm', 'Quận Bắc Từ Liêm', 'Huyện Ba Vì', 'Huyện Chương Mỹ', 'Huyện Đan Phượng', 
+    'Huyện Đông Anh', 'Huyện Gia Lâm', 'Huyện Hoài Đức', 'Huyện Mê Linh', 'Huyện Mỹ Đức', 
+    'Huyện Phú Xuyên', 'Huyện Phúc Thọ', 'Huyện Quốc Oai', 'Huyện Sóc Sơn', 'Huyện Thạch Thất', 
+    'Huyện Thanh Oai', 'Huyện Thanh Trì', 'Huyện Thường Tín', 'Huyện Ứng Hòa', 'Thị xã Sơn Tây'
+  ],
+  'ninhthuan': [
+    'Thành phố Phan Rang-Tháp Chàm', 'Huyện Bác Ái', 'Huyện Ninh Hải', 'Huyện Ninh Phước', 
+    'Huyện Ninh Sơn', 'Huyện Thuận Bắc', 'Huyện Thuận Nam'
+  ]
 }
 
 const CartPage = () => {
@@ -22,8 +59,14 @@ const CartPage = () => {
     updateQuantity, 
     removeItem,
     calculateItemTotal,
-    calculateItemSavings 
+    calculateItemSavings,
+    clearCart
   } = useCart()
+
+  // Auth state
+  const { isAuthenticated } = useAuthStore()
+  const router = useRouter()
+  const { error, success, ToastContainer } = useToast()
 
   // Customer Info State
   const [customerInfo, setCustomerInfo] = useState({
@@ -40,8 +83,84 @@ const CartPage = () => {
     recipientName: '',
     recipientPhone: '',
     saveRecipient: false,
-    paymentMethod: 'cash' // cash or bank
+    paymentMethod: 'cash', // cash or bank
+    selectedAddressId: '' // ID của địa chỉ được chọn (nếu có)
   })
+
+  // Fetch user profile
+  const { data: userProfile } = useSWR<{ data: User }>(
+    isAuthenticated ? '/users/me' : null,
+    fetcher
+  )
+
+  // Fetch user addresses
+  const { data: userAddresses } = useSWR<{ data: Address[] }>(
+    isAuthenticated ? '/users/addresses' : null,
+    fetcher
+  )
+
+  // Auto-fill thông tin khách hàng khi có data từ API
+  useEffect(() => {
+    if (userProfile?.data) {
+      const user = userProfile.data
+      setCustomerInfo(prev => ({
+        ...prev,
+        fullName: user.fullName || '',
+        phone: user.phoneNumber || '',
+        email: user.email || ''
+      }))
+    }
+  }, [userProfile])
+
+  // Auto-fill địa chỉ mặc định khi có data từ API
+  useEffect(() => {
+    if (userAddresses?.data && userAddresses.data.length > 0) {
+      // Tìm địa chỉ mặc định hoặc lấy địa chỉ đầu tiên
+      const defaultAddress = userAddresses.data.find(addr => addr.isDefault) || userAddresses.data[0]
+      
+      if (defaultAddress) {
+        const provinceValue = mapProvinceToValue(defaultAddress.province)
+        
+        // Tìm district match (case-insensitive) trong danh sách
+        const availableDistricts = districtsByProvince[provinceValue] || []
+        const matchedDistrict = availableDistricts.find(d => 
+          d.toLowerCase() === (defaultAddress.district || '').toLowerCase()
+        ) || defaultAddress.district || ''
+        
+        setCustomerInfo(prev => ({
+          ...prev,
+          selectedAddressId: defaultAddress.addressId,
+          province: provinceValue,
+          district: matchedDistrict,
+          address: defaultAddress.street || ''
+        }))
+      }
+    }
+  }, [userAddresses])
+
+  // Helper function để map tên tỉnh thành value
+  const mapProvinceToValue = (provinceName: string): string => {
+    const provinceMap: { [key: string]: string } = {
+      'Thành phố Hồ Chí Minh': 'hcm',
+      'Đồng Nai': 'dongnai',
+      'Khánh Hòa': 'khanhhoa',
+      'Hà Nội': 'hanoi',
+      'Ninh Thuận': 'ninhthuan'
+    }
+    return provinceMap[provinceName] || 'hcm'
+  }
+
+  // Helper function để map value thành tên tỉnh
+  const mapValueToProvince = (value: string): string => {
+    const valueMap: { [key: string]: string } = {
+      'hcm': 'Thành phố Hồ Chí Minh',
+      'dongnai': 'Đồng Nai',
+      'khanhhoa': 'Khánh Hòa',
+      'hanoi': 'Hà Nội',
+      'ninhthuan': 'Ninh Thuận'
+    }
+    return valueMap[value] || 'Thành phố Hồ Chí Minh'
+  }
 
   // Promotion code state
   const [promoCode, setPromoCode] = useState('')
@@ -60,7 +179,7 @@ const CartPage = () => {
   const { data: promotionsData } = useSWR<PromotionResponse>('/pets/promotions?page=0&size=100', fetcher)
 
   // Tính giảm giá từ khuyến mãi đã chọn (chỉ 1)
-  const promotionDiscount = (() => {
+  const promotionDiscount: number = (() => {
     if (!selectedPromotion) return 0
     
     const promo = promotionsData?.content.find(p => p.code === selectedPromotion)
@@ -128,12 +247,13 @@ const CartPage = () => {
         discountValue: voucher.discountValue
       })
       setPromoError('')
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number }; message?: string }
       console.error('Error applying voucher:', error)
       
-      if (error.response?.status === 204) {
+      if (err.response?.status === 204) {
         setPromoError('Mã khuyến mãi không hợp lệ hoặc không áp dụng được cho đơn hàng này')
-      } else if (error.response?.status === 400) {
+      } else if (err.response?.status === 400) {
         setPromoError('Đơn hàng không đủ điều kiện áp dụng mã này')
       } else {
         setPromoError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau')
@@ -144,39 +264,155 @@ const CartPage = () => {
     }
   }
 
-  const shippingFee = 0 // Miễn phí
+  const shippingFee: number = 0 // Miễn phí
   const finalTotal = subtotal - totalDiscount + shippingFee
 
-  // Districts by province
-  const districtsByProvince: { [key: string]: string[] } = {
-    'hcm': [
-      'Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 6', 'Quận 7', 'Quận 8', 
-      'Quận 9', 'Quận 10', 'Quận 11', 'Quận 12', 'Quận Bình Tân', 'Quận Bình Thạnh', 
-      'Quận Gò Vấp', 'Quận Phú Nhuận', 'Quận Tân Bình', 'Quận Tân Phú', 'Quận Thủ Đức',
-      'Huyện Bình Chánh', 'Huyện Cần Giờ', 'Huyện Củ Chi', 'Huyện Hóc Môn', 'Huyện Nhà Bè'
-    ],
-    'dongnai': [
-      'Thành phố Biên Hòa', 'Thành phố Long Khánh', 'Huyện Cẩm Mỹ', 'Huyện Định Quán', 
-      'Huyện Long Thành', 'Huyện Nhơn Trạch', 'Huyện Thống Nhất', 'Huyện Trảng Bom', 
-      'Huyện Vĩnh Cửu', 'Huyện Xuân Lộc', 'Huyện Tân Phú'
-    ],
-    'khanhhoa': [
-      'Thành phố Nha Trang', 'Thành phố Cam Ranh', 'Thị xã Ninh Hòa', 'Huyện Cam Lâm', 
-      'Huyện Diên Khánh', 'Huyện Khánh Sơn', 'Huyện Khánh Vĩnh', 'Huyện Trường Sa', 
-      'Huyện Vạn Ninh'
-    ],
-    'hanoi': [
-      'Quận Ba Đình', 'Quận Hoàn Kiếm', 'Quận Tây Hồ', 'Quận Long Biên', 'Quận Cầu Giấy', 
-      'Quận Đống Đa', 'Quận Hai Bà Trưng', 'Quận Hoàng Mai', 'Quận Thanh Xuân', 'Quận Hà Đông', 
-      'Quận Nam Từ Liêm', 'Quận Bắc Từ Liêm', 'Huyện Ba Vì', 'Huyện Chương Mỹ', 'Huyện Đan Phượng', 
-      'Huyện Đông Anh', 'Huyện Gia Lâm', 'Huyện Hoài Đức', 'Huyện Mê Linh', 'Huyện Mỹ Đức', 
-      'Huyện Phú Xuyên', 'Huyện Phúc Thọ', 'Huyện Quốc Oai', 'Huyện Sóc Sơn', 'Huyện Thạch Thất', 
-      'Huyện Thanh Oai', 'Huyện Thanh Trì', 'Huyện Thường Tín', 'Huyện Ứng Hòa', 'Thị xã Sơn Tây'
-    ],
-    'ninhthuan': [
-      'Thành phố Phan Rang-Tháp Chàm', 'Huyện Bác Ái', 'Huyện Ninh Hải', 'Huyện Ninh Phước', 
-      'Huyện Ninh Sơn', 'Huyện Thuận Bắc', 'Huyện Thuận Nam'
-    ]
+  // Handle checkout
+  const handleCheckout = async () => {
+    if (!isAuthenticated) {
+      error('Chưa đăng nhập', 'Vui lòng đăng nhập để tiếp tục')
+      setTimeout(() => {
+        router.push('/login')
+      }, 1500)
+      return
+    }
+
+    // Validate thông tin
+    if (!customerInfo.fullName.trim()) {
+      error('Lỗi', 'Vui lòng nhập họ và tên')
+      return
+    }
+
+    if (!customerInfo.phone.trim()) {
+      error('Lỗi', 'Vui lòng nhập số điện thoại')
+      return
+    }
+
+    if (!customerInfo.email.trim()) {
+      error('Lỗi', 'Vui lòng nhập email')
+      return
+    }
+
+    if (customerInfo.deliveryType === 'home') {
+      if (!customerInfo.province) {
+        error('Lỗi', 'Vui lòng chọn tỉnh thành')
+        return
+      }
+      if (!customerInfo.district) {
+        error('Lỗi', 'Vui lòng chọn phường xã')
+        return
+      }
+      if (!customerInfo.address.trim()) {
+        error('Lỗi', 'Vui lòng nhập địa chỉ')
+        return
+      }
+    }
+
+    if (customerInfo.saveRecipient) {
+      if (!customerInfo.recipientName.trim()) {
+        error('Lỗi', 'Vui lòng nhập tên người nhận')
+        return
+      }
+      if (!customerInfo.recipientPhone.trim()) {
+        error('Lỗi', 'Vui lòng nhập số điện thoại người nhận')
+        return
+      }
+    }
+
+    if (items.length === 0) {
+      error('Lỗi', 'Giỏ hàng trống')
+      return
+    }
+
+    try {
+      // Chuẩn bị data để gửi lên backend
+      const orderData: {
+        phoneNumber: string;
+        recipientName: string;
+        note: string;
+        paymentMethod: string;
+        items: { petId: string; quantity: number }[];
+        addressId?: string;
+        newProvince?: string;
+        newDistrict?: string;
+        newWard?: string;
+        newStreet?: string;
+      } = {
+        phoneNumber: customerInfo.saveRecipient ? customerInfo.recipientPhone : customerInfo.phone,
+        recipientName: customerInfo.saveRecipient ? customerInfo.recipientName : customerInfo.fullName,
+        note: customerInfo.note || '',
+        paymentMethod: customerInfo.paymentMethod === 'cash' ? 'COD' : 'BANK_TRANSFER',
+        items: items.map(item => ({
+          petId: item.pet.petId,
+          quantity: item.quantity
+        }))
+      }
+
+      // Xử lý địa chỉ
+      if (customerInfo.deliveryType === 'store') {
+        // Nhận tại cửa hàng - dùng địa chỉ cửa hàng
+        orderData.newProvince = 'Thành phố Hồ Chí Minh'
+        orderData.newDistrict = 'Quận Gò Vấp'
+        orderData.newWard = 'P. Hạnh Thông'
+        orderData.newStreet = 'Số 12 Nguyễn Văn Bảo'
+      } else {
+        // Giao hàng tận nơi
+        // Kiểm tra xem có chọn địa chỉ có sẵn không
+        const hasExistingAddress = userAddresses?.data && userAddresses.data.length > 0 && customerInfo.selectedAddressId
+        
+        // Kiểm tra xem địa chỉ đã được thay đổi so với địa chỉ mặc định không
+        const defaultAddress = userAddresses?.data?.find(addr => addr.addressId === customerInfo.selectedAddressId)
+        const isAddressChanged = defaultAddress && (
+          mapProvinceToValue(defaultAddress.province) !== customerInfo.province ||
+          (defaultAddress.district || '') !== customerInfo.district ||
+          (defaultAddress.street || '') !== customerInfo.address
+        )
+
+        // Nếu địa chỉ đã thay đổi hoặc không có địa chỉ nào, tạo địa chỉ mới
+        if (!hasExistingAddress || isAddressChanged) {
+          orderData.newProvince = mapValueToProvince(customerInfo.province)
+          orderData.newDistrict = customerInfo.district
+          orderData.newWard = customerInfo.district // Backend lưu ward = district
+          orderData.newStreet = customerInfo.address
+        } else {
+          // Sử dụng địa chỉ có sẵn
+          orderData.addressId = customerInfo.selectedAddressId
+        }
+      }
+
+      console.log('📦 Order Data:', orderData)
+
+      // Gửi request lên backend
+      const response = await axiosInstance.post('/orders', orderData)
+
+      console.log('✅ Order Response:', response.data)
+
+      // Hiển thị thông báo thành công
+      success('Đặt hàng thành công', 'Đơn hàng của bạn đã được tạo thành công')
+
+      // Clear giỏ hàng
+      clearCart()
+
+      // Redirect đến trang đơn hàng sau 2 giây
+      setTimeout(() => {
+        router.push('/orders')
+      }, 2000)
+
+    } catch (err: unknown) {
+      const error_ = err as { response?: { data?: { message?: string }; status?: number }; message?: string }
+      console.error('❌ Checkout Error:', err)
+      
+      if (error_.response?.status === 401) {
+        error('Lỗi xác thực', 'Vui lòng đăng nhập lại')
+        setTimeout(() => {
+          router.push('/login')
+        }, 1500)
+      } else if (error_.response?.data?.message) {
+        error('Lỗi', error_.response.data.message)
+      } else {
+        error('Lỗi', 'Không thể tạo đơn hàng. Vui lòng thử lại sau')
+      }
+    }
   }
 
   const getDistricts = () => {
@@ -185,6 +421,15 @@ const CartPage = () => {
     }
     return districtsByProvince[customerInfo.province] || []
   }
+
+  // Check xem có đang chọn địa chỉ mặc định không (để hiển thị label)
+  const isDefaultAddressSelected = customerInfo.deliveryType === 'home' && 
+    customerInfo.selectedAddressId !== '' &&
+    !!(userAddresses?.data?.find(addr => addr.addressId === customerInfo.selectedAddressId)?.isDefault)
+
+  // Check xem có đang chọn 1 địa chỉ có sẵn không (để disable các trường)
+  // CHỈ enable khi chọn "Nhập địa chỉ khác" (selectedAddressId = '')
+  const isAddressFieldsDisabled = customerInfo.deliveryType === 'home' && customerInfo.selectedAddressId !== ''
 
   const handleUpdateQuantity = (petId: string, change: number) => {
     const item = items.find(i => i.pet.petId === petId)
@@ -199,7 +444,9 @@ const CartPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <>
+      <ToastContainer />
+      <div className="min-h-screen bg-white">
         {/* Cart Title */}
         <div className="relative py-24">
           <div className="absolute inset-0">
@@ -470,6 +717,59 @@ const CartPage = () => {
                 </label>
               </div>
 
+              {/* Chọn địa chỉ có sẵn (chỉ hiển thị khi giao hàng tận nơi và có địa chỉ) */}
+              {customerInfo.deliveryType === 'home' && userAddresses?.data && userAddresses.data.length > 0 && (
+                <div>
+                  <label className="block text-gray-700 mb-2">
+                    Chọn địa chỉ giao hàng
+                    {isDefaultAddressSelected && (
+                      <span className="text-green-600 font-semibold"> - Địa chỉ mặc định</span>
+                    )}
+                  </label>
+                  <select
+                    value={customerInfo.selectedAddressId}
+                    onChange={(e) => {
+                      const selectedAddr = userAddresses.data.find(addr => addr.addressId === e.target.value)
+                      if (selectedAddr) {
+                        const provinceValue = mapProvinceToValue(selectedAddr.province)
+                        
+                        // Tìm district match (case-insensitive) trong danh sách
+                        const availableDistricts = districtsByProvince[provinceValue] || []
+                        const matchedDistrict = availableDistricts.find(d => 
+                          d.toLowerCase() === (selectedAddr.district || '').toLowerCase()
+                        ) || selectedAddr.district || ''
+                        
+                        setCustomerInfo({
+                          ...customerInfo,
+                          selectedAddressId: selectedAddr.addressId,
+                          province: provinceValue,
+                          district: matchedDistrict,
+                          address: selectedAddr.street || ''
+                        })
+                      } else {
+                        // Chọn "Nhập địa chỉ mới"
+                        setCustomerInfo({
+                          ...customerInfo,
+                          selectedAddressId: '',
+                          province: '',
+                          district: '',
+                          address: ''
+                        })
+                      }
+                    }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35] bg-white"
+                  >
+                    {userAddresses.data.map((addr) => (
+                      <option key={addr.addressId} value={addr.addressId}>
+                        {addr.street}, {addr.district}, {addr.province}
+                        {addr.isDefault ? ' (Mặc định)' : ''}
+                      </option>
+                    ))}
+                    <option value="">+ Nhập địa chỉ khác</option>
+                  </select>
+                </div>
+              )}
+
                   {/* Province and District */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -478,8 +778,9 @@ const CartPage = () => {
                       </label>
                       <select
                         value={customerInfo.deliveryType === 'store' ? 'hcm' : customerInfo.province}
-                        onChange={(e) => setCustomerInfo({...customerInfo, province: e.target.value, district: ''})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35] bg-white"
+                        onChange={(e) => setCustomerInfo({...customerInfo, province: e.target.value, district: '', selectedAddressId: ''})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35] bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        disabled={customerInfo.deliveryType === 'store' || isAddressFieldsDisabled}
                       >
                         <option value="">Chọn tỉnh thành</option>
                         <option value="hcm">Thành phố Hồ Chí Minh</option>
@@ -498,13 +799,13 @@ const CartPage = () => {
                         Phường xã <span className="text-red-500">*</span>
                       </label>
                       <select
-                        value={customerInfo.deliveryType === 'store' ? 'P. Hạnh Thông' : customerInfo.district}
-                        onChange={(e) => setCustomerInfo({...customerInfo, district: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35] bg-white"
-                        disabled={!customerInfo.province && customerInfo.deliveryType === 'home'}
+                        value={customerInfo.deliveryType === 'store' ? 'Quận Gò Vấp' : customerInfo.district}
+                        onChange={(e) => setCustomerInfo({...customerInfo, district: e.target.value, selectedAddressId: ''})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35] bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        disabled={customerInfo.deliveryType === 'store' || isAddressFieldsDisabled}
                       >
                         {customerInfo.deliveryType === 'store' ? (
-                          <option value="P. Hạnh Thông">P. Hạnh Thông</option>
+                          <option value="Quận Gò Vấp">Quận Gò Vấp</option>
                         ) : (
                           <>
                             <option value="">Chọn phường / xã</option>
@@ -525,10 +826,10 @@ const CartPage = () => {
                     <input
                       type="text"
                       placeholder="Nhập tên đường / số nhà"
-                      value={customerInfo.deliveryType === 'store' ? 'Số 12 Nguyễn Văn Bảo' : customerInfo.address}
-                      onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35]"
-                      disabled={customerInfo.deliveryType === 'store'}
+                      value={customerInfo.deliveryType === 'store' ? 'Số 12 Nguyễn Văn Bảo, P. Hạnh Thông' : customerInfo.address}
+                      onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value, selectedAddressId: ''})}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B4F35] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      disabled={customerInfo.deliveryType === 'store' || isAddressFieldsDisabled}
                     />
                   </div>              {/* Note */}
               <div>
@@ -905,6 +1206,7 @@ const CartPage = () => {
               {/* Checkout Button */}
               <div className="mt-4">
                 <button 
+                  onClick={handleCheckout}
                   className="w-full px-12 py-4 rounded-full font-bold text-lg uppercase tracking-wide transition-colors bg-[#7B4F35] text-white hover:bg-[#C46C2B] cursor-pointer shadow-lg"
                 >
                   Thanh toán
@@ -914,7 +1216,8 @@ const CartPage = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   )
 }
 
