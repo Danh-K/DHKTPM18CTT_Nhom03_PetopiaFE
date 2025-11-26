@@ -13,10 +13,23 @@ export const fetchPromotions = createAsyncThunk("promotion/fetchAll", async ({ p
   }
 );
 
+export const fetchPromotionByCode = createAsyncThunk("promotion/fetchByCode", async (code, { rejectWithValue }) => {
+    try {
+      const data = await promotionService.getByCode(code);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Không tìm thấy khuyến mãi"
+      );
+    }
+  }
+);
+
 const promotionSlice = createSlice({
   name: "promotion",
   initialState: {
     list: [],
+    selected: null,
     totalElements: 0,
     currentPage: 0,
     size: 9,
@@ -40,6 +53,18 @@ const promotionSlice = createSlice({
         state.size = action.payload.size || 9;
       })
       .addCase(fetchPromotions.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(fetchPromotionByCode.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchPromotionByCode.fulfilled, (state, action) => {
+        state.loading = false;
+        state.selected = action.payload;
+      })
+      .addCase(fetchPromotionByCode.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

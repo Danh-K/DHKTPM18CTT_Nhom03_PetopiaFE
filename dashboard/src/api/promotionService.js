@@ -9,4 +9,9 @@ export const promotionService = {
     });
     return res.data;
   },
+
+  getByCode: async (code) => {
+    const res = await api.get(`${PROMOTION_API}/${code}`);
+    return res.data;
+  },
 };

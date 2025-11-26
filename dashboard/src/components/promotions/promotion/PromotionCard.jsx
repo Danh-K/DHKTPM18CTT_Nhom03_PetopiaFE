@@ -70,7 +70,7 @@ export default function PromotionCard({
         <h3 className="font-bold text-lg text-[#7b4f35] mb-2 truncate">
           {promotion.name}
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">
+        <p className="text-sm text-gray-600 dark:text-gray-800 mb-3 line-clamp-2">
           {promotion.description}
         </p>
         <div className="flex items-center justify-between text-sm mb-4">

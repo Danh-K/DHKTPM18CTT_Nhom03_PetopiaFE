@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchPromotions } from "../../store/promotionSlice";
+import { fetchPromotionByCode, fetchPromotions } from "../../store/promotionSlice";
 import { HiPlus } from "react-icons/hi";
 
 import AddPromotionModal from "./AddPromotionModal";
@@ -31,7 +31,7 @@ const categories = [
 
 export default function PromotionList({ darkMode }) {
   const dispatch = useDispatch();
-  const { list: serverPromotions, loading, error } = useSelector((state) => state.promotion);
+  const { list: serverPromotions, selected: selectedPromotion, loading, error } = useSelector((state) => state.promotion);
   const [promotions, setPromotions] = useState([]);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,7 +42,6 @@ export default function PromotionList({ darkMode }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedPromotion, setSelectedPromotion] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
 
   const itemsPerPage = 9;
@@ -55,6 +54,7 @@ export default function PromotionList({ darkMode }) {
     if (serverPromotions?.length > 0) {
       const mapped = serverPromotions.map((p) => ({
         id: p.promotionId,
+        code: p.code,
         name: p.code,
         description: p.description || "",
         discountType: p.promotionType?.toLowerCase() || "percentage",
@@ -65,6 +65,9 @@ export default function PromotionList({ darkMode }) {
         endDate: p.endDate,
         status: p.status?.toLowerCase() || "active",
         image: p.imageUrl || "/placeholder.svg",
+        usedCount: p.usedCount || 0,
+        maxUsage: p.maxUsage || null,
+        minOrderAmount: p.minOrderAmount || 0,
       }));
       setPromotions(mapped);
     }
@@ -96,12 +99,12 @@ export default function PromotionList({ darkMode }) {
   };
 
   const handleEdit = (p) => {
-    setSelectedPromotion(p);
+    // setSelectedPromotion(p);
     setShowEditModal(true);
   };
 
   const handleView = (p) => {
-    setSelectedPromotion(p);
+    dispatch(fetchPromotionByCode(p.code));
     setShowViewModal(true);
   };
 
@@ -136,15 +139,13 @@ export default function PromotionList({ darkMode }) {
   const stats = {
     active: promotions.filter((p) => p.status === "active").length,
     total: promotions.length,
-    avg:
-      promotions.filter((p) => p.discountValue).length > 0
-        ? Math.round(
-            promotions
-              .filter((p) => p.discountValue)
-              .reduce((a, b) => a + b.discountValue, 0) /
-              promotions.filter((p) => p.discountValue).length
-          )
-        : 0,
+    remainingUses: promotions
+      .filter(p => p.maxUsage)
+      .reduce((total, p) => {
+        const used = p.usedCount || 0;
+        const remaining = p.maxUsage - used;
+        return total + (remaining > 0 ? remaining : 0);
+      }, 0),
   };
 
   if (loading) {
@@ -160,7 +161,7 @@ export default function PromotionList({ darkMode }) {
       </div>
     );
   }
-  
+
   if (error) return <div className="text-red-500 text-center py-20">{error}</div>;
 
   return (
