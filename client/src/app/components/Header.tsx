@@ -20,6 +20,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "@/store/useCartStore";
+import { useFavorite } from "@/store/useFavoriteStore";
 
 
 const leftLinks = [
@@ -37,6 +38,7 @@ const rightLinks = [
 export default function Header() {
   const pathname = usePathname();
   const { totalItems } = useCart();
+  const { totalItems: totalFavorites } = useFavorite();
 
   // Giả lập trạng thái đăng nhập
   const [user] = React.useState<null | { name: string; avatar?: string }>(null);
@@ -113,22 +115,31 @@ export default function Header() {
       {/* Right: Action Buttons */}
       <div className="flex items-center gap-3">
         {/* Search */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group cursor-pointer"
-        >
-          <Search size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
-        </Button>
+        <Link href="/pets">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group cursor-pointer"
+          >
+            <Search size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
+          </Button>
+        </Link>
 
         {/* Heart/Wishlist */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group cursor-pointer"
-        >
-          <Heart size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
-        </Button>
+        <Link href="/favorites" className="relative cursor-pointer">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group cursor-pointer"
+          >
+            <Heart size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
+            {totalFavorites > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                {totalFavorites}
+              </span>
+            )}
+          </Button>
+        </Link>
 
         {/* Cart */}
         <Link href="/carts" className="relative cursor-pointer">

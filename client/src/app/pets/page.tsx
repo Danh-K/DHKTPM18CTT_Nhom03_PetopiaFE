@@ -452,6 +452,9 @@ export default function PetsPage() {
                       addItem({ pet: pet, quantity: 1, img: getThumbnail(pet.petId, pet.mainImageUrl || null) });
                       openMiniCart();
                     }}
+                    onBuyNow={() => {
+                      addItem({ pet: pet, quantity: 1, img: getThumbnail(pet.petId, pet.mainImageUrl || null) });
+                    }}
                   />
                 ))}
               </div>
