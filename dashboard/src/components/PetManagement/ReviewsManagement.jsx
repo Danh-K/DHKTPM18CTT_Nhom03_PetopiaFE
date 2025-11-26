@@ -1,416 +1,468 @@
 "use client";
 import React, { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+// Import BỘ ICON MỚI (Lucide)
 import {
-  FaStar,
-  FaHeart,
-  FaThumbtack,
-  FaTrash,
-  FaReply,
-  FaBell, // Thêm icon chuông cho thông báo mới
-} from "react-icons/fa";
-import { HiX } from "react-icons/hi";
+  Star,
+  Sun,
+  Pin,
+  MessageSquare,
+  Search,
+  ChevronDown,
+  Heart,
+  Trash2,
+  FilePenLine,
+  Reply,
+  X,
+} from "lucide-react";
 
-// --- DỮ LIỆU GIẢ (Giữ nguyên logic cũ nhưng chỉnh lại ngày tháng để dễ test hiển thị 'Mới') ---
-const generateReviews = (petId) => {
-  const reviews = [];
-  const names = [
-    "Nguyễn An",
-    "Trần Bình",
-    "Lê Cường",
-    "Phạm Dung",
-    "Hoàng Minh",
-  ];
-  const comments = [
-    "Rất đáng yêu!",
-    "Dịch vụ tốt",
-    "Sẽ quay lại",
-    "Giá hợp lý",
-    "Nhân viên nhiệt tình",
-  ];
+// Import dữ liệu giả (đảm bảo đúng đường dẫn)
+import { fakePets, fakeReviews, fakeReplies } from "../../data/fakeData";
 
-  for (let i = 0; i < Math.floor(Math.random() * 5) + 1; i++) {
-    // Random ngày từ hôm nay trở về trước 10 ngày để dễ thấy badge "Mới"
-    const randomDaysAgo = Math.random() * 10;
-
-    reviews.push({
-      id: `R${petId}-${i}`,
-      petId,
-      customerName: names[i % names.length],
-      rating: Math.floor(Math.random() * 2) + 4,
-      comment: comments[i % comments.length],
-      date: new Date(Date.now() - randomDaysAgo * 86400000),
-      isPinned: i === 0 && Math.random() > 0.7,
-      adminReply:
-        i % 3 === 0 ? { text: "Cảm ơn bạn!", date: new Date() } : null,
-      liked: Math.random() > 0.7,
-      likes: Math.floor(Math.random() * 100),
-    });
-  }
-  return reviews;
+// ===================================================================
+// Định nghĩa hiệu ứng cho Modal
+// ===================================================================
+const backdropVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+};
+const modalVariants = {
+  hidden: { opacity: 0, scale: 0.9, y: 50 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 300, damping: 30 },
+  },
+  exit: { opacity: 0, scale: 0.9, y: -50, transition: { duration: 0.2 } },
 };
 
-const allPets = Array.from({ length: 25 }, (_, i) => ({
-  id: i + 1,
-  name: `Pet #${i + 1}`,
-  images: ["https://via.placeholder.com/200"],
-  reviews: generateReviews(i + 1),
-}));
+// ===================================================================
+// Component Thẻ Thống Kê (StatsCard) - ĐÃ LÀM LẠI ĐƠN GIẢN
+// ===================================================================
+const StatsCard = ({ title, value, icon, iconColor, bgColor }) => {
+  const IconComponent = icon;
+  return (
+    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex items-start gap-4">
+      <div className={`p-3 rounded-lg ${bgColor}`}>
+        <IconComponent className={`h-6 w-6 ${iconColor}`} />
+      </div>
+      <div>
+        <p className="text-gray-500 font-medium">{title}</p>
+        <p className="text-gray-900 text-4xl font-bold">{value}</p>
+      </div>
+    </div>
+  );
+};
 
-// Flatten reviews cho state quản lý chung
-const initialReviews = allPets.flatMap((p) =>
-  p.reviews.map((r) => ({ ...r, petName: p.name }))
-);
+// ===================================================================
+// Component Xếp hạng Sao (StarRating)
+// ===================================================================
+const StarRating = ({ rating, starClass = "h-4 w-4" }) => {
+  return (
+    <div className="flex items-center">
+      {[...Array(5)].map((_, i) => (
+        <Star
+          key={i}
+          className={`${starClass} ${
+            i < Math.round(rating) ? "text-yellow-400" : "text-gray-300"
+          }`}
+          fill={i < Math.round(rating) ? "currentColor" : "none"}
+        />
+      ))}
+    </div>
+  );
+};
 
-export default function ReviewsManagement() {
-  const [reviews, setReviews] = useState(initialReviews);
-  const [selectedPet, setSelectedPet] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [replyText, setReplyText] = useState("");
-  const [editingReplyId, setEditingReplyId] = useState(null);
-  const [search, setSearch] = useState("");
+// ===================================================================
+// Component Item Thú cưng (PetReviewCard) - THÊM ANIMATION
+// ===================================================================
+const PetReviewCard = ({ pet, reviewCount, unrepliedCount, onPetClick }) => {
+  return (
+    // THÊM ANIMATION
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      whileHover={{ scale: 1.03, y: -5 }} // Hiệu ứng "nâng"
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      onClick={() => onPetClick(pet)}
+      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden cursor-pointer"
+    >
+      <div className="relative">
+        <img
+          src={pet.imageUrl}
+          alt={pet.name}
+          className="w-full h-48 object-cover"
+        />
+        {/* Badge Rating */}
+        <span className="absolute top-2 right-2 bg-black/50 text-white px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
+          <Star className="w-3 h-3" fill="white" /> {pet.avgRating}
+        </span>
+        {/* Badge Tổng Review */}
+        <span className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1">
+          <MessageSquare className="w-3 h-3" /> {reviewCount}
+        </span>
 
-  // Helper: Lấy reviews của 1 pet cụ thể từ state tổng
-  const getPetReviews = (petId) => reviews.filter((r) => r.petId === petId);
+        {/* Badge CHƯA TRẢ LỜI (NÂNG CẤP HIỆU ỨNG PING) */}
+        {unrepliedCount > 0 && (
+          <span className="absolute top-2 left-2 flex h-6 w-6">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex items-center justify-center rounded-full h-6 w-6 bg-red-600 text-xs font-bold text-white ring-2 ring-white">
+              {unrepliedCount}
+            </span>
+          </span>
+        )}
+      </div>
+      <div className="p-4">
+        <h3 className="font-bold text-lg text-gray-800">{pet.name}</h3>
+        <p className="text-sm text-gray-500 mb-2">{pet.type}</p>
+        <StarRating rating={pet.avgRating} />
+      </div>
+    </motion.div>
+  );
+};
 
-  // Helper: Lấy ngày đánh giá mới nhất của 1 pet
-  const getLatestReviewDate = (petId) => {
-    const petReviews = getPetReviews(petId);
-    if (petReviews.length === 0) return 0;
-    // Sort giảm dần theo thời gian để lấy cái đầu tiên
-    const sorted = [...petReviews].sort((a, b) => b.date - a.date);
-    return sorted[0].date;
-  };
+// ===================================================================
+// Component Form Trả Lời (MỚI)
+// ===================================================================
+const ReplyForm = ({ onSend, onCancel }) => {
+  const [text, setText] = useState("");
 
-  // Helper: Kiểm tra xem đánh giá gần nhất có phải "Mới" không (trong vòng 3 ngày)
-  const isRecent = (date) => {
-    if (!date) return false;
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 3; // Quy định: <= 3 ngày là mới
-  };
-
-  // Xử lý lọc và SẮP XẾP
-  const sortedAndFilteredPets = useMemo(() => {
-    // 1. Lọc theo từ khóa tìm kiếm
-    let result = allPets.filter(
-      (pet) =>
-        pet.name.toLowerCase().includes(search.toLowerCase()) &&
-        getPetReviews(pet.id).length > 0
-    );
-
-    // 2. Sắp xếp: Pet nào có review mới nhất thì lên đầu
-    result.sort((a, b) => {
-      const dateA = getLatestReviewDate(a.id);
-      const dateB = getLatestReviewDate(b.id);
-      return dateB - dateA; // Giảm dần (Mới nhất -> Cũ nhất)
-    });
-
-    return result;
-  }, [search, reviews]); // Chạy lại khi search hoặc data reviews thay đổi
-
-  // --- Các hàm xử lý hành động (giữ nguyên) ---
-  const handleLike = (id) => {
-    setReviews((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              liked: !r.liked,
-              likes: r.liked ? r.likes - 1 : r.likes + 1,
-            }
-          : r
-      )
-    );
-  };
-
-  const handlePin = (id) => {
-    setReviews((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, isPinned: !r.isPinned } : r))
-    );
-  };
-
-  const handleReply = (id) => {
-    if (!replyText.trim()) return;
-    setReviews((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, adminReply: { text: replyText, date: new Date() } }
-          : r
-      )
-    );
-    setReplyText("");
-    setEditingReplyId(null);
+  const handleSubmit = () => {
+    if (text.trim()) {
+      onSend(text);
+      setText("");
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-          <h1 className="text-2xl font-bold text-gray-800">Quản Lý Đánh Giá</h1>
-          <input
-            placeholder="Tìm tên thú cưng..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full md:w-64 p-2 border rounded bg-white shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none"
-          />
+    <div className="mt-4 ml-4">
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Viết phản hồi của bạn..."
+        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        rows={3}
+      ></textarea>
+      <div className="flex gap-2 mt-2">
+        <button
+          onClick={handleSubmit}
+          className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm font-medium"
+        >
+          Gửi
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-sm"
+        >
+          Hủy
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ===================================================================
+// Component Modal Đánh giá (ReviewModal) - NÂNG CẤP KÍCH THƯỚC VÀ CHỨC NĂNG
+// ===================================================================
+const ReviewModal = ({ pet, reviews, replies, onClose }) => {
+  const [replyingTo, setReplyingTo] = useState(null); // State để theo dõi đang trả lời ai
+
+  const handleSendReply = (reviewId, text) => {
+    console.log("Đã gửi trả lời cho:", reviewId, "| Nội dung:", text);
+    // (Ở đây bạn sẽ thêm logic để cập nhật state `replies` thực tế)
+    setReplyingTo(null); // Đóng form trả lời
+  };
+
+  return (
+    <motion.div
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      variants={backdropVariants}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
+    >
+      <motion.div
+        className="bg-slate-50 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" // TĂNG KÍCH THƯỚC
+        variants={modalVariants}
+      >
+        {/* Header Modal (Giống ảnh) */}
+        <div className="flex-shrink-0 p-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <Star className="w-8 h-8" fill="white" />
+            <div>
+              <h2 className="text-2xl font-bold">Đánh giá - {pet.name}</h2>
+              <p className="text-sm opacity-90">{reviews.length} đánh giá</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white">
+            <X size={24} strokeWidth={3} />
+          </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {sortedAndFilteredPets.map((pet) => {
-            const petReviews = getPetReviews(pet.id);
-            const latestDate = getLatestReviewDate(pet.id);
-            const hasNewReview = isRecent(latestDate);
-
-            // Tính điểm trung bình
-            const avg =
-              petReviews.length > 0
-                ? (
-                    petReviews.reduce((a, r) => a + r.rating, 0) /
-                    petReviews.length
-                  ).toFixed(1)
-                : 0;
+        {/* Content Modal (Scrollable) */}
+        <div className="flex-1 p-6 space-y-5 overflow-y-auto">
+          {reviews.map((review) => {
+            const reply = replies.find((r) => r.reviewId === review.id);
+            const isReplying = replyingTo === review.id;
 
             return (
               <div
-                key={pet.id}
-                onClick={() => {
-                  setSelectedPet(pet);
-                  setShowModal(true);
-                }}
-                className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer relative group overflow-hidden"
+                key={review.id}
+                className="bg-white p-4 rounded-lg shadow-sm"
               >
-                {/* Badge thông báo mới */}
-                {hasNewReview && (
-                  <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 flex items-center gap-1 shadow-sm animate-pulse">
-                    <FaBell /> Mới
+                {/* User Review */}
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`flex-shrink-0 w-10 h-10 rounded-full ${review.avatarBg} flex items-center justify-center font-bold text-white`}
+                  >
+                    {review.userInitial}
                   </div>
-                )}
-
-                <div className="p-4">
-                  <div className="relative">
-                    <img
-                      src={pet.images[0]}
-                      alt={pet.name}
-                      className="w-full h-32 object-cover rounded mb-3 group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-
-                  <h3 className="font-bold text-gray-800 text-sm mb-1 truncate">
-                    {pet.name}
-                  </h3>
-
-                  <div className="flex justify-between items-end">
-                    <div className="flex items-center gap-1 text-yellow-500 text-xs font-medium">
-                      <FaStar className="fill-current" />
-                      <span>{avg}</span>
-                      <span className="text-gray-400 font-normal">
-                        ({petReviews.length})
-                      </span>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold text-gray-800">
+                          {review.userName}
+                        </p>
+                        <p className="text-xs text-gray-400">{review.date}</p>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-400">
+                        <span className="flex items-center gap-1 text-red-500">
+                          <Heart className="w-4 h-4" />
+                          <span className="text-sm font-medium">
+                            {review.likes}
+                          </span>
+                        </span>
+                        <button className="hover:text-gray-600">
+                          <Pin className="w-4 h-4" />
+                        </button>
+                        <button className="hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    {/* Hiển thị ngày mới nhất nhỏ ở góc */}
-                    <span className="text-[10px] text-gray-400">
-                      {latestDate ? latestDate.toLocaleDateString("vi-VN") : ""}
-                    </span>
+                    <StarRating
+                      rating={review.rating}
+                      starClass="h-5 w-5 my-1.5"
+                    />
+                    <p className="text-gray-700">{review.comment}</p>
+
+                    {/* === LOGIC TRẢ LỜI NÂNG CẤP === */}
+                    {isReplying ? (
+                      // 1. Hiển thị form nếu đang trả lời
+                      <ReplyForm
+                        onCancel={() => setReplyingTo(null)}
+                        onSend={(text) => handleSendReply(review.id, text)}
+                      />
+                    ) : reply ? (
+                      // 2. Hiển thị reply của admin nếu đã có
+                      <div className="mt-4 ml-4 p-3 bg-teal-50 border-l-4 border-teal-400 rounded-r-lg">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center font-bold text-white text-sm">
+                              A
+                            </div>
+                            <div>
+                              <p className="font-semibold text-teal-800">
+                                Admin
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {reply.date}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-gray-400">
+                            <button className="hover:text-blue-500">
+                              <FilePenLine className="w-4 h-4" />
+                            </button>
+                            <button className="hover:text-red-500">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-gray-700 mt-2">{reply.text}</p>
+                      </div>
+                    ) : (
+                      // 3. Hiển thị nút "Trả lời" nếu chưa có
+                      <button
+                        onClick={() => setReplyingTo(review.id)}
+                        className="mt-3 flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        <Reply className="w-4 h-4" />
+                        Trả lời
+                      </button>
+                    )}
+                    {/* === KẾT THÚC LOGIC === */}
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
+      </motion.div>
+    </motion.div>
+  );
+};
 
-        {/* --- Review Modal (Phần này giữ nguyên logic hiển thị chi tiết) --- */}
-        {showModal && selectedPet && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl animate-fade-in">
-              <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800">
-                    Đánh giá: {selectedPet.name}
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Tổng {getPetReviews(selectedPet.id).length} đánh giá
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <HiX className="text-2xl text-gray-600" />
-                </button>
-              </div>
+// ===================================================================
+// Component Chính: Quản Lý Đánh Giá (ReviewManagement)
+// ===================================================================
+export default function ReviewManagement() {
+  const [pets, setPets] = useState(fakePets);
+  const [reviews, setReviews] = useState(fakeReviews);
+  const [replies, setReplies] = useState(fakeReplies);
 
-              <div className="space-y-4">
-                {/* Sắp xếp trong modal: Ghim lên đầu, sau đó đến mới nhất */}
-                {getPetReviews(selectedPet.id)
-                  .sort((a, b) => {
-                    if (a.isPinned && !b.isPinned) return -1;
-                    if (!a.isPinned && b.isPinned) return 1;
-                    return b.date - a.date;
-                  })
-                  .map((review) => (
-                    <div
-                      key={review.id}
-                      className={`p-4 rounded-lg border ${
-                        review.isPinned
-                          ? "bg-yellow-50 border-yellow-300 ring-1 ring-yellow-200"
-                          : "bg-gray-50 border-gray-200"
-                      }`}
-                    >
-                      {/* Header của review */}
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-bold text-gray-800 flex items-center gap-2">
-                            {review.customerName}{" "}
-                            {review.isPinned && (
-                              <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <FaThumbtack className="text-xs" /> Đã ghim
-                              </span>
-                            )}
-                            {isRecent(review.date) && (
-                              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">
-                                Mới
-                              </span>
-                            )}
-                          </p>
-                          <div className="flex items-center gap-2 text-sm mt-1">
-                            <div className="flex text-yellow-400">
-                              {[...Array(5)].map((_, i) => (
-                                <FaStar
-                                  key={i}
-                                  className={
-                                    i < review.rating
-                                      ? "fill-current"
-                                      : "text-gray-300"
-                                  }
-                                />
-                              ))}
-                            </div>
-                            <span className="text-xs text-gray-400 border-l pl-2 ml-1">
-                              {review.date.toLocaleDateString("vi-VN")} -{" "}
-                              {review.date.toLocaleTimeString("vi-VN", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                          </div>
-                        </div>
+  const [filters, setFilters] = useState({ search: "", status: "all" });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPet, setSelectedPet] = useState(null);
 
-                        {/* Actions Buttons */}
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleLike(review.id)}
-                            className={`flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
-                              review.liked
-                                ? "bg-red-100 text-red-600"
-                                : "bg-white border hover:bg-gray-50 text-gray-600"
-                            }`}
-                          >
-                            <FaHeart
-                              className={review.liked ? "fill-current" : ""}
-                            />
-                            {review.likes}
-                          </button>
-                          <button
-                            onClick={() => handlePin(review.id)}
-                            title={
-                              review.isPinned ? "Bỏ ghim" : "Ghim đánh giá"
-                            }
-                            className={`p-1.5 rounded transition-colors ${
-                              review.isPinned
-                                ? "bg-yellow-500 text-white"
-                                : "bg-white border hover:bg-gray-50 text-gray-400"
-                            }`}
-                          >
-                            <FaThumbtack />
-                          </button>
-                          <button
-                            onClick={() =>
-                              setReviews((prev) =>
-                                prev.filter((r) => r.id !== review.id)
-                              )
-                            }
-                            title="Xóa"
-                            className="p-1.5 rounded bg-white border hover:bg-red-50 hover:text-red-600 text-gray-400 transition-colors"
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      </div>
+  // --- Tính toán dữ liệu ---
+  const stats = useMemo(() => {
+    const totalReviews = reviews.length;
+    const fiveStar = reviews.filter((r) => r.rating === 5).length;
+    const replied = replies.length;
+    // Pinned có thể là một state riêng, ở đây fake
+    const pinned = Math.floor(totalReviews / 10) + 1;
+    return { totalReviews, fiveStar, pinned, replied };
+  }, [reviews, replies]);
 
-                      {/* Nội dung comment */}
-                      <p className="text-gray-700 text-sm leading-relaxed">
-                        {review.comment}
-                      </p>
+  const filteredPets = useMemo(() => {
+    return pets.filter((p) =>
+      p.name.toLowerCase().includes(filters.search.toLowerCase())
+    );
+    // Logic lọc theo trạng thái (đã trả lời / chưa trả lời) có thể thêm ở đây
+  }, [pets, filters.search]);
 
-                      {/* Admin Reply Section */}
-                      {review.adminReply ? (
-                        <div className="mt-3 p-3 bg-teal-50 rounded border border-teal-100 relative">
-                          <div className="absolute -top-2 left-4 w-3 h-3 bg-teal-50 border-t border-l border-teal-100 transform rotate-45"></div>
-                          <div className="flex justify-between items-center mb-1">
-                            <p className="font-bold text-teal-700 text-xs">
-                              Phản hồi từ Cửa hàng
-                            </p>
-                            <span className="text-[10px] text-teal-500">
-                              {review.adminReply.date.toLocaleDateString(
-                                "vi-VN"
-                              )}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-700">
-                            {review.adminReply.text}
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          {editingReplyId !== review.id && (
-                            <button
-                              onClick={() => setEditingReplyId(review.id)}
-                              className="mt-2 text-teal-600 text-xs font-medium hover:underline flex items-center gap-1"
-                            >
-                              <FaReply /> Trả lời đánh giá này
-                            </button>
-                          )}
-                        </>
-                      )}
+  // --- Hàm Helper ---
+  const getReviewsForPet = (petId) => reviews.filter((r) => r.petId === petId);
 
-                      {/* Form trả lời */}
-                      {editingReplyId === review.id && (
-                        <div className="mt-3 animate-fade-in-down">
-                          <textarea
-                            value={replyText}
-                            onChange={(e) => setReplyText(e.target.value)}
-                            placeholder="Nhập nội dung trả lời..."
-                            className="w-full p-2 border rounded text-sm focus:ring-1 focus:ring-teal-500 outline-none"
-                            rows={3}
-                            autoFocus
-                          />
-                          <div className="flex justify-end gap-2 mt-2">
-                            <button
-                              onClick={() => {
-                                setEditingReplyId(null);
-                                setReplyText("");
-                              }}
-                              className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs font-medium"
-                            >
-                              Hủy
-                            </button>
-                            <button
-                              onClick={() => handleReply(review.id)}
-                              className="px-3 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded text-xs font-medium"
-                            >
-                              Gửi phản hồi
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+  const getUnrepliedCountForPet = (petId) => {
+    const petReviews = getReviewsForPet(petId);
+    const unreplied = petReviews.filter(
+      (review) => !replies.some((r) => r.reviewId === review.id)
+    );
+    return unreplied.length;
+  };
+
+  // --- Xử lý sự kiện ---
+  const handleOpenModal = (pet) => {
+    setSelectedPet(pet);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedPet(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Stats Grid (ĐÃ LÀM LẠI ĐƠN GIẢN) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatsCard
+            title="Tổng Đánh Giá"
+            value={stats.totalReviews}
+            icon={Star}
+            iconColor="text-yellow-500"
+            bgColor="bg-yellow-100"
+          />
+          <StatsCard
+            title="Đánh Giá 5 Sao"
+            value={stats.fiveStar}
+            icon={Sun}
+            iconColor="text-green-500"
+            bgColor="bg-green-100"
+          />
+          <StatsCard
+            title="Đã Ghim"
+            value={stats.pinned}
+            icon={Pin}
+            iconColor="text-blue-500"
+            bgColor="bg-blue-100"
+          />
+          <StatsCard
+            title="Đã Trả Lời"
+            value={stats.replied}
+            icon={MessageSquare}
+            iconColor="text-indigo-500"
+            bgColor="bg-indigo-100"
+          />
+        </div>
+
+        {/* Filters (Giống ảnh) */}
+        <div className="bg-white p-4 rounded-lg border shadow-sm mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tìm kiếm thú cưng
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Nhập tên thú cưng..."
+                  value={filters.search}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, search: e.target.value }))
+                  }
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Lọc theo trạng thái
+              </label>
+              <select
+                value={filters.status}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, status: e.target.value }))
+                }
+                className="w-full p-2 border border-gray-300 rounded-lg shadow-sm"
+              >
+                <option value="all">Tất cả</option>
+                <option value="replied">Đã trả lời</option>
+                <option value="unreplied">Chưa trả lời</option>
+              </select>
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Pet Grid (ĐÃ THÊM ANIMATION) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          {filteredPets.map((pet) => {
+            const petReviews = getReviewsForPet(pet.id);
+            const unrepliedCount = getUnrepliedCountForPet(pet.id);
+            return (
+              <PetReviewCard
+                key={pet.id}
+                pet={pet}
+                reviewCount={petReviews.length}
+                unrepliedCount={unrepliedCount}
+                onPetClick={handleOpenModal}
+              />
+            );
+          })}
+        </div>
       </div>
+
+      {/* Khu vực render Modal (với AnimatePresence) */}
+      <AnimatePresence>
+        {isModalOpen && selectedPet && (
+          <ReviewModal
+            pet={selectedPet}
+            reviews={getReviewsForPet(selectedPet.id)}
+            replies={replies}
+            onClose={handleCloseModal}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

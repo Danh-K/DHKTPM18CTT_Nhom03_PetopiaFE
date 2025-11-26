@@ -1,7 +1,10 @@
 "use client";
-import React, { useState } from "react";
-// Import thư viện animation
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+// Import Toastify
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 import {
   HiPlus,
   HiMail,
@@ -12,23 +15,15 @@ import {
   HiX,
   HiFilter,
   HiOutlineCube,
-  HiOutlineCheckCircle,
-  HiOutlineXCircle,
-  HiOutlineClock,
   HiSearch,
+  HiPhotograph,
 } from "react-icons/hi";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
-// Import dữ liệu giả (bao gồm cả fakeUsers)
-import { allPets, categories, fakeUsers } from "../../data/fakeData";
 
-// ===================================================================
-// Định nghĩa hiệu ứng cho Modal
-// ===================================================================
-const backdropVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-};
+import { usePetManagement } from "../../hooks/usePetManagement";
 
+// --- CONFIG & HELPERS ---
+const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
 const modalVariants = {
   hidden: { opacity: 0, scale: 0.9, y: 50 },
   visible: {
@@ -40,29 +35,77 @@ const modalVariants = {
   exit: { opacity: 0, scale: 0.9, y: 50, transition: { duration: 0.2 } },
 };
 
-// ===================================================================
-// Component Form Thú Cưng (Dùng chung cho Thêm & Sửa)
-// ===================================================================
-const PetForm = ({ initialData, onDataChange }) => {
+const transformGoogleDriveUrl = (url) => {
+  if (!url) return "";
+  if (url.includes("drive.google.com")) {
+    const idMatch = url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (idMatch && idMatch[1])
+      return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+  }
+  return url;
+};
+
+const getPetThumbnail = (images) => {
+  if (!images || images.length === 0)
+    return "https://placehold.co/150x150?text=No+Image";
+  const imgObj = images.find((i) => i.is_thumbnail) || images[0];
+  return (
+    transformGoogleDriveUrl(imgObj?.image_url) ||
+    "https://placehold.co/150x150?text=No+Image"
+  );
+};
+
+// --- COMPONENT FORM NÂNG CẤP (QUẢN LÝ ẢNH) ---
+const PetForm = ({ initialData, onDataChange, categories }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     onDataChange((prev) => ({ ...prev, [name]: value }));
   };
 
+  // -- Logic xử lý mảng ảnh --
+  const handleAddImageRow = () => {
+    onDataChange((prev) => ({
+      ...prev,
+      images: [
+        ...(prev.images || []),
+        { image_id: null, image_url: "", is_thumbnail: false },
+      ],
+    }));
+  };
+
+  const handleImageChange = (index, field, value) => {
+    const newImages = [...initialData.images];
+    newImages[index] = { ...newImages[index], [field]: value };
+
+    // Nếu set thumbnail = true, bỏ các cái khác
+    if (field === "is_thumbnail" && value === true) {
+      newImages.forEach((img, i) => {
+        if (i !== index) img.is_thumbnail = false;
+      });
+    }
+    onDataChange((prev) => ({ ...prev, images: newImages }));
+  };
+
+  const handleRemoveImage = (index) => {
+    const newImages = initialData.images.filter((_, i) => i !== index);
+    onDataChange((prev) => ({ ...prev, images: newImages }));
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {/* Cột 1: Thông tin cơ bản */}
+      {/* Cột 1: Thông tin chung */}
       <div className="md:col-span-2 space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Tên thú cưng
+            Tên thú cưng <span className="text-red-500">*</span>
           </label>
           <input
+            required
             type="text"
             name="name"
-            value={initialData.name}
+            value={initialData.name || ""}
             onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
+            className="mt-1 p-2 w-full border rounded-md focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
         <div>
@@ -71,23 +114,24 @@ const PetForm = ({ initialData, onDataChange }) => {
           </label>
           <textarea
             name="description"
-            value={initialData.description}
+            value={initialData.description || ""}
             onChange={handleChange}
-            rows={4}
+            rows={3}
             className="mt-1 p-2 w-full border rounded-md"
           ></textarea>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Phân loại (Category)
+              Phân loại
             </label>
             <select
               name="category_id"
-              value={initialData.category_id}
+              value={initialData.category_id || ""}
               onChange={handleChange}
               className="mt-1 p-2 w-full border rounded-md"
             >
+              <option value="">-- Chọn --</option>
               {categories.map((c) => (
                 <option key={c.category_id} value={c.category_id}>
                   {c.name}
@@ -101,7 +145,7 @@ const PetForm = ({ initialData, onDataChange }) => {
             </label>
             <select
               name="status"
-              value={initialData.status}
+              value={initialData.status || "DRAFT"}
               onChange={handleChange}
               className="mt-1 p-2 w-full border rounded-md"
             >
@@ -111,9 +155,92 @@ const PetForm = ({ initialData, onDataChange }) => {
             </select>
           </div>
         </div>
+
+        {/* --- QUẢN LÝ ẢNH (NEW) --- */}
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-bold text-gray-700 flex items-center gap-2">
+              <HiPhotograph /> Quản lý hình ảnh
+            </label>
+            <button
+              type="button"
+              onClick={handleAddImageRow}
+              className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-semibold flex items-center gap-1"
+            >
+              <HiPlus /> Thêm ảnh
+            </button>
+          </div>
+
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+            {(!initialData.images || initialData.images.length === 0) && (
+              <p className="text-xs text-gray-400 italic text-center py-2">
+                Chưa có hình ảnh nào.
+              </p>
+            )}
+
+            {initialData.images?.map((img, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-2 p-2 bg-white rounded border shadow-sm"
+              >
+                {/* Preview Image */}
+                <img
+                  src={
+                    transformGoogleDriveUrl(img.image_url) ||
+                    "https://placehold.co/50?text=?"
+                  }
+                  alt=""
+                  className="w-12 h-12 object-cover rounded border bg-gray-100 flex-shrink-0"
+                  referrerPolicy="no-referrer"
+                  onError={(e) =>
+                    (e.target.src = "https://placehold.co/50?text=Err")
+                  }
+                />
+
+                <div className="flex-1 space-y-1">
+                  <input
+                    type="text"
+                    placeholder="Dán link ảnh (Google Drive, Imgur...)"
+                    value={img.image_url || ""}
+                    onChange={(e) =>
+                      handleImageChange(idx, "image_url", e.target.value)
+                    }
+                    className="w-full p-1 text-sm border rounded focus:outline-none focus:border-blue-500"
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={img.is_thumbnail || false}
+                        onChange={(e) =>
+                          handleImageChange(
+                            idx,
+                            "is_thumbnail",
+                            e.target.checked
+                          )
+                        }
+                        className="rounded text-blue-600"
+                      />
+                      Ảnh đại diện
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleRemoveImage(idx)}
+                  className="text-red-500 hover:bg-red-50 p-1 rounded"
+                  title="Xóa ảnh này"
+                >
+                  <HiTrash />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Cột 2: Chi tiết & Giá */}
+      {/* Cột 2: Giá & Chỉ số */}
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -122,14 +249,14 @@ const PetForm = ({ initialData, onDataChange }) => {
           <input
             type="number"
             name="price"
-            value={initialData.price}
+            value={initialData.price || 0}
             onChange={handleChange}
             className="mt-1 p-2 w-full border rounded-md"
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Giá giảm giá (VNĐ)
+            Giá giảm
           </label>
           <input
             type="number"
@@ -141,110 +268,107 @@ const PetForm = ({ initialData, onDataChange }) => {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Số lượng tồn kho
+            Tồn kho
           </label>
           <input
             type="number"
             name="stock_quantity"
-            value={initialData.stock_quantity}
+            value={initialData.stock_quantity || 0}
             onChange={handleChange}
             className="mt-1 p-2 w-full border rounded-md"
           />
         </div>
-      </div>
 
-      {/* Hàng 2: Chi tiết vật lý & Sức khỏe */}
-      <div className="md:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Tuổi
-          </label>
-          <input
-            type="number"
-            name="age"
-            value={initialData.age}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          />
+        <hr className="border-gray-200 my-2" />
+
+        {/* Chi tiết vật lý rút gọn */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-gray-600">Tuổi (tháng)</label>
+            <input
+              type="number"
+              name="age"
+              value={initialData.age || 0}
+              onChange={handleChange}
+              className="mt-1 p-1.5 w-full border rounded text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600">Giới tính</label>
+            <select
+              name="gender"
+              value={initialData.gender || "MALE"}
+              onChange={handleChange}
+              className="mt-1 p-1.5 w-full border rounded text-sm"
+            >
+              <option value="MALE">Đực</option>
+              <option value="FEMALE">Cái</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-600">Cân nặng (kg)</label>
+            <input
+              type="number"
+              name="weight"
+              value={initialData.weight || 0}
+              onChange={handleChange}
+              className="mt-1 p-1.5 w-full border rounded text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600">Cao (cm)</label>
+            <input
+              type="number"
+              name="height"
+              value={initialData.height || 0}
+              onChange={handleChange}
+              className="mt-1 p-1.5 w-full border rounded text-sm"
+            />
+          </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Giới tính
-          </label>
-          <select
-            name="gender"
-            value={initialData.gender}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          >
-            <option value="MALE">Đực</option>
-            <option value="FEMALE">Cái</option>
-            <option value="UNKNOWN">Chưa rõ</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Màu sắc
-          </label>
+          <label className="text-xs text-gray-600">Màu sắc</label>
           <input
             type="text"
             name="color"
-            value={initialData.color}
+            value={initialData.color || ""}
             onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
+            className="mt-1 p-1.5 w-full border rounded text-sm"
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Loại lông
-          </label>
-          <select
-            name="fur_type"
-            value={initialData.fur_type}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          >
-            <option value="SHORT">Ngắn</option>
-            <option value="LONG">Dài</option>
-            <option value="CURLY">Xoăn</option>
-            <option value="NONE">Không lông</option>
-            <option value="OTHER">Khác</option>
-          </select>
         </div>
       </div>
     </div>
   );
 };
 
-// ===================================================================
-// Component Modal Thêm Thú Cưng (AddPetModal)
-// ===================================================================
-const AddPetModal = ({ onClose }) => {
+// --- MODALS ---
+const AddPetModal = ({ onClose, categories, onSave }) => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     category_id: categories[0]?.category_id || "",
     age: 1,
-    gender: "UNKNOWN",
+    gender: "MALE",
     price: 0,
     discount_price: null,
     stock_quantity: 1,
     status: "DRAFT",
     weight: 1,
     height: 20,
-    color: "Trắng",
+    color: "",
     fur_type: "SHORT",
     health_status: "Tốt",
+    images: [], // Mảng ảnh rỗng ban đầu
   });
 
-  const handleSave = () => {
-    console.log("Adding new pet:", formData);
-    onClose(); // Đóng modal sau khi lưu
+  const handleSave = async () => {
+    const success = await onSave(formData);
+    if (success) onClose();
   };
 
   return (
     <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
@@ -256,84 +380,56 @@ const AddPetModal = ({ onClose }) => {
       >
         <div className="flex justify-between items-center border-b pb-3 mb-4">
           <h2 className="text-xl font-bold text-gray-800">Thêm thú cưng mới</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-800"
-          >
+          <button onClick={onClose}>
             <HiX size={24} />
           </button>
         </div>
-
-        {/* Form chung */}
-        <PetForm initialData={formData} onDataChange={setFormData} />
-
-        {/* Nút bấm */}
-        <div className="flex justify-end items-center mt-6 pt-4 border-t">
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-            >
-              Hủy
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Thêm thú cưng
-            </button>
-          </div>
+        <PetForm
+          initialData={formData}
+          onDataChange={setFormData}
+          categories={categories}
+        />
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md"
+          >
+            Lưu Thú Cưng
+          </button>
         </div>
       </motion.div>
     </motion.div>
   );
 };
 
-// ===================================================================
-// Component Modal Chỉnh Sửa Thú Cưng (EditPetModal)
-// ===================================================================
-const EditPetModal = ({ pet, onClose }) => {
-  // Hooks must be called unconditionally
-  const [formData, setFormData] = React.useState(
-    pet || {
-      name: "",
-      description: "",
-      category_id: categories[0]?.category_id || "",
-      age: 1,
-      gender: "UNKNOWN",
-      price: 0,
-      discount_price: null,
-      stock_quantity: 1,
-      status: "DRAFT",
-      weight: 1,
-      height: 20,
-      color: "Trắng",
-      fur_type: "SHORT",
-      health_status: "Tốt",
-    }
-  );
+const EditPetModal = ({ pet, onClose, categories, onSave, onDelete }) => {
+  const [formData, setFormData] = useState(pet);
 
-  React.useEffect(() => {
-    setFormData(pet || {});
-  }, [pet]);
-
-  if (!pet) return null;
-
-  const handleSave = () => {
-    console.log("Saving pet:", formData);
-    onClose();
+  const handleSave = async () => {
+    const success = await onSave(formData);
+    if (success) onClose();
   };
 
-  const handleDelete = () => {
-    if (window.confirm(`Bạn có chắc muốn xóa thú cưng ${pet.name}?`)) {
-      console.log("Deleting pet:", pet.pet_id);
-      onClose();
+  const handleDelete = async () => {
+    if (
+      window.confirm(
+        `CẢNH BÁO: Bạn có chắc chắn muốn xóa "${pet.name}" không? Hành động này không thể hoàn tác.`
+      )
+    ) {
+      const success = await onDelete(pet.pet_id);
+      if (success) onClose();
     }
   };
 
   return (
     <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
@@ -345,39 +441,36 @@ const EditPetModal = ({ pet, onClose }) => {
       >
         <div className="flex justify-between items-center border-b pb-3 mb-4">
           <h2 className="text-xl font-bold text-gray-800">
-            Chỉnh sửa thú cưng: {formData.name}
+            Chỉnh sửa: {formData.name}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-800"
-          >
+          <button onClick={onClose}>
             <HiX size={24} />
           </button>
         </div>
-
-        {/* Form chung */}
-        <PetForm initialData={formData} onDataChange={setFormData} />
-
-        {/* Nút bấm */}
-        <div className="flex justify-between items-center mt-6 pt-4 border-t">
+        <PetForm
+          initialData={formData}
+          onDataChange={setFormData}
+          categories={categories}
+        />
+        <div className="flex justify-between mt-6 pt-4 border-t">
           <button
             onClick={handleDelete}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100"
           >
-            <HiTrash /> Xóa
+            <HiTrash /> Xóa Pet
           </button>
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+              className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
             >
               Hủy
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md"
             >
-              Lưu thay đổi
+              Cập nhật
             </button>
           </div>
         </div>
@@ -386,185 +479,20 @@ const EditPetModal = ({ pet, onClose }) => {
   );
 };
 
-// ===================================================================
-// Component Modal Bộ Lọc (FilterModal)
-// ===================================================================
-const FilterModal = ({ onClose, filters, onApply }) => {
-  const [localFilters, setLocalFilters] = useState(filters);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setLocalFilters((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleApply = () => {
-    onApply(localFilters);
-    onClose();
-  };
-
-  const handleClear = () => {
-    const clearedFilters = { category_id: "", status: "", price: "" };
-    setLocalFilters(clearedFilters);
-    onApply(clearedFilters);
-    onClose();
-  };
-
-  return (
-    <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      variants={backdropVariants}
-      initial="hidden"
-      animate="visible"
-      exit="hidden"
-    >
-      <motion.div
-        className="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full"
-        variants={modalVariants}
-      >
-        <div className="flex justify-between items-center border-b pb-3 mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Bộ lọc thú cưng</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-800"
-          >
-            <HiX size={24} />
-          </button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Phân loại
-            </label>
-            <select
-              name="category_id"
-              value={localFilters.category_id}
-              onChange={handleChange}
-              className="mt-1 p-2 w-full border rounded-md"
-            >
-              <option value="">Tất cả phân loại</option>
-              {categories.map((c) => (
-                <option key={c.category_id} value={c.category_id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Trạng thái
-            </label>
-            <select
-              name="status"
-              value={localFilters.status}
-              onChange={handleChange}
-              className="mt-1 p-2 w-full border rounded-md"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="AVAILABLE">Sẵn sàng</option>
-              <option value="SOLD">Đã bán</option>
-              <option value="DRAFT">Nháp</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Khoảng giá
-            </label>
-            <select
-              name="price"
-              value={localFilters.price}
-              onChange={handleChange}
-              className="mt-1 p-2 w-full border rounded-md"
-            >
-              <option value="">Tất cả giá</option>
-              <option value="under-5m">Dưới 5,000,000đ</option>
-              <option value="5m-10m">5,000,000đ - 10,000,000đ</option>
-              <option value="over-10m">Trên 10,000,000đ</option>
-            </select>
-          </div>
-        </div>
-        <div className="flex justify-between mt-6 pt-4 border-t">
-          <button
-            onClick={handleClear}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-          >
-            Xóa bộ lọc
-          </button>
-          <button
-            onClick={handleApply}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Áp dụng
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// ===================================================================
-// Component Modal Email (EmailModal) - NÂNG CẤP
-// ===================================================================
-const EmailModal = ({ onClose, petsToSend, allUsers }) => {
-  const [emailContent, setEmailContent] = useState("");
-
-  const petNames = petsToSend.map((p) => p.name).join(", ");
-  const userCount = allUsers.length;
-
-  const handleConfirmEmail = () => {
-    if (!emailContent.trim()) return alert("Nhập nội dung email!");
-    alert(`Đã gửi email về "${petNames}" tới ${userCount} khách hàng!`);
-    onClose();
-    setEmailContent("");
-  };
-
-  return (
-    <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      variants={backdropVariants}
-      initial="hidden"
-      animate="visible"
-      exit="hidden"
-    >
-      <motion.div
-        className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full"
-        variants={modalVariants}
-      >
-        <h3 className="text-lg font-bold mb-2">Gửi email quảng bá</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Nội dung email sẽ được gửi tới <strong>{userCount} khách hàng</strong>{" "}
-          về {petsToSend.length} thú cưng.
-        </p>
-        <textarea
-          value={emailContent}
-          onChange={(e) => setEmailContent(e.target.value)}
-          className="w-full p-3 border rounded mb-4"
-          rows={5}
-          placeholder={`Nội dung quảng bá cho: ${petNames}...`}
-        ></textarea>
-        <div className="flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handleConfirmEmail}
-            className="flex-1 px-4 py-2 bg-green-600 text-white rounded"
-          >
-            Gửi
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// ===================================================================
-// Component Chính: Quản Lý Thú Cưng (PetsManagement)
-// ===================================================================
+// --- MAIN SCREEN ---
 export default function PetsManagement() {
-  const [selectedPetIds, setSelectedPetIds] = useState([]); // Đổi tên state
+  const {
+    pets,
+    categories,
+    loading,
+    totalPages,
+    totalElements,
+    fetchPets,
+    savePet,
+    deletePet,
+  } = usePetManagement();
+
+  // States
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
@@ -573,127 +501,38 @@ export default function PetsManagement() {
     price: "",
   });
   const [expandedItems, setExpandedItems] = useState({});
+
+  // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [currentPet, setCurrentPet] = useState(null);
 
-  const perPage = 10;
+  // 1. Gọi API khi Page/Search/Filter thay đổi
+  useEffect(() => {
+    // Timeout để debounce search (tránh gọi API liên tục khi gõ)
+    const timer = setTimeout(() => {
+      fetchPets(page, searchQuery, filters);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [page, searchQuery, filters, fetchPets]);
 
-  // Lọc dữ liệu
-  const filteredPets = allPets.filter((p) => {
-    const priceVal = p.discount_price || p.price;
-    const priceFilter =
-      !filters.price ||
-      (filters.price === "under-5m" && priceVal < 5000000) ||
-      (filters.price === "5m-10m" &&
-        priceVal >= 5000000 &&
-        priceVal <= 10000000) ||
-      (filters.price === "over-10m" && priceVal > 10000000);
-    const searchFilter = p.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const categoryFilter =
-      !filters.category_id || p.category_id === filters.category_id;
-    const statusFilter = !filters.status || p.status === filters.status;
-    return searchFilter && categoryFilter && statusFilter && priceFilter;
-  });
-
-  const totalPages = Math.ceil(filteredPets.length / perPage);
-  const paginatedData = filteredPets.slice(
-    (page - 1) * perPage,
-    page * perPage
-  );
-
-  // Stats
-  const stats = [
-    {
-      title: "Tổng kho",
-      value: allPets.reduce((sum, p) => sum + p.stock_quantity, 0),
-      icon: HiOutlineCube,
-      color: "blue",
-    },
-    {
-      title: "Sẵn sàng bán",
-      value: allPets.filter((p) => p.status === "AVAILABLE").length,
-      icon: HiOutlineCheckCircle,
-      color: "green",
-    },
-    {
-      title: "Đã bán",
-      value: allPets.filter((p) => p.status === "SOLD").length,
-      icon: HiOutlineXCircle,
-      color: "red",
-    },
-    {
-      title: "Đang nháp",
-      value: allPets.filter((p) => p.status === "DRAFT").length,
-      icon: HiOutlineClock,
-      color: "yellow",
-    },
-  ];
-
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedPetIds(paginatedData.map((p) => p.pet_id));
-    } else {
-      setSelectedPetIds([]);
-    }
-  };
-
-  const toggleExpand = (id) => {
+  const toggleExpand = (id) =>
     setExpandedItems((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
   const handleOpenEditModal = (pet) => {
     setCurrentPet(pet);
     setIsEditModalOpen(true);
   };
-
-  const handleSendEmail = () => {
-    if (selectedPetIds.length === 0)
-      return alert("Bạn phải chọn ít nhất 1 thú cưng để gửi email quảng bá!");
-    setIsEmailModalOpen(true);
-  };
-
-  const handleCloseEmail = () => {
-    setIsEmailModalOpen(false);
-    setSelectedPetIds([]); // Xóa chọn sau khi gửi
-  };
-
-  // Hàm helper
-  const StatusPill = ({ status }) => {
-    const styles = {
-      AVAILABLE: "bg-green-100 text-green-800",
-      SOLD: "bg-red-100 text-red-800",
-      DRAFT: "bg-yellow-100 text-yellow-800",
-    };
-    const text = { AVAILABLE: "Sẵn sàng", SOLD: "Đã bán", DRAFT: "Nháp" };
-    return (
-      <span
-        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-          styles[status] || "bg-gray-100 text-gray-800"
-        }`}
-      >
-        {text[status] || status}
-      </span>
-    );
-  };
-
-  const formatCurrency = (amount) =>
+  const formatCurrency = (val) =>
     new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
-    }).format(amount);
-
-  // Lấy danh sách pet đầy đủ cho modal email
-  const selectedPetsData = allPets.filter((p) =>
-    selectedPetIds.includes(p.pet_id)
-  );
+    }).format(val);
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-6">
+      {/* Thêm Toast Container để hiển thị thông báo */}
+      <ToastContainer position="top-right" autoClose={3000} />
+
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">
           Quản Lý Thú Cưng
@@ -701,304 +540,278 @@ export default function PetsManagement() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {stats.map((s, i) => (
-            <div
-              key={i}
-              className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex items-center gap-4"
-            >
-              <div
-                className={`p-3 rounded-full bg-${s.color}-100 text-${s.color}-600`}
-              >
-                <s.icon size={24} />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">{s.title}</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {s.value.toLocaleString()}
-                </p>
-              </div>
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex items-center gap-4">
+            <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+              <HiOutlineCube size={24} />
             </div>
-          ))}
-        </div>
-
-        {/* ====== LAYOUT ĐÃ SỬA ====== */}
-        {/* Hàng 1: Tìm kiếm & Lọc (Căn phải) - ĐÃ HOÁN ĐỔI */}
-        <div className="flex justify-end items-center mb-4 gap-2">
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <HiSearch className="h-5 w-5 text-gray-400" />
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm theo tên thú cưng..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full md:w-64 pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div>
+              <p className="text-sm font-medium text-gray-500">Tổng sản phẩm</p>
+              <p className="text-2xl font-bold text-gray-800">
+                {totalElements}
+              </p>
+            </div>
           </div>
-          <button
-            onClick={() => setIsFilterModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border rounded-lg hover:bg-gray-50 shadow-sm"
-          >
-            <HiFilter />
-            <span className="hidden md:inline">Bộ lọc</span>
-          </button>
         </div>
 
-        {/* Hàng 2: Nút chức năng (Căn trái) - ĐÃ HOÁN ĐỔI */}
-        <div className="flex justify-start items-center mb-4 gap-2">
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
-          >
-            <HiPlus /> Thêm Mới
-          </button>
-          <button
-            onClick={handleSendEmail}
-            disabled={selectedPetIds.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 shadow-sm"
-          >
-            <HiMail /> Gửi Email ({selectedPetIds.length})
-          </button>
+        {/* Controls */}
+        <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all"
+            >
+              <HiPlus /> Thêm Mới
+            </button>
+          </div>
+          <div className="flex gap-2 w-full md:w-auto">
+            <div className="relative w-full md:w-64">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                <HiSearch className="text-gray-400" />
+              </span>
+              <input
+                type="text"
+                placeholder="Tìm tên thú cưng..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+            {/* Bộ lọc đơn giản ngay trên thanh công cụ */}
+            <select
+              className="border rounded-lg px-3 py-2 text-sm focus:outline-none"
+              value={filters.category_id}
+              onChange={(e) => {
+                setFilters({ ...filters, category_id: e.target.value });
+                setPage(1);
+              }}
+            >
+              <option value="">Tất cả loại</option>
+              {categories.map((c) => (
+                <option key={c.category_id} value={c.category_id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        {/* ====== KẾT THÚC LAYOUT ĐÃ SỬA ====== */}
 
         {/* Table */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden relative min-h-[400px]">
+          {loading && (
+            <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          )}
+
           <table className="w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left">
-                  <input type="checkbox" onChange={handleSelectAll} />
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">
                   Thú cưng
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">
                   Tồn kho
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">
                   Giá
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">
                   Trạng thái
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thao Tác
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                  Thao tác
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {paginatedData.map((item) => (
-                <React.Fragment key={item.pet_id}>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedPetIds.includes(item.pet_id)}
-                        onChange={() =>
-                          setSelectedPetIds((prev) =>
-                            prev.includes(item.pet_id)
-                              ? prev.filter((id) => id !== item.pet_id)
-                              : [...prev, item.pet_id]
-                          )
-                        }
-                      />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={
-                            item.images.find((img) => img.is_thumbnail)
-                              ?.image_url
-                          }
-                          alt={item.name}
-                          className="w-12 h-12 object-cover rounded-md border"
-                        />
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800">
-                            {item.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {item.category_name}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {item.stock_quantity}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      {item.discount_price ? (
-                        <div>
-                          <p className="font-semibold text-red-600">
-                            {formatCurrency(item.discount_price)}
-                          </p>
-                          <p className="line-through text-gray-500 text-xs">
-                            {formatCurrency(item.price)}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="font-semibold text-gray-700">
-                          {formatCurrency(item.price)}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusPill status={item.status} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        {/* ====== NÚT ĐÃ SỬA HOVER ====== */}
-                        <button
-                          onClick={() => handleOpenEditModal(item)}
-                          className="p-1.5 rounded-md text-blue-600 hover:bg-blue-100 hover:text-blue-800"
-                          title="Sửa"
-                        >
-                          <HiPencil size={20} />
-                        </button>
-                        <button
-                          onClick={() => toggleExpand(item.pet_id)}
-                          className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                          title="Xem chi tiết"
-                        >
-                          {expandedItems[item.pet_id] ? (
-                            <HiChevronUp size={20} />
-                          ) : (
-                            <HiChevronDown size={20} />
-                          )}
-                        </button>
-                        {/* ====== KẾT THÚC SỬA HOVER ====== */}
-                      </div>
-                    </td>
-                  </tr>
-
-                  {/* Hàng mở rộng chi tiết - (Style viền xanh) */}
-                  {expandedItems[item.pet_id] && (
-                    <tr>
-                      <td
-                        colSpan="6"
-                        className="p-4 bg-blue-50 border-l-4 border-blue-500"
-                      >
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="md:col-span-1">
-                            <p className="text-sm font-semibold mb-2">
-                              Hình ảnh
+              {pets.length > 0 ? (
+                pets.map((item) => (
+                  <React.Fragment key={item.pet_id}>
+                    <tr className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={getPetThumbnail(item.images)}
+                            alt={item.name}
+                            referrerPolicy="no-referrer"
+                            className="w-12 h-12 object-cover rounded-md border bg-gray-50"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src =
+                                "https://placehold.co/150x150?text=Err";
+                            }}
+                          />
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">
+                              {item.name}
                             </p>
-                            <div className="grid grid-cols-3 gap-2">
-                              {item.images.map((img) => (
-                                <img
-                                  key={img.image_id}
-                                  src={img.image_url}
-                                  alt="Pet"
-                                  className="w-full h-24 object-cover rounded-md border shadow-sm"
-                                />
-                              ))}
-                            </div>
-                          </div>
-                          <div className="md:col-span-2">
-                            <p className="text-sm font-semibold mb-2">
-                              Chi tiết thú cưng
-                            </p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-                              <p>
-                                <strong className="text-gray-600">
-                                  Màu sắc:
-                                </strong>{" "}
-                                {item.color}
-                              </p>
-                              <p>
-                                <strong className="text-gray-600">
-                                  Giới tính:
-                                </strong>{" "}
-                                {item.gender}
-                              </p>
-                              <p>
-                                <strong className="text-gray-600">Tuổi:</strong>{" "}
-                                {item.age}
-                              </p>
-                              <p>
-                                <strong className="text-gray-600">
-                                  Cân nặng:
-                                </strong>{" "}
-                                {item.weight} kg
-                              </p>
-                              <p>
-                                <strong className="text-gray-600">
-                                  Chiều cao:
-                                </strong>{" "}
-                                {item.height} cm
-                              </p>
-                              <p>
-                                <strong className="text-gray-600">Lông:</strong>{" "}
-                                {item.fur_type}
-                              </p>
-                            </div>
-                            <p className="mt-2 text-sm">
-                              <strong className="text-gray-600">Mô tả:</strong>{" "}
-                              {item.description}
+                            <p className="text-xs text-gray-500">
+                              {item.category_name}
                             </p>
                           </div>
                         </div>
                       </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-700">
+                        {item.stock_quantity}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-bold text-blue-600">
+                        {formatCurrency(item.price)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                            item.status === "AVAILABLE"
+                              ? "bg-green-100 text-green-800"
+                              : item.status === "SOLD"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 flex gap-2">
+                        <button
+                          onClick={() => handleOpenEditModal(item)}
+                          className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors"
+                        >
+                          <HiPencil size={18} />
+                        </button>
+                        <button
+                          onClick={() => toggleExpand(item.pet_id)}
+                          className="p-2 text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors"
+                        >
+                          {expandedItems[item.pet_id] ? (
+                            <HiChevronUp size={18} />
+                          ) : (
+                            <HiChevronDown size={18} />
+                          )}
+                        </button>
+                      </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
+
+                    {/* Expanded Detail */}
+                    {expandedItems[item.pet_id] && (
+                      <tr className="bg-gray-50">
+                        <td colSpan="6" className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                            {/* List Ảnh */}
+                            <div className="md:col-span-1">
+                              <p className="font-bold mb-2">
+                                Hình ảnh ({item.images?.length})
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {item.images?.map((img, idx) => (
+                                  <img
+                                    key={idx}
+                                    src={transformGoogleDriveUrl(img.image_url)}
+                                    referrerPolicy="no-referrer"
+                                    className="w-20 h-20 object-cover rounded border bg-white"
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            <div className="md:col-span-3 grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-gray-500">Màu sắc</p>
+                                <p className="font-medium">{item.color}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Giới tính</p>
+                                <p className="font-medium">{item.gender}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Cân nặng</p>
+                                <p className="font-medium">{item.weight} kg</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Mô tả</p>
+                                <p className="font-medium text-gray-700 line-clamp-2">
+                                  {item.description}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="text-center py-12 text-gray-500">
+                    Không tìm thấy dữ liệu phù hợp.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Pagination */}
-        <div className="flex justify-center items-center gap-4 mt-4">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="p-2 rounded border disabled:opacity-50"
-          >
-            <FaChevronLeft />
-          </button>
-          <span>
-            Trang {page} / {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="p-2 rounded border disabled:opacity-50"
-          >
-            <FaChevronRight />
-          </button>
-        </div>
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-4 mt-6">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 bg-gray-50"
+            >
+              <FaChevronLeft />
+            </button>
+            <span className="text-sm font-medium text-gray-600">
+              Trang {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 bg-gray-50"
+            >
+              <FaChevronRight />
+            </button>
+          </div>
+        )}
 
-        {/* Khu vực render Modal (với AnimatePresence) */}
+        {/* Modals */}
         <AnimatePresence>
           {isAddModalOpen && (
-            <AddPetModal onClose={() => setIsAddModalOpen(false)} />
+            <AddPetModal
+              onClose={() => setIsAddModalOpen(false)}
+              categories={categories}
+              onSave={async (data) => {
+                const success = await savePet(data);
+                if (success) {
+                  fetchPets(1, searchQuery, filters); // Load lại trang 1 sau khi thêm
+                  return true;
+                }
+                return false;
+              }}
+            />
           )}
 
           {isEditModalOpen && currentPet && (
             <EditPetModal
               pet={currentPet}
               onClose={() => setIsEditModalOpen(false)}
-            />
-          )}
-
-          {isFilterModalOpen && (
-            <FilterModal
-              onClose={() => setIsFilterModalOpen(false)}
-              filters={filters}
-              onApply={(newFilters) => {
-                setFilters(newFilters);
-                setPage(1);
+              categories={categories}
+              onSave={async (data) => {
+                const success = await savePet(data);
+                if (success) {
+                  fetchPets(page, searchQuery, filters); // Load lại trang hiện tại
+                  return true;
+                }
+                return false;
               }}
-            />
-          )}
-
-          {isEmailModalOpen && (
-            <EmailModal
-              onClose={handleCloseEmail}
-              petsToSend={selectedPetsData} // Truyền dữ liệu pet đã chọn
-              allUsers={fakeUsers} // Truyền danh sách user
+              onDelete={async (id) => {
+                const success = await deletePet(id);
+                if (success) {
+                  fetchPets(page, searchQuery, filters);
+                  return true;
+                }
+                return false;
+              }}
             />
           )}
         </AnimatePresence>
