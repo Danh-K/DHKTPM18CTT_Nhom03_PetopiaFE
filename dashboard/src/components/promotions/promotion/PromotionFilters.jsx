@@ -23,9 +23,7 @@ export default function PromotionFilters({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={`w-full pl-10 pr-4 py-2 rounded-lg border ${
-              darkMode
-                ? "bg-gray-700 border-gray-600 text-white"
-                : "bg-white border-gray-200"
+              darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"
             } focus:outline-none focus:ring-2 focus:ring-green-500`}
           />
         </div>
@@ -34,9 +32,7 @@ export default function PromotionFilters({
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
           className={`w-full px-4 py-2 rounded-lg border ${
-            darkMode
-              ? "bg-gray-700 border-gray-600 text-white"
-              : "bg-white border-gray-200"
+            darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"
           } focus:outline-none focus:ring-2 focus:ring-green-500`}
         >
           <option value="all">Danh mục</option>
@@ -51,9 +47,7 @@ export default function PromotionFilters({
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className={`w-full px-4 py-2 rounded-lg border ${
-            darkMode
-              ? "bg-gray-700 border-gray-600 text-white"
-              : "bg-white border-gray-200"
+            darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"
           } focus:outline-none focus:ring-2 focus:ring-green-500`}
         >
           <option value="all">Trạng thái</option>
@@ -66,9 +60,7 @@ export default function PromotionFilters({
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
           className={`w-full px-4 py-2 rounded-lg border ${
-            darkMode
-              ? "bg-gray-700 border-gray-600 text-white"
-              : "bg-white border-gray-200"
+            darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"
           } focus:outline-none focus:ring-2 focus:ring-green-500`}
         >
           <option value="all">Loại</option>
@@ -78,13 +70,7 @@ export default function PromotionFilters({
           <option value="bundle">Gói</option>
         </select>
 
-        <select
-          className={`w-full px-4 py-2 rounded-lg border ${
-            darkMode
-              ? "bg-gray-700 border-gray-600 text-white"
-              : "bg-white border-gray-200"
-          } focus:outline-none focus:ring-2 focus:ring-green-500`}
-        >
+        <select className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"} focus:outline-none focus:ring-2 focus:ring-green-500`}>
           <option>Sắp xếp</option>
           <option>Mới nhất</option>
           <option>Cũ nhất</option>

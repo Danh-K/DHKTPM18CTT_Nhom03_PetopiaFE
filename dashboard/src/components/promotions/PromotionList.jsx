@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchPromotionByCode, fetchPromotions } from "../../store/promotionSlice";
+import { fetchPromotions, searchPromotions, setCurrentPage, setIsSearching, fetchPromotionByCode } from "../../store/promotionSlice";
 import { HiPlus } from "react-icons/hi";
 
 import AddPromotionModal from "./AddPromotionModal";
 import EditPromotionModal from "./EditPromotionModal";
 import ViewPromotionModal from "./ViewPromotionModal";
-
 import PromotionStatsCards from "./promotion/PromotionStatsCards";
 import PromotionFilters from "./promotion/PromotionFilters";
 import PromotionCard from "./promotion/PromotionCard";
@@ -29,123 +28,114 @@ const categories = [
   { id: "C010", name: "Mèo Ragdoll" },
 ];
 
+const ITEMS_PER_PAGE = 9;
+
 export default function PromotionList({ darkMode }) {
   const dispatch = useDispatch();
-  const { list: serverPromotions, selected: selectedPromotion, loading, error } = useSelector((state) => state.promotion);
-  const [promotions, setPromotions] = useState([]);
+  const {
+    list: serverPromotions = [],
+    totalElements = 0,
+    currentPage = 1,
+    loading,
+    error,
+    isSearching = false,
+    selected: selectedPromotion,
+  } = useSelector((state) => state.promotion);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
 
-  const itemsPerPage = 9;
-
   useEffect(() => {
-    dispatch(fetchPromotions({ page: 0, size: 50 }));
+    dispatch(fetchPromotions({ page: 0, size: ITEMS_PER_PAGE }));
+    dispatch(setIsSearching(false));
   }, [dispatch]);
 
   useEffect(() => {
-    if (serverPromotions?.length > 0) {
-      const mapped = serverPromotions.map((p) => ({
-        id: p.promotionId,
-        code: p.code,
-        name: p.code,
-        description: p.description || "",
-        discountType: p.promotionType?.toLowerCase() || "percentage",
-        discountValue: p.discountValue || null,
-        categoryId: p.categoryId || null,
-        categoryName: categories.find((c) => c.id === p.categoryId)?.name || "Tất cả danh mục",
-        startDate: p.startDate,
-        endDate: p.endDate,
-        status: p.status?.toLowerCase() || "active",
-        image: p.imageUrl || "/placeholder.svg",
-        usedCount: p.usedCount || 0,
-        maxUsage: p.maxUsage || null,
-        minOrderAmount: p.minOrderAmount || 0,
-      }));
-      setPromotions(mapped);
-    }
-  }, [serverPromotions]);
+    const timer = setTimeout(() => {
+      const hasFilter =
+        searchTerm.trim() ||
+        categoryFilter !== "all" ||
+        statusFilter !== "all" ||
+        typeFilter !== "all";
 
-  const filteredPromotions = promotions.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-    const matchesType = typeFilter === "all" || p.discountType === typeFilter;
-    const matchesCategory =
-      categoryFilter === "all" ||
-      p.categoryId === categoryFilter ||
-      (categoryFilter === "null" && !p.categoryId);
-    return matchesSearch && matchesStatus && matchesType && matchesCategory;
-  });
+      if (hasFilter) {
+        dispatch(
+          searchPromotions({
+            keyword: searchTerm.trim() || null,
+            categoryId: categoryFilter === "all" ? null : categoryFilter,
+            status: statusFilter === "all" ? null : statusFilter,
+            type: typeFilter === "all" ? null : typeFilter.toUpperCase(),
+            page: 0,
+            size: ITEMS_PER_PAGE,
+          })
+        );
+        dispatch(setCurrentPage(1));
+        dispatch(setIsSearching(true));
+      } else {
+        dispatch(fetchPromotions({ page: 0, size: ITEMS_PER_PAGE }));
+        dispatch(setIsSearching(false));
+      }
+    }, 500);
 
-  const totalPages = Math.ceil(filteredPromotions.length / itemsPerPage);
-  const paginatedPromotions = filteredPromotions.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+    return () => clearTimeout(timer);
+  }, [searchTerm, categoryFilter, statusFilter, typeFilter, dispatch]);
 
-  const handleDelete = (id) => {
-    if (confirm("Bạn có chắc muốn xóa khuyến mãi này?")) {
-      setPromotions((prev) => prev.filter((p) => p.id !== id));
-    }
-  };
+  const promotions = serverPromotions.map((p) => ({
+    id: p.promotionId,
+    code: p.code,
+    name: p.code,
+    description: p.description || "",
+    discountType: p.promotionType?.toLowerCase() || "discount",
+    discountValue: p.discountValue || null,
+    categoryId: p.categoryId || null,
+    categoryName:
+      categories.find((c) => c.id === p.categoryId)?.name || "Tất cả danh mục",
+    startDate: p.startDate,
+    endDate: p.endDate,
+    status: p.status?.toLowerCase() || "active",
+    image: p.imageUrl || "/placeholder.svg",
+    usedCount: p.usedCount || 0,
+    maxUsage: p.maxUsage || null,
+    minOrderAmount: p.minOrderAmount || 0,
+  }));
 
-  const handleEdit = (p) => {
-    // setSelectedPromotion(p);
-    setShowEditModal(true);
-  };
+  const totalItems = totalElements;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
-  const handleView = (p) => {
-    dispatch(fetchPromotionByCode(p.code));
-    setShowViewModal(true);
-  };
-
-  const handleDuplicate = (p) => {
-    setPromotions((prev) => [
-      ...prev,
-      { ...p, id: Date.now(), name: `${p.name} (Copy)` },
-    ]);
-  };
-
-  const handleToggleStatus = (id) => {
-    setPromotions((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, status: p.status === "active" ? "inactive" : "active" }
-          : p
-      )
-    );
-  };
-
-  const handleAddPromotion = (newPromo) => {
-    const categoryName = categories.find((c) => c.id === newPromo.categoryId)?.name || "Tất cả danh mục";
-    setPromotions((prev) => [...prev, { ...newPromo, id: Date.now(), categoryName }]);
-    setShowAddModal(false);
-  };
-
-  const handleSaveEdit = (updated) => {
-    setPromotions((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-    setShowEditModal(false);
-  };
-
+  // Stats
   const stats = {
     active: promotions.filter((p) => p.status === "active").length,
-    total: promotions.length,
+    total: totalItems,
     remainingUses: promotions
-      .filter(p => p.maxUsage)
-      .reduce((total, p) => {
-        const used = p.usedCount || 0;
-        const remaining = p.maxUsage - used;
-        return total + (remaining > 0 ? remaining : 0);
-      }, 0),
+      .filter((p) => p.maxUsage)
+      .reduce((acc, p) => acc + Math.max(0, p.maxUsage - (p.usedCount || 0)), 0),
+  };
+
+  // Đổi trang
+  const handlePageChange = (page) => {
+    dispatch(setCurrentPage(page));
+
+    const payload = { page: page - 1, size: ITEMS_PER_PAGE };
+
+    if (isSearching) {
+      dispatch(
+        searchPromotions({
+          ...payload,
+          keyword: searchTerm.trim() || null,
+          categoryId: categoryFilter === "all" ? null : categoryFilter,
+          status: statusFilter === "all" ? null : statusFilter,
+          type: typeFilter === "all" ? null : typeFilter.toUpperCase(),
+        })
+      );
+    } else {
+      dispatch(fetchPromotions(payload));
+    }
   };
 
   if (loading) {
@@ -162,13 +152,15 @@ export default function PromotionList({ darkMode }) {
     );
   }
 
-  if (error) return <div className="text-red-500 text-center py-20">{error}</div>;
+  if (error) {
+    return <div className="text-red-500 text-center py-20 text-xl">{error}</div>;
+  }
 
   return (
     <div className="space-y-6">
       <PromotionStatsCards darkMode={darkMode} {...stats} />
 
-      <div className={`rounded-xl shadow-lg ${darkMode ? "bg-gray-800" : "bg-white"}`}>
+      <div className={`rounded-xl shadow-lg ${darkMode ? "bg-gray-800" : "bg-white"} overflow-hidden`}>
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h2 className="text-2xl font-bold text-[#7b4f35]">Quản lý Khuyến mãi</h2>
@@ -194,42 +186,74 @@ export default function PromotionList({ darkMode }) {
           categories={categories}
         />
 
-        {/* Danh sách card */}
+        {/* Danh sách khuyến mãi */}
         <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {paginatedPromotions.map((p) => (
-              <PromotionCard
-                key={p.id}
-                promotion={p}
-                darkMode={darkMode}
-                onView={handleView}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onDuplicate={handleDuplicate}
-                onToggleStatus={handleToggleStatus}
-                onImageClick={(promo) => setLightboxImage({ image: promo.image, alt: promo.name })}
-              />
-            ))}
-          </div>
+          {promotions.length === 0 ? (
+            <div className="text-center py-16 text-gray-500 text-lg">
+              Không tìm thấy khuyến mãi nào
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {promotions.map((p) => (
+                <PromotionCard
+                  key={p.id}
+                  promotion={p}
+                  darkMode={darkMode}
+                  onView={() => {
+                    dispatch(fetchPromotionByCode(p.code));
+                    setShowViewModal(true);
+                  }}
+                  onEdit={() => setShowEditModal(true)}
+                  onDelete={() => {}}
+                  onDuplicate={() => {}}
+                  onToggleStatus={() => {}}
+                  onImageClick={(promo) =>
+                    setLightboxImage({ image: promo.image, alt: promo.name })
+                  }
+                />
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Pagination */}
-        <PromotionPagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          setCurrentPage={setCurrentPage}
-          totalItems={filteredPromotions.length}
-        />
+        {totalPages > 1 && (
+          <div className="px-6 pb-6">
+            <PromotionPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              setCurrentPage={handlePageChange}
+              totalItems={totalItems}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Modals & Lightbox */}
-      {lightboxImage && <ImageLightbox {...lightboxImage} onClose={() => setLightboxImage(null)} />}
-      {showAddModal && <AddPromotionModal darkMode={darkMode} onClose={() => setShowAddModal(false)} onSave={handleAddPromotion} />}
+      {lightboxImage && (
+        <ImageLightbox {...lightboxImage} onClose={() => setLightboxImage(null)} />
+      )}
+      {showAddModal && (
+        <AddPromotionModal
+          darkMode={darkMode}
+          onClose={() => setShowAddModal(false)}
+          onSave={() => {
+            setShowAddModal(false);
+            dispatch(fetchPromotions({ page: 0, size: ITEMS_PER_PAGE }));
+          }}
+        />
+      )}
       {showEditModal && selectedPromotion && (
-        <EditPromotionModal darkMode={darkMode} promotion={selectedPromotion} onClose={() => setShowEditModal(false)} onSave={handleSaveEdit} />
+        <EditPromotionModal
+          darkMode={darkMode}
+          promotion={selectedPromotion}
+          onClose={() => setShowEditModal(false)}
+        />
       )}
       {showViewModal && selectedPromotion && (
-        <ViewPromotionModal darkMode={darkMode} promotion={selectedPromotion} onClose={() => setShowViewModal(false)} />
+        <ViewPromotionModal
+          darkMode={darkMode}
+          promotion={selectedPromotion}
+          onClose={() => setShowViewModal(false)}
+        />
       )}
     </div>
   );

@@ -25,19 +25,34 @@ export const fetchPromotionByCode = createAsyncThunk("promotion/fetchByCode", as
   }
 );
 
+export const searchPromotions = createAsyncThunk(
+  "promotion/search",
+  async (filters, { rejectWithValue }) => {
+    try {
+      const data = await promotionService.search(filters);
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Lỗi tìm kiếm");
+    }
+  }
+);
+
 const promotionSlice = createSlice({
   name: "promotion",
   initialState: {
     list: [],
     selected: null,
     totalElements: 0,
-    currentPage: 0,
+    currentPage: 1,
     size: 9,
     loading: false,
     error: null,
+    isSearching: false,
   },
   reducers: {
     clearError: (state) => { state.error = null; },
+    setCurrentPage: (state, action) => { state.currentPage = action.payload; },
+    setIsSearching: (state, action) => { state.isSearching = action.payload; },
   },
   extraReducers: (builder) => {
     builder
@@ -49,8 +64,9 @@ const promotionSlice = createSlice({
         state.loading = false;
         state.list = action.payload.content || [];
         state.totalElements = action.payload.totalElements || 0;
-        state.currentPage = action.payload.page || 0;
+        state.currentPage = (action.payload.page ?? 0) + 1;
         state.size = action.payload.size || 9;
+        state.isSearching = false;
       })
       .addCase(fetchPromotions.rejected, (state, action) => {
         state.loading = false;
@@ -67,9 +83,19 @@ const promotionSlice = createSlice({
       .addCase(fetchPromotionByCode.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+      .addCase(searchPromotions.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(searchPromotions.fulfilled, (state, action) => {
+        state.loading = false;
+        state.list = action.payload.content || [];
+        state.totalElements = action.payload.totalElements || 0;
+        state.currentPage = (action.payload.page ?? 0) + 1;
+        state.size = action.payload.size || 9;
+        state.isSearching = true;
+      })
+      .addCase(searchPromotions.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
   },
 });
 
-export const { clearError } = promotionSlice.actions;
+export const { clearError, setCurrentPage, setIsSearching } = promotionSlice.actions;
 export default promotionSlice.reducer;
