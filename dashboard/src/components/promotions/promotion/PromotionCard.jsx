@@ -7,7 +7,6 @@ export default function PromotionCard({
   onEdit,
   onDelete,
   onDuplicate,
-  onToggleStatus,
   onImageClick,
 }) {
   return (
@@ -44,23 +43,19 @@ export default function PromotionCard({
 
         <div className="absolute top-3 right-3">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleStatus(promotion.id);
-            }}
             className={`px-3 py-1 text-xs font-semibold rounded-full transition-all ${
               promotion.status === "active"
                 ? "bg-green-500 hover:bg-green-600 text-white"
-                : promotion.status === "expired"
+                : promotion.status === "inactive"
                 ? "bg-red-500 text-white cursor-not-allowed"
                 : "bg-gray-500 hover:bg-gray-600 text-white"
             }`}
-            disabled={promotion.status === "expired"}
+            disabled={promotion.status === "inactive"}
           >
             {promotion.status === "active"
               ? "Hoạt động"
-              : promotion.status === "expired"
-              ? "Hết hạn"
+              : promotion.status === "inactive"
+              ? "Tạm dừng"
               : "Tạm dừng"}
           </button>
         </div>
@@ -105,13 +100,15 @@ export default function PromotionCard({
           >
             <HiPencil className="h-5 w-5" />
           </button>
-          <button
-            onClick={() => onDelete(promotion.id)}
-            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-            title="Xóa"
-          >
-            <HiTrash className="h-5 w-5" />
-          </button>
+          {promotion.status !== "inactive" && (
+            <button
+              onClick={() => onDelete(promotion.id)}
+              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+              title="Vô hiệu hóa khuyến mãi"
+            >
+              <HiTrash className="h-5 w-5" />
+            </button>
+          )}
         </div>
       </div>
     </div>

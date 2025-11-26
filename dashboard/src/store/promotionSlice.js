@@ -37,6 +37,15 @@ export const searchPromotions = createAsyncThunk(
   }
 );
 
+export const inactivePromotion = createAsyncThunk("promotion/inactive", async (promotionId, { rejectWithValue }) => {
+    try {
+      return await promotionService.inactive(promotionId);
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Không thể vô hiệu hóa");
+    }
+  }
+);
+
 const promotionSlice = createSlice({
   name: "promotion",
   initialState: {
@@ -93,7 +102,21 @@ const promotionSlice = createSlice({
         state.size = action.payload.size || 9;
         state.isSearching = true;
       })
-      .addCase(searchPromotions.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
+      .addCase(searchPromotions.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
+      .addCase(inactivePromotion.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(inactivePromotion.fulfilled, (state, action) => {
+        state.loading = false;
+        const index = state.list.findIndex(p => p.promotionId === action.payload.promotionId);
+        if (index !== -1) {
+          state.list[index] = action.payload;
+        }
+      })
+      .addCase(inactivePromotion.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
   },
 });
 

@@ -27,4 +27,10 @@ export const promotionService = {
     const res = await api.get(`${PROMOTION_API}/search?${params.toString()}`);
     return res.data;
   },
+
+  inactive: async (promotionId) => {
+    const res = await api.put(`${PROMOTION_API}/${promotionId}/inactive`);
+    return res.data;
+ },
+ 
 };

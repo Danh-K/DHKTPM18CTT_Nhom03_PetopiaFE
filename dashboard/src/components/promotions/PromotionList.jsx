@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchPromotions, searchPromotions, setCurrentPage, setIsSearching, fetchPromotionByCode } from "../../store/promotionSlice";
+import {
+  fetchPromotions,
+  searchPromotions,
+  setCurrentPage,
+  setIsSearching,
+  fetchPromotionByCode,
+  inactivePromotion,
+} from "../../store/promotionSlice";
 import { HiPlus } from "react-icons/hi";
 
 import AddPromotionModal from "./AddPromotionModal";
@@ -50,6 +57,9 @@ export default function PromotionList({ darkMode }) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
+
+  const [inactiveId, setInactiveId] = useState(null);
+  const [inactiveCode, setInactiveCode] = useState("");
 
   useEffect(() => {
     dispatch(fetchPromotions({ page: 0, size: ITEMS_PER_PAGE }));
@@ -114,7 +124,10 @@ export default function PromotionList({ darkMode }) {
     total: totalItems,
     remainingUses: promotions
       .filter((p) => p.maxUsage)
-      .reduce((acc, p) => acc + Math.max(0, p.maxUsage - (p.usedCount || 0)), 0),
+      .reduce(
+        (acc, p) => acc + Math.max(0, p.maxUsage - (p.usedCount || 0)),
+        0
+      ),
   };
 
   // Đổi trang
@@ -138,6 +151,11 @@ export default function PromotionList({ darkMode }) {
     }
   };
 
+  const handleInactive = (id, code) => {
+    setInactiveId(id);
+    setInactiveCode(code);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -145,7 +163,9 @@ export default function PromotionList({ darkMode }) {
           <div className="w-16 h-16 border-4 border-gray-300 rounded-full"></div>
           <div className="absolute top-0 left-0 w-16 h-16 border-4 border-t-[#7b4f35] border-r-emerald-500 border-b-emerald-600 border-l-transparent rounded-full animate-spin"></div>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-sm font-medium text-[#7b4f35]">Đang tải...</span>
+            <span className="text-sm font-medium text-[#7b4f35]">
+              Đang tải...
+            </span>
           </div>
         </div>
       </div>
@@ -153,17 +173,25 @@ export default function PromotionList({ darkMode }) {
   }
 
   if (error) {
-    return <div className="text-red-500 text-center py-20 text-xl">{error}</div>;
+    return (
+      <div className="text-red-500 text-center py-20 text-xl">{error}</div>
+    );
   }
 
   return (
     <div className="space-y-6">
       <PromotionStatsCards darkMode={darkMode} {...stats} />
 
-      <div className={`rounded-xl shadow-lg ${darkMode ? "bg-gray-800" : "bg-white"} overflow-hidden`}>
+      <div
+        className={`rounded-xl shadow-lg ${
+          darkMode ? "bg-gray-800" : "bg-white"
+        } overflow-hidden`}
+      >
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-[#7b4f35]">Quản lý Khuyến mãi</h2>
+          <h2 className="text-2xl font-bold text-[#7b4f35]">
+            Quản lý Khuyến mãi
+          </h2>
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
@@ -203,10 +231,12 @@ export default function PromotionList({ darkMode }) {
                     dispatch(fetchPromotionByCode(p.code));
                     setShowViewModal(true);
                   }}
-                  onEdit={() => setShowEditModal(true)}
-                  onDelete={() => {}}
+                  onEdit={() => {
+                    dispatch(fetchPromotionByCode(p.code));
+                    setShowEditModal(true);
+                  }}
+                  onDelete={() => handleInactive(p.id, p.code)}
                   onDuplicate={() => {}}
-                  onToggleStatus={() => {}}
                   onImageClick={(promo) =>
                     setLightboxImage({ image: promo.image, alt: promo.name })
                   }
@@ -228,8 +258,45 @@ export default function PromotionList({ darkMode }) {
         )}
       </div>
 
+      {inactiveId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="fixed inset-0 bg-black/50"
+            onClick={() => setInactiveId(null)}
+          />
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl max-w-sm w-full mx-4">
+            <h3 className="text-lg font-bold text-center mb-4">
+              Vô hiệu hóa khuyến mãi?
+            </h3>
+            <p className="text-center text-gray-600 dark:text-gray-300 mb-6">
+              "{inactiveCode}" sẽ không thể sử dụng nữa.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setInactiveId(null)}
+                className="px-5 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-xl"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  dispatch(inactivePromotion(inactiveId));
+                  setInactiveId(null);
+                }}
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl"
+              >
+                Vô hiệu hóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {lightboxImage && (
-        <ImageLightbox {...lightboxImage} onClose={() => setLightboxImage(null)} />
+        <ImageLightbox
+          {...lightboxImage}
+          onClose={() => setLightboxImage(null)}
+        />
       )}
       {showAddModal && (
         <AddPromotionModal
