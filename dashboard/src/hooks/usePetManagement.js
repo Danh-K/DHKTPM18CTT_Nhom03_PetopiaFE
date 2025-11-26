@@ -3,8 +3,7 @@ import petApi from "../api/petApi";
 import { toast } from "react-toastify";
 
 export const usePetManagement = () => {
-  const [allPets, setAllPets] = useState([]); // Lưu toàn bộ dữ liệu gốc
-  const [pets, setPets] = useState([]); // Dữ liệu hiển thị (đã phân trang/lọc)
+  const [pets, setPets] = useState([]);
   const [categories, setCategories] = useState([]);
 
   const [loading, setLoading] = useState(false);
@@ -28,19 +27,18 @@ export const usePetManagement = () => {
     }
   }, []);
 
-  // Load All Pets (Lấy 1 lần, xử lý filter/paging ở client)
+  // Load & Filter Pets
   const fetchPets = useCallback(
     async (page = 1, searchQuery = "", filters = {}) => {
       setLoading(true);
       try {
-        // Luôn gọi getAll để đảm bảo có ảnh
         const res = await petApi.getAll();
         const apiData = res.data || res;
         const rawList = Array.isArray(apiData.data)
           ? apiData.data
           : apiData || [];
 
-        // 1. Mapping dữ liệu
+        // 1. Map Data
         let mappedPets = rawList.map((p) => ({
           pet_id: p.petId,
           name: p.name,
@@ -60,6 +58,7 @@ export const usePetManagement = () => {
           color: p.color,
           fur_type: p.furType,
           health_status: p.healthStatus,
+          vaccination_history: p.vaccinationHistory, // Thêm trường này
           images: (p.images || []).map((img) => ({
             image_id: img.imageId,
             image_url: img.imageUrl,
@@ -67,7 +66,7 @@ export const usePetManagement = () => {
           })),
         }));
 
-        // 2. Lọc (Client-side Filter)
+        // 2. Filter Logic
         if (searchQuery) {
           mappedPets = mappedPets.filter((p) =>
             p.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -82,7 +81,6 @@ export const usePetManagement = () => {
           mappedPets = mappedPets.filter((p) => p.status === filters.status);
         }
         if (filters.price) {
-          // Logic giá
           if (filters.price === "under-5m")
             mappedPets = mappedPets.filter((p) => p.price < 5000000);
           if (filters.price === "5m-10m")
@@ -94,9 +92,9 @@ export const usePetManagement = () => {
         }
 
         setTotalElements(mappedPets.length);
-        setTotalPages(Math.ceil(mappedPets.length / 10)); // 10 item/trang
+        setTotalPages(Math.ceil(mappedPets.length / 10));
 
-        // 3. Phân trang (Pagination)
+        // 3. Pagination
         const pageSize = 10;
         const startIndex = (page - 1) * pageSize;
         const paginatedPets = mappedPets.slice(
@@ -104,8 +102,7 @@ export const usePetManagement = () => {
           startIndex + pageSize
         );
 
-        setAllPets(mappedPets); // Lưu lại list đã lọc
-        setPets(paginatedPets); // Lưu list hiển thị
+        setPets(paginatedPets);
       } catch (error) {
         console.error("Error fetching pets:", error);
         toast.error("Không thể tải danh sách thú cưng");
@@ -116,7 +113,7 @@ export const usePetManagement = () => {
     []
   );
 
-  // Create / Update
+  // Save
   const savePet = async (petData) => {
     try {
       const payload = {
@@ -135,23 +132,20 @@ export const usePetManagement = () => {
         color: petData.color,
         furType: petData.fur_type,
         healthStatus: petData.health_status,
+        vaccinationHistory: petData.vaccination_history,
         images: (petData.images || []).map((img) => ({
           imageId: img.image_id,
           imageUrl: img.image_url,
           isThumbnail: img.is_thumbnail,
         })),
       };
-
       await petApi.createOrUpdate(payload);
       toast.success(
         petData.pet_id ? "Cập nhật thành công!" : "Thêm mới thành công!"
       );
       return true;
     } catch (error) {
-      console.error(error);
-      toast.error(
-        "Lỗi lưu dữ liệu: " + (error.response?.data?.message || error.message)
-      );
+      toast.error("Lỗi lưu dữ liệu");
       return false;
     }
   };
@@ -163,9 +157,7 @@ export const usePetManagement = () => {
       toast.success("Xóa thú cưng thành công!");
       return true;
     } catch (error) {
-      toast.error(
-        "Lỗi khi xóa: " + (error.response?.data?.message || "Có lỗi xảy ra")
-      );
+      toast.error("Lỗi khi xóa");
       return false;
     }
   };

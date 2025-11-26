@@ -1,12 +1,11 @@
 "use client";
-import React, { useState, useMemo } from "react";
-// Import thư viện animation và lịch
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import DatePicker from "react-datepicker";
-// Import CSS BẮT BUỘC của thư viện
 import "react-datepicker/dist/react-datepicker.css";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-// Import BỘ ICON MỚI (Lucide)
 import {
   Syringe,
   ChevronLeft,
@@ -22,22 +21,13 @@ import {
   Search,
   Calendar,
   Eye,
+  User,
 } from "lucide-react";
 
-// Import dữ liệu giả (đảm bảo đúng đường dẫn)
-import {
-  allPets,
-  allVaccinationSchedules,
-  fakeUsers,
-} from "../../data/fakeData"; // Sửa đường dẫn nếu cần
+import { useVaccineManagement } from "../../hooks/useVaccineManagement";
 
-// ===================================================================
-// Định nghĩa hiệu ứng cho Modal (Nâng cấp Backdrop)
-// ===================================================================
-const backdropVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-};
+// --- CONFIG ---
+const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
 const modalVariants = {
   hidden: { opacity: 0, scale: 0.95, y: 30 },
   visible: {
@@ -49,43 +39,63 @@ const modalVariants = {
   exit: { opacity: 0, scale: 0.95, y: 30, transition: { duration: 0.2 } },
 };
 
-// ===================================================================
-// Component Thẻ Thống Kê (StatsCard)
-// ===================================================================
-const StatsCard = ({ title, value, icon, variant }) => {
-  const isBlinking = variant === "blinking";
-  const isBright = variant === "bright";
-  const IconComponent = icon;
-  let iconColor = "text-gray-500";
-  let bgColor = "bg-gray-100";
+const formatDate = (dateStr) => {
+  if (!dateStr) return "";
+  return new Date(dateStr).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
-  // Đổi sang màu Xanh dương cho đồng bộ
-  if (isBlinking) {
-    iconColor = "text-blue-600";
-    bgColor = "bg-blue-100";
+const mapStatus = (status) => {
+  switch (status) {
+    case "Da_TIEM":
+      return {
+        text: "Hoàn thành",
+        class: "bg-green-100 text-green-800 border-green-200",
+        icon: CheckCheck,
+      };
+    case "CHUA_TIEM":
+      return {
+        text: "Sắp tới",
+        class: "bg-blue-100 text-blue-800 border-blue-200",
+        icon: Clock3,
+      };
+    case "DANG_CHO":
+      return {
+        text: "Đang chờ",
+        class: "bg-yellow-100 text-yellow-800 border-yellow-200",
+        icon: AlertTriangle,
+      };
+    default:
+      return {
+        text: "Không rõ",
+        class: "bg-gray-100 text-gray-800",
+        icon: Clock3,
+      };
   }
-  if (isBright) {
-    iconColor = "text-green-600";
-    bgColor = "bg-green-100";
-  }
+};
+
+// --- SUB-COMPONENTS ---
+const StatsCard = ({ title, value, icon: Icon, variant }) => {
+  let iconBg = "bg-gray-100 text-gray-600";
+  if (variant === "blue") iconBg = "bg-blue-100 text-blue-600";
+  if (variant === "green") iconBg = "bg-green-100 text-green-600";
+  if (variant === "red") iconBg = "bg-red-100 text-red-600";
 
   return (
-    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex items-center gap-4 transition-shadow hover:shadow-md">
-      <div className={`p-3 rounded-full ${bgColor} ${iconColor}`}>
-        {isBlinking ? (
-          <motion.div
-            animate={{ scale: [1, 1.2, 1], opacity: [1, 0.5, 1] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          >
-            <IconComponent size={24} strokeWidth={2.5} />
-          </motion.div>
-        ) : (
-          <IconComponent size={24} strokeWidth={2.5} />
-        )}
+    <div className="p-4 rounded-xl border shadow-sm flex items-center gap-4 bg-white">
+      <div className={`p-3 rounded-full ${iconBg}`}>
+        <Icon size={24} strokeWidth={2.5} />
       </div>
       <div>
-        <p className="text-sm font-medium text-gray-500">{title}</p>
-        <p className="text-2xl font-bold text-gray-800">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+          {title}
+        </p>
+        <p className="text-2xl font-extrabold text-gray-800">
           {value.toLocaleString()}
         </p>
       </div>
@@ -93,79 +103,145 @@ const StatsCard = ({ title, value, icon, variant }) => {
   );
 };
 
-// ===================================================================
-// Component Modal Xem Lịch Tiêm (ViewSchedulesModal) - Nâng cấp UI
-// ===================================================================
-const ViewSchedulesModal = ({ pet, schedules, onClose, onEdit, onDelete }) => {
+const StatusPill = ({ status }) => {
+  const info = mapStatus(status);
+  return (
+    <span
+      className={`px-2.5 py-0.5 inline-flex items-center gap-1 text-xs font-bold rounded-full border ${info.class}`}
+    >
+      {info.text}
+    </span>
+  );
+};
+
+// --- MODAL: VIEW HISTORY ---
+const ViewSchedulesModal = ({
+  pet,
+  fetchHistory,
+  onClose,
+  onEdit,
+  onDelete,
+}) => {
+  const [schedules, setSchedules] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadHistory = async () => {
+    setLoading(true);
+    const data = await fetchHistory(pet.petId);
+    // Sort: Mới nhất lên đầu
+    setSchedules(
+      data.sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+    );
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadHistory();
+  }, [pet]);
+
+  const handleDeleteItem = async (id) => {
+    if (window.confirm("Xóa lịch sử này?")) {
+      await onDelete(id);
+      loadHistory(); // Reload lại list sau khi xóa
+    }
+  };
+
   return (
     <motion.div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
       exit="hidden"
     >
       <motion.div
-        className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
         variants={modalVariants}
       >
-        {/* Header Modal - Thiết kế Sạch sẽ */}
-        <div className="flex justify-between items-center p-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-800">
-            Lịch tiêm của: {pet.name}
-          </h2>
+        <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">
+              Lịch sử tiêm chủng
+            </h2>
+            <p className="text-sm text-gray-500">
+              Thú cưng:{" "}
+              <span className="font-semibold text-blue-600">{pet.name}</span>
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="p-2 hover:bg-gray-200 rounded-full"
           >
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
-
-        {/* Content Modal */}
-        <div className="p-6 space-y-3">
-          {schedules.length > 0 ? (
-            schedules.map((schedule) => (
-              <div
-                key={schedule.schedule_id}
-                className="p-3 border rounded-lg flex justify-between items-start"
-              >
-                <div>
-                  <p className="font-semibold text-blue-700">
-                    {schedule.vaccineName}
-                  </p>
-                  <p className="text-sm text-gray-600 flex items-center">
-                    <Calendar className="inline mr-1.5 h-4 w-4" />
-                    {new Date(schedule.date).toLocaleDateString("vi-VN")}
-                    {" - "}
-                    {schedule.time}
-                  </p>
-                  <p className="text-sm text-gray-500 italic mt-1">
-                    Trạng thái: <StatusPill status={schedule.status} />
-                  </p>
+        <div className="p-6 overflow-y-auto flex-1 bg-gray-50/30">
+          {loading ? (
+            <div className="text-center py-10">Đang tải...</div>
+          ) : schedules.length > 0 ? (
+            <div className="relative border-l-2 border-gray-200 ml-3 space-y-6 pl-6 pb-2">
+              {schedules.map((schedule) => (
+                <div
+                  key={schedule.vaccineId}
+                  className="relative bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow group"
+                >
+                  <div
+                    className={`absolute -left-[31px] top-4 w-4 h-4 rounded-full border-2 border-white ${
+                      schedule.status === "Da_TIEM"
+                        ? "bg-green-500"
+                        : "bg-blue-500"
+                    } shadow-sm`}
+                  ></div>
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h4 className="font-bold text-gray-800 text-base">
+                        {schedule.vaccineName}
+                      </h4>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Calendar size={12} /> {formatDate(schedule.startDate)}
+                      </p>
+                    </div>
+                    <StatusPill status={schedule.status} />
+                  </div>
+                  {(schedule.note || schedule.description) && (
+                    <div className="bg-yellow-50 p-2 rounded text-xs text-yellow-800 mt-2 border border-yellow-100 space-y-1">
+                      {schedule.description && (
+                        <p>
+                          <strong>Mô tả:</strong> {schedule.description}
+                        </p>
+                      )}
+                      {schedule.note && (
+                        <p>
+                          <strong>Note:</strong> {schedule.note}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-gray-100">
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onEdit(schedule);
+                      }}
+                      className="text-xs flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
+                    >
+                      <FilePenLine size={12} /> Sửa
+                    </button>
+                    <button
+                      onClick={() => handleDeleteItem(schedule.vaccineId)}
+                      className="text-xs flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100"
+                    >
+                      <Trash2 size={12} /> Xóa
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onEdit(schedule)}
-                    className="p-1.5 rounded-md text-blue-600 hover:bg-blue-100"
-                    title="Sửa"
-                  >
-                    <FilePenLine size={18} />
-                  </button>
-                  <button
-                    onClick={() => onDelete(schedule.schedule_id)}
-                    className="p-1.5 rounded-md text-red-600 hover:bg-red-100"
-                    title="Hủy"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           ) : (
-            <p className="text-center text-gray-500 py-4">
-              Thú cưng này chưa có lịch tiêm nào.
-            </p>
+            <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+              <Syringe size={48} strokeWidth={1} className="mb-2 opacity-20" />
+              <p>Chưa có lịch sử tiêm.</p>
+            </div>
           )}
         </div>
       </motion.div>
@@ -173,689 +249,438 @@ const ViewSchedulesModal = ({ pet, schedules, onClose, onEdit, onDelete }) => {
   );
 };
 
-// ===================================================================
-// Component Modal Lên Lịch (ScheduleModal) - SỬA LỖI & NÂNG CẤP UI
-// ===================================================================
+// --- MODAL: ADD/EDIT ---
 const ScheduleModal = ({ mode, data, onClose, onSave }) => {
-  // Use a date range [start, end] and expand it into discrete dates
-  const [selectedRange, setSelectedRange] = useState(
-    mode === "EDIT" ? [new Date(data.schedule.date), new Date(data.schedule.date)] : [null, null]
+  const isEdit = mode === "EDIT";
+  // Backend trả về vaccineId khi getHistory, nhưng khi edit truyền data vào
+  const scheduleData = isEdit ? data.schedule : {};
+
+  const initialStart = isEdit ? new Date(scheduleData.startDate) : new Date();
+  const initialEnd =
+    isEdit && scheduleData.endDate
+      ? new Date(scheduleData.endDate)
+      : initialStart;
+
+  const [startDate, setStartDate] = useState(initialStart);
+  const [endDate, setEndDate] = useState(initialEnd);
+
+  const [vaccineName, setVaccineName] = useState(
+    isEdit ? scheduleData.vaccineName : ""
   );
-  const [vaccineType, setVaccineType] = useState(
-    mode === "EDIT" ? data.schedule.vaccineName : ""
-  );
-  const [time, setTime] = useState(
-    mode === "EDIT" ? data.schedule.time : "09:00"
-  );
-  const [notes, setNotes] = useState(
-    mode === "EDIT" ? data.schedule.notes : ""
-  );
+  const [notes, setNotes] = useState(isEdit ? scheduleData.note : "");
   const [instructions, setInstructions] = useState(
-    mode === "EDIT" ? data.schedule.instructions : "Kiêng tắm 3 ngày."
+    isEdit ? scheduleData.description : "Kiêng tắm 3 ngày sau tiêm."
   );
-  const [sendEmail, setSendEmail] = useState(true);
-
-  let title = "Thêm lịch tiêm mới";
-  if (mode === "EDIT") title = "Chỉnh sửa lịch tiêm";
-  if (mode === "BULK")
-    title = `Lên lịch chung cho ${data.petIds.length} thú cưng`;
-
-  // Expand selectedRange into concrete date objects (inclusive)
-  const selectedExpandedDates = useMemo(() => {
-    const [start, end] = selectedRange || [null, null];
-    if (!start) return [];
-    if (!end) return [start];
-    const dates = [];
-    const cur = new Date(start);
-    cur.setHours(0, 0, 0, 0);
-    const last = new Date(end);
-    last.setHours(0, 0, 0, 0);
-    while (cur <= last) {
-      dates.push(new Date(cur));
-      cur.setDate(cur.getDate() + 1);
-    }
-    return dates;
-  }, [selectedRange]);
+  const [status, setStatus] = useState(
+    isEdit ? scheduleData.status : "CHUA_TIEM"
+  );
 
   const handleSaveClick = () => {
-    if (selectedExpandedDates.length === 0 || !vaccineType) {
-      return alert("Vui lòng chọn ít nhất 1 ngày và loại vaccine!");
-    }
+    if (!startDate || !vaccineName)
+      return alert("Vui lòng nhập đầy đủ thông tin!");
+
     onSave({
       mode,
       data,
       formData: {
-        dates: selectedExpandedDates.map((d) => d.toISOString()),
-        vaccineName: vaccineType,
-        time,
+        dates: [startDate, endDate], // Gửi mảng 2 phần tử [start, end]
+        vaccineName,
         notes,
         instructions,
-        sendEmail,
+        status,
       },
     });
-    onClose();
+    // Không đóng ngay để chờ API trả về success
   };
 
   return (
     <motion.div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
       exit="hidden"
     >
       <motion.div
-        className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
         variants={modalVariants}
       >
-        {/* Header Modal - Thiết kế Sạch sẽ */}
-        <div className="flex justify-between items-center p-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-800">{title}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X size={24} />
+        <div className="flex justify-between items-center p-5 border-b border-gray-100">
+          <h2 className="text-xl font-bold text-gray-800">
+            {isEdit ? "Cập nhật lịch tiêm" : "Lên lịch mới"}
+          </h2>
+          <button onClick={onClose}>
+            <X size={24} className="text-gray-400 hover:text-gray-600" />
           </button>
         </div>
-
-        {/* Content Modal */}
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Cột 1: Chọn lịch (ĐÃ SỬA LỖI) */}
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Chọn ngày tiêm (có thể chọn nhiều ngày)
+            <label className="block text-sm font-bold text-gray-700 mb-3">
+              Thời gian tiêm
             </label>
-            <div className="flex justify-center p-2 border rounded-md">
-              {/* ====== PHẦN SỬA LỖI ====== */}
-              <DatePicker
-                // Use selectsRange so user picks a start and end date
-                selected={selectedRange[0] || null}
-                startDate={selectedRange[0]}
-                endDate={selectedRange[1]}
-                onChange={(update) => setSelectedRange(update)}
-                selectsRange
-                inline
-                // Thêm các class Tailwind (Theme màu XANH)
-                calendarClassName="bg-white border-0"
-                headerClassName="bg-blue-50 p-2 border-b-0 rounded-t-lg flex justify-between items-center"
-                monthClassName={() => "text-blue-900 font-semibold"}
-                dayNameClassName={() =>
-                  "w-9 text-center text-sm font-semibold text-blue-800"
-                }
-                weekClassName={() => "flex"}
-                dayClassName={(date) => {
-                  const base =
-                    "m-0.5 w-9 h-9 flex items-center justify-center rounded-full hover:bg-blue-100";
-                  // Kiểm tra xem ngày này có trong mảng `selectedExpandedDates` không
-                  const isSelected = selectedExpandedDates.some(
-                    (d) => d.toDateString() === date.toDateString()
-                  );
-                  return isSelected
-                    ? `${base} !bg-blue-600 !text-white` // Dùng ! (important)
-                    : base;
-                }}
-              />
-              {/* ====== KẾT THÚC PHẦN SỬA ====== */}
-            </div>
-            <div className="mt-3">
-              <p className="text-sm font-medium text-gray-700">Ngày đã chọn:</p>
-              <div className="flex flex-wrap gap-1 mt-2">
-                {selectedExpandedDates.length > 0 ? (
-                  selectedExpandedDates.map((date) => (
-                    <span
-                      key={date.toString()}
-                      className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                    >
-                      {date.toLocaleDateString("vi-VN")}
-                    </span>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-500 italic">Chưa chọn ngày</p>
-                )}
+            <div className="p-4 border rounded-xl bg-blue-50/30 flex flex-col gap-3 justify-center items-center">
+              <div className="w-full">
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Ngày bắt đầu
+                </label>
+                <DatePicker
+                  selected={startDate}
+                  onChange={(date) => setStartDate(date)}
+                  showTimeSelect
+                  dateFormat="Pp"
+                  className="w-full p-2 border rounded text-center"
+                />
+              </div>
+              <div className="w-full">
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Ngày kết thúc
+                </label>
+                <DatePicker
+                  selected={endDate}
+                  onChange={(date) => setEndDate(date)}
+                  showTimeSelect
+                  dateFormat="Pp"
+                  className="w-full p-2 border rounded text-center"
+                  minDate={startDate}
+                />
               </div>
             </div>
           </div>
-
-          {/* Cột 2: Thông tin */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Loại Vaccine
-              </label>
-              <select
-                value={vaccineType}
-                onChange={(e) => setVaccineType(e.target.value)}
-                className="mt-1 p-2 w-full border rounded-md"
-              >
-                <option value="">-- Chọn loại vaccine --</option>
-                <option value="Dại (Rabies)">Dại (Rabies)</option>
-                <option value="5-trong-1">5-trong-1</option>
-                <option value="Parvovirus">Parvovirus</option>
-                <option value="Bordetella">Bordetella</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Giờ tiêm
+              <label className="block text-sm font-medium mb-1">
+                Tên Vaccine <span className="text-red-500">*</span>
               </label>
               <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="mt-1 p-2 w-full border rounded-md"
+                type="text"
+                value={vaccineName}
+                onChange={(e) => setVaccineName(e.target.value)}
+                className="w-full p-2 border rounded-lg focus:ring-2"
+                placeholder="VD: Vaccine Dại..."
               />
             </div>
+            {isEdit && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Trạng thái
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full p-2 border rounded-lg"
+                >
+                  <option value="CHUA_TIEM">Chưa tiêm</option>
+                  <option value="Da_TIEM">Đã tiêm</option>
+                  <option value="DANG_CHO">Đang chờ</option>
+                </select>
+              </div>
+            )}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Hướng dẫn
+              <label className="block text-sm font-medium mb-1">
+                Mô tả (Description)
               </label>
               <textarea
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={3}
-                className="mt-1 p-2 w-full border rounded-md"
+                className="w-full p-2 border rounded-lg"
               ></textarea>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Ghi chú
+              <label className="block text-sm font-medium mb-1">
+                Ghi chú (Note)
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="mt-1 p-2 w-full border rounded-md"
+                rows={2}
+                className="w-full p-2 border rounded-lg"
               ></textarea>
             </div>
           </div>
         </div>
-
-        {/* Nút bấm (Footer Modal) */}
-        <div className="flex justify-between items-center mt-6 p-4 bg-slate-100 rounded-b-lg">
-          <div className="flex items-center">
-            <input
-              id="sendEmail"
-              type="checkbox"
-              checked={sendEmail}
-              onChange={(e) => setSendEmail(e.target.checked)}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label
-              htmlFor="sendEmail"
-              className="ml-2 block text-sm text-gray-900"
-            >
-              Gửi email thông báo cho chủ sở hữu
-            </label>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-800 rounded-lg hover:bg-gray-50"
-            >
-              Hủy
-            </button>
-            <button
-              onClick={handleSaveClick}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Lưu Lịch Tiêm
-            </button>
-          </div>
+        <div className="flex justify-end gap-3 p-5 border-t border-gray-100 bg-gray-50">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 bg-white border border-gray-300 rounded-lg"
+          >
+            Hủy bỏ
+          </button>
+          <button
+            onClick={handleSaveClick}
+            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg shadow-md"
+          >
+            {isEdit ? "Cập nhật" : "Lưu & Gửi Email"}
+          </button>
         </div>
       </motion.div>
     </motion.div>
   );
 };
 
-// ===================================================================
-// Component Thẻ Trạng Thái (StatusPill)
-// ===================================================================
-const StatusPill = ({ status }) => {
-  const styles = {
-    SCHEDULED: "bg-blue-100 text-blue-800",
-    COMPLETED: "bg-green-100 text-green-800",
-    PENDING: "bg-yellow-100 text-yellow-800",
-  };
-  const text = {
-    SCHEDULED: "Đã lên lịch",
-    COMPLETED: "Hoàn thành",
-    PENDING: "Chờ",
-  };
-  return (
-    <span
-      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-        styles[status] || "bg-gray-100 text-gray-800"
-      }`}
-    >
-      {text[status] || "Chưa có"}
-    </span>
-  );
-};
-
-// ===================================================================
-// Component Chính: Quản Lý Lịch Tiêm (VaccinationManagement)
-// ===================================================================
+// --- MAIN COMPONENT ---
 export default function VaccinationManagement() {
-  const [schedules, setSchedules] = useState(allVaccinationSchedules);
-  const [pets] = useState(allPets);
-  const [users] = useState(fakeUsers);
-
+  const {
+    pets,
+    stats,
+    loading,
+    createSchedule,
+    updateSchedule,
+    deleteSchedule,
+    fetchPetHistory,
+  } = useVaccineManagement();
   const [selectedPetIds, setSelectedPetIds] = useState([]);
   const [page, setPage] = useState(1);
-  
-  // State của Filter (ĐÃ ĐƠN GIẢN HÓA)
-  const [filters, setFilters] = useState({
-    search: "",
-    status: "all",
-    // Đã xóa startDate và endDate
-  });
-  
+  const [search, setSearch] = useState("");
   const [modalState, setModalState] = useState({ type: null, data: null });
 
   const perPage = 10;
-
-  // Tính toán Stats
-  const stats = useMemo(() => {
-    const now = new Date();
-    const threeDaysFromNow = new Date(now);
-    threeDaysFromNow.setDate(now.getDate() + 3);
-
-    const upcoming = schedules.filter(
-      (s) =>
-        s.status === "SCHEDULED" &&
-        new Date(s.date) > now &&
-        new Date(s.date) <= threeDaysFromNow
-    ).length;
-
-    const completed = schedules.filter(
-      (s) => s.status === "COMPLETED"
-    ).length;
-
-    const petsWithSchedules = new Set(schedules.map((s) => s.pet_id));
-    const needsVaccine = pets.filter(
-      (p) => !petsWithSchedules.has(p.id)
-    ).length;
-
-    return {
-      total: schedules.length,
-      upcoming,
-      completed,
-      needsVaccine,
-    };
-  }, [schedules, pets]);
-
-  // Lọc dữ liệu (ĐÃ ĐƠN GIẢN HÓA)
-  const petsToDisplay = useMemo(() => {
-    // 1. Lọc thú cưng theo tên
-    const searchedPets = pets.filter((p) =>
-      p.name.toLowerCase().includes(filters.search.toLowerCase())
-    );
-
-    // 2. Lọc thú cưng dựa trên trạng thái (Đã bỏ lọc ngày)
-    if (filters.status === "all") {
-      return searchedPets;
-    }
-
-    const filteredPetIds = new Set();
-    schedules.forEach((schedule) => {
-      let statusMatch = true;
-      if (filters.status !== "all") {
-        if (filters.status === "NOT_COMPLETED") {
-          statusMatch =
-            schedule.status === "SCHEDULED" || schedule.status === "PENDING";
-        } else {
-          statusMatch = schedule.status === filters.status;
-        }
-      }
-
-      if (statusMatch) {
-        filteredPetIds.add(schedule.pet_id);
-      }
-    });
-    return searchedPets.filter((p) => filteredPetIds.has(p.id));
-  }, [pets, schedules, filters]);
-
-  // Phân trang
+  const petsToDisplay = useMemo(
+    () =>
+      pets.filter((p) => p.name.toLowerCase().includes(search.toLowerCase())),
+    [pets, search]
+  );
   const totalPages = Math.ceil(petsToDisplay.length / perPage);
   const paginatedPets = petsToDisplay.slice(
     (page - 1) * perPage,
     page * perPage
   );
 
-  // Xử lý Checkbox
   const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedPetIds(paginatedPets.map((p) => p.id));
-    } else {
-      setSelectedPetIds([]);
-    }
+    if (e.target.checked) setSelectedPetIds(paginatedPets.map((p) => p.petId));
+    else setSelectedPetIds([]);
   };
 
-  // Xử lý Modal
   const handleOpenModal = (type, data = null) => setModalState({ type, data });
   const handleCloseModal = () => setModalState({ type: null, data: null });
 
-  // Xử lý Lưu (CRUD)
-  const handleSaveSchedule = ({ mode, data, formData }) => {
-    console.log("Saving:", { mode, data, formData });
-    if (formData.sendEmail) {
-      if (mode === "BULK") {
-        alert(`Đã gửi email thông báo tới ${data.petIds.length} chủ sở hữu!`);
-      } else {
-        const pet =
-          mode === "ADD"
-            ? data.pet
-            : pets.find((p) => p.id === data.schedule.pet_id);
-        const owner = users.find((u) => u.userId === pet.ownerId);
-        alert(`Đã gửi email tới ${owner.email} cho thú cưng ${pet.name}!`);
-      }
-    }
-    if (mode === "ADD") {
-      formData.dates.forEach((date) => {
-        const newSchedule = {
-          ...formData,
-          schedule_id: `S${Date.now()}${Math.random()}`,
-          pet_id: data.pet.id,
-          date,
-          status: "SCHEDULED",
-        };
-        setSchedules((prev) => [...prev, newSchedule]);
-      });
-    } else if (mode === "EDIT") {
-      setSchedules((prev) =>
-        prev.map((s) =>
-          s.schedule_id === data.schedule.schedule_id
-            ? { ...s, ...formData, date: formData.dates[0] }
-            : s
-        )
-      );
-    } else if (mode === "BULK") {
-      const newSchedules = [];
-      data.petIds.forEach((petId) => {
-        formData.dates.forEach((date) => {
-          newSchedules.push({
-            ...formData,
-            schedule_id: `S${Date.now()}${Math.random()}`,
-            pet_id: petId,
-            date,
-            status: "SCHEDULED",
-          });
-        });
-      });
-      setSchedules((prev) => [...prev, ...newSchedules]);
-      setSelectedPetIds([]);
-    }
-  };
+  const handleSave = async ({ mode, data, formData }) => {
+    let success = false;
+    if (mode === "ADD" || mode === "BULK") {
+      const targetPetId = mode === "ADD" ? data.pet.petId : data.petIds[0];
+      const pet = pets.find((p) => p.petId === targetPetId);
+      const userId = pet ? pet.ownerId : "U001"; // Fallback U001
 
-  // Xử lý Xóa
-  const handleDeleteSchedule = (schedule_id) => {
-    if (window.confirm("Bạn có chắc muốn hủy lịch tiêm này?")) {
-      setSchedules((prev) => prev.filter((s) => s.schedule_id !== schedule_id));
+      success = await createSchedule(
+        formData,
+        mode === "ADD" ? [targetPetId] : data.petIds,
+        userId
+      );
+    } else if (mode === "EDIT") {
+      // Khi Edit, vaccineId nằm trong data.schedule.vaccineId
+      success = await updateSchedule(data.schedule.vaccineId, formData);
     }
+
+    if (success) handleCloseModal();
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-100 p-6">
+      <ToastContainer position="top-right" autoClose={2000} />
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">
+        <h1 className="text-2xl font-extrabold text-gray-800 mb-6">
           Quản Lý Lịch Tiêm Phòng
         </h1>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
           <StatsCard
-            title="Tổng lịch tiêm"
-            value={stats.total}
+            title="Tổng lịch"
+            value={stats.totalSchedules}
             icon={FileText}
           />
           <StatsCard
-            title="Sắp tới (3 ngày)"
-            value={stats.upcoming}
+            title="Sắp tới"
+            value={stats.upcomingSchedules}
             icon={Clock3}
-            variant="blinking"
+            variant="blue"
           />
           <StatsCard
-            title="Đã hoàn thành"
-            value={stats.completed}
+            title="Hoàn thành"
+            value={stats.completedSchedules}
             icon={CheckCheck}
-            variant="bright"
+            variant="green"
           />
           <StatsCard
-            title="Thú cưng cần tiêm"
-            value={stats.needsVaccine}
+            title="Cần tiêm"
+            value={stats.petsNeedVaccination}
             icon={AlertTriangle}
-            variant="blinking"
+            variant="red"
           />
         </div>
 
-        {/* Filters (ĐÃ ĐƠN GIẢN HÓA) */}
-        <div className="bg-white p-4 rounded-lg border shadow-sm mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Search */}
-            <div className="md:col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tìm thú cưng
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Tìm theo tên thú cưng..."
-                  value={filters.search}
-                  onChange={(e) =>
-                    setFilters((prev) => ({ ...prev, search: e.target.value }))
-                  }
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            {/* Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Trạng thái
-              </label>
-              <select
-                value={filters.status}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, status: e.target.value }))
-                }
-                className="w-full p-2 border border-gray-300 rounded-lg shadow-sm"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="SCHEDULED">Đã lên lịch</option>
-                <option value="NOT_COMPLETED">Chưa hoàn thành</option>
-                <option value="PENDING">Chờ</option>
-                <option value="COMPLETED">Hoàn thành</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Bar */}
-        <div className="flex justify-start items-center mb-4 gap-2">
+        {/* Toolbar */}
+        <div className="bg-white p-4 rounded-xl border shadow-sm mb-6 flex justify-between items-center gap-4">
           <button
             onClick={() => handleOpenModal("BULK", { petIds: selectedPetIds })}
             disabled={selectedPetIds.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-md transition-all"
           >
-            <Syringe size={16} /> Lên Lịch Chung ({selectedPetIds.length})
+            <Syringe size={18} /> Lên Lịch Chung ({selectedPetIds.length})
           </button>
+          <div className="relative w-72">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+              <Search size={18} />
+            </span>
+            <input
+              type="text"
+              placeholder="Tìm thú cưng..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
         </div>
 
-        {/* Table - NÂNG CẤP HÀNG XEN KẼ */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-          <table className="w-full divide-y divide-gray-200">
-            <thead className="bg-slate-100">
-              <tr>
-                <th className="px-6 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    onChange={handleSelectAll}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Thú cưng
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Chủ sở hữu
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Lịch tiêm sắp tới
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Trạng thái
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Thao Tác
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {paginatedPets.map((pet, index) => {
-                const petSchedules = schedules.filter(
-                  (s) => s.pet_id === pet.id
-                );
-                const petOwner = users.find((u) => u.userId === pet.ownerId);
-                const nextSchedule = petSchedules
-                  .filter(
-                    (s) =>
-                      new Date(s.date) > new Date() && s.status !== "COMPLETED"
-                  )
-                  .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-
-                // Class cho hàng xen kẽ
-                const isEven = index % 2 === 0;
-                const rowClass = `${
-                  isEven ? "bg-white" : "bg-slate-50"
-                } hover:bg-blue-50 transition-colors duration-150`;
-
-                return (
-                  <tr key={pet.id} className={rowClass}>
+        {/* Table */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden min-h-[400px]">
+          {loading && (
+            <div className="p-10 text-center text-gray-500">
+              Đang tải dữ liệu...
+            </div>
+          )}
+          {!loading && (
+            <table className="w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50/50">
+                <tr>
+                  <th className="px-6 py-4 w-10">
+                    <input
+                      type="checkbox"
+                      onChange={handleSelectAll}
+                      className="rounded text-blue-600"
+                    />
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">
+                    ID Pet
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">
+                    Thú cưng
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">
+                    Chủ sở hữu
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase">
+                    Hành động
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {paginatedPets.map((pet) => (
+                  <tr
+                    key={pet.petId}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
                     <td className="px-6 py-4">
                       <input
                         type="checkbox"
-                        checked={selectedPetIds.includes(pet.id)}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        checked={selectedPetIds.includes(pet.petId)}
                         onChange={() =>
                           setSelectedPetIds((prev) =>
-                            prev.includes(pet.id)
-                              ? prev.filter((id) => id !== pet.id)
-                              : [...prev, pet.id]
+                            prev.includes(pet.petId)
+                              ? prev.filter((id) => id !== pet.petId)
+                              : [...prev, pet.petId]
                           )
                         }
+                        className="rounded text-blue-600"
                       />
+                    </td>
+                    <td className="px-6 py-4 text-sm font-mono text-gray-500">
+                      {pet.petId}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={
-                            pet.images.find((img) => img.is_thumbnail)
-                              ?.image_url || pet.images[0].image_url
-                          }
-                          alt={pet.name}
-                          className="w-12 h-12 object-cover rounded-md border"
-                        />
+                        {pet.image ? (
+                          <img
+                            src={pet.image}
+                            className="w-10 h-10 rounded-full object-cover"
+                            referrerPolicy="no-referrer"
+                            onError={(e) =>
+                              (e.target.src = "https://placehold.co/50")
+                            }
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                            {pet.name.charAt(0)}
+                          </div>
+                        )}
                         <div>
-                          <p className="text-sm font-semibold text-gray-800">
+                          <p className="text-sm font-bold text-gray-800">
                             {pet.name}
                           </p>
-                          <p className="text-xs text-gray-500">{pet.breed}</p>
+                          <p className="text-xs text-gray-500">
+                            {pet.categoryName}
+                          </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {petOwner ? petOwner.name : "N/A"}
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <User size={14} />
+                        {pet.ownerName !== "Khách vãng lai" ? (
+                          <span className="font-medium text-gray-800">
+                            {pet.ownerName}
+                          </span>
+                        ) : (
+                          <span className="text-orange-500 italic text-xs">
+                            Chưa cập nhật chủ (ID: {pet.ownerId})
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-sm">
-                      {nextSchedule ? (
-                        <div>
-                          <p className="font-semibold">
-                            {nextSchedule.vaccineName}
-                          </p>
-                          <p className="text-gray-600">
-                            {new Date(nextSchedule.date).toLocaleDateString(
-                              "vi-VN"
-                            )}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-gray-400 italic">Chưa có</p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {nextSchedule ? (
-                        <StatusPill status={nextSchedule.status} />
-                      ) : (
-                        <StatusPill status="NONE" />
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
                         <button
-                          onClick={() =>
-                            handleOpenModal("VIEW", {
-                              pet,
-                              schedules: petSchedules,
-                            })
-                          }
-                          className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100"
-                          title="Xem tất cả lịch tiêm"
+                          onClick={() => handleOpenModal("VIEW", { pet })}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 shadow-sm transition-all"
                         >
-                          <Eye size={20} />
+                          <Eye size={14} /> Xem Lịch Sử
                         </button>
                         <button
                           onClick={() => handleOpenModal("ADD", { pet })}
-                          className="p-1.5 rounded-md text-green-600 hover:bg-green-100"
-                          title="Thêm lịch tiêm mới"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 shadow-md transition-all"
                         >
-                          <Plus size={20} />
+                          <Plus size={14} /> Thêm Lịch
                         </button>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-4 mt-6">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-2 bg-white border rounded disabled:opacity-50"
+            >
+              <ChevronLeft />
+            </button>
+            <span className="text-sm font-bold py-2">
+              Trang {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-2 bg-white border rounded disabled:opacity-50"
+            >
+              <ChevronRight />
+            </button>
+          </div>
+        )}
 
-        {/* Pagination */}
-        <div className="flex justify-center items-center gap-4 mt-4">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="p-2 rounded border disabled:opacity-50"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span>
-            Trang {page} / {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="p-2 rounded border disabled:opacity-50"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-
-        {/* Khu vực render Modal (với AnimatePresence) */}
         <AnimatePresence>
           {modalState.type === "VIEW" && (
             <ViewSchedulesModal
               pet={modalState.data.pet}
-              schedules={modalState.data.schedules}
+              fetchHistory={fetchPetHistory}
               onClose={handleCloseModal}
               onEdit={(schedule) => handleOpenModal("EDIT", { schedule })}
-              onDelete={handleDeleteSchedule}
+              onDelete={deleteSchedule}
             />
           )}
-
           {(modalState.type === "ADD" ||
             modalState.type === "EDIT" ||
             modalState.type === "BULK") && (
@@ -863,7 +688,7 @@ export default function VaccinationManagement() {
               mode={modalState.type}
               data={modalState.data}
               onClose={handleCloseModal}
-              onSave={handleSaveSchedule}
+              onSave={handleSave}
             />
           )}
         </AnimatePresence>
