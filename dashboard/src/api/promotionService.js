@@ -32,5 +32,10 @@ export const promotionService = {
     const res = await api.put(`${PROMOTION_API}/${promotionId}/inactive`);
     return res.data;
  },
+
+ addPromotion: async (promotionData) => {
+    const res = await api.post(`${PROMOTION_API}`, promotionData);
+    return res.data;
+  },
  
 };

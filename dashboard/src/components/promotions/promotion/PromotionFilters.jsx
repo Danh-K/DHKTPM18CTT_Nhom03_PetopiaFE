@@ -14,7 +14,7 @@ export default function PromotionFilters({
 }) {
   return (
     <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="relative">
           <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
           <input
@@ -70,12 +70,6 @@ export default function PromotionFilters({
           <option value="bundle">Gói</option>
         </select>
 
-        <select className={`w-full px-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"} focus:outline-none focus:ring-2 focus:ring-green-500`}>
-          <option>Sắp xếp</option>
-          <option>Mới nhất</option>
-          <option>Cũ nhất</option>
-          <option>Tên A-Z</option>
-        </select>
       </div>
     </div>
   );

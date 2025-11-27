@@ -46,6 +46,18 @@ export const inactivePromotion = createAsyncThunk("promotion/inactive", async (p
   }
 );
 
+export const addPromotion = createAsyncThunk("promotion/add", async (promotionData, { rejectWithValue }) => {
+    try {
+      const data = await promotionService.addPromotion(promotionData);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Thêm khuyến mãi thất bại"
+      );
+    }
+  }
+);
+
 const promotionSlice = createSlice({
   name: "promotion",
   initialState: {
@@ -114,6 +126,18 @@ const promotionSlice = createSlice({
         }
       })
       .addCase(inactivePromotion.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(addPromotion.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(addPromotion.fulfilled, (state, action) => {
+        state.loading = false;
+        state.list = [action.payload, ...state.list]; // Tự động thêm vào đầu danh sách
+      })
+      .addCase(addPromotion.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

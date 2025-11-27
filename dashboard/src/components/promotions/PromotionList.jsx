@@ -96,8 +96,8 @@ export default function PromotionList({ darkMode }) {
     return () => clearTimeout(timer);
   }, [searchTerm, categoryFilter, statusFilter, typeFilter, dispatch]);
 
-  const promotions = serverPromotions.map((p) => ({
-    id: p.promotionId,
+  const promotions = serverPromotions.map((p, index) => ({
+    id: p.promotionId || p.code || `temp-${index}`,
     code: p.code,
     name: p.code,
     description: p.description || "",
@@ -108,7 +108,7 @@ export default function PromotionList({ darkMode }) {
       categories.find((c) => c.id === p.categoryId)?.name || "Tất cả danh mục",
     startDate: p.startDate,
     endDate: p.endDate,
-    status: p.status?.toLowerCase() || "active",
+    status: p.status === "INACTIVE" ? "inactive" : "active",
     image: p.imageUrl || "/placeholder.svg",
     usedCount: p.usedCount || 0,
     maxUsage: p.maxUsage || null,

@@ -35,7 +35,7 @@ export default function PromotionStatsCards({ darkMode, active, total, remaining
                 {remainingUses.toLocaleString("vi-VN")}
             </p>
             <p className="text-sm text-gray-500 mt-1">
-                Từ tất cả mã có giới hạn
+                Từ những mã có giới hạn trong trang này
             </p>
           </div>
           <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
