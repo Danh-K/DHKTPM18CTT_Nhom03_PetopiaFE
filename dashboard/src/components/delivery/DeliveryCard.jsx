@@ -64,7 +64,7 @@ export default function DeliveryCard({ delivery, darkMode = false }) {
       </div>
 
       <div className={`-mx-4 px-4 mb-3 pb-3 border-b ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
-        <DeliveryTimeline currentStatus={currentStatus} />
+        <DeliveryTimeline currentStatus={delivery.currentStatus || delivery.deliveryStatus} delivery={delivery}/>
         </div>
 
       <div className="space-y-2 mb-3">

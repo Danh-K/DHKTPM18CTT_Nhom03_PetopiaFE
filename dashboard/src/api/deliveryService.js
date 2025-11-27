@@ -22,4 +22,13 @@ export const deliveryService = {
       throw error
     }
   },
+
+  updateStatus: async (deliveryId, status) => {
+    try {
+      const res = await api.put(`${DELIVERY_API}/${deliveryId}/status`,null,{ params: { status } })
+      return res.data
+    } catch (error) {
+      throw error.response?.data?.message || "Cập nhật thất bại"
+    }
+  },
 }

@@ -20,6 +20,16 @@ export const fetchDeliveryById = createAsyncThunk("delivery/fetchById", async (d
   }
 })
 
+export const updateDeliveryStatus = createAsyncThunk( "delivery/updateStatus", async ({ deliveryId, status }, { rejectWithValue }) => {
+    try {
+      const data = await deliveryService.updateStatus(deliveryId, status)
+      return data
+    } catch (error) {
+      return rejectWithValue(error)
+    }
+  }
+)
+
 const initialState = {
   deliveries: [],
   selectedDelivery: null,
@@ -37,16 +47,6 @@ const deliverySlice = createSlice({
   reducers: {
     clearError: (state) => {
       state.error = null
-    },
-    resetDeliveryState: (state) => {
-      return initialState
-    },
-    updateDeliveryStatus: (state, action) => {
-      const { deliveryId, status } = action.payload
-      const deliveryIndex = state.deliveries.findIndex((delivery) => delivery.id === deliveryId)
-      if (deliveryIndex !== -1) {
-        state.deliveries[deliveryIndex].status = status
-      }
     },
   },
   extraReducers: (builder) => {
@@ -84,8 +84,15 @@ const deliverySlice = createSlice({
         state.loading = false
         state.error = action.payload
       })
+      .addCase(updateDeliveryStatus.fulfilled, (state, action) => {
+        const updated = action.payload
+        const index = state.deliveries.findIndex(d => d.deliveryId === updated.deliveryId)
+        if (index !== -1) {
+            state.deliveries[index] = updated
+        }
+    })
   },
 })
 
-export const { clearError, setCurrentPage, resetDeliveryState, updateDeliveryStatus } = deliverySlice.actions
+export const { clearError, setCurrentPage } = deliverySlice.actions
 export default deliverySlice.reducer
