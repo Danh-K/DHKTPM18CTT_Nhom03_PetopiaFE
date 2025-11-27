@@ -21,6 +21,7 @@ import ReviewsManagement from "./components/PetManagement/ReviewsManagement";
 import VaccinationManagement from "./components/PetManagement/VaccinationManagement";
 import LoginPage from "./pages/LoginPage";
 import useAuth from "./hooks/useAuth";
+import DeliveryManagement from "./components/delivery/DeliveryManagement";
 
 function App() {
   const [darkMode, setDarkMode] = useState(false);
@@ -81,6 +82,8 @@ function App() {
         return <AllUsers />;
       case "user-profiles":
         return <Profile />;
+      case "delivery":
+        return <DeliveryManagement />;
       default:
         return <Dashboard />;
     }

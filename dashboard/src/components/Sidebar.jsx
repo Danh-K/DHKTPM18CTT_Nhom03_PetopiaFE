@@ -12,7 +12,8 @@ import {
   HiChevronDown,
   HiChevronRight,
   HiChartBar,
-  HiTicket, // thêm icon cho Statistics
+  HiTicket,
+  HiTruck, // thêm icon cho Statistics
 } from "react-icons/hi";
 import { HiNewspaper } from "react-icons/hi";
 
@@ -230,6 +231,19 @@ function Sidebar({ darkMode, onItemClick }) {
             <span className="font-medium">Khuyến mãi</span>
           </button>
 
+          {/* Delivery Management - NEW */}
+          <button
+            onClick={() => onItemClick && onItemClick("delivery")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              darkMode
+                ? "hover:bg-gray-800 text-gray-300 hover:text-white"
+                : "hover:bg-[#f5d7b7] text-gray-700 hover:text-[#7b4f35]"
+            }`}
+          >
+            <HiTruck className="h-5 w-5" />
+            <span className="font-medium">Quản lý lịch sử giao hàng</span>
+          </button>
+
           {/* Users Section */}
           <div>
             <button
@@ -286,6 +300,8 @@ function Sidebar({ darkMode, onItemClick }) {
               </div>
             )}
           </div>
+
+
 
           {/* Articles */}
           <button
