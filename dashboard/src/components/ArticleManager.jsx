@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import toast, { Toaster } from "react-hot-toast";
+import articleService from "../api/articleService";
 
 export default function ArticleManager() {
-  const [allArticles, setAllArticles] = useState([]);
+  const { user } = useSelector((state) => state.auth);
   const [articles, setArticles] = useState([]);
   const [page, setPage] = useState(0);
   const [size] = useState(5);
-  const [totalPages, setTotalPages] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [showDetail, setShowDetail] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -18,165 +20,73 @@ export default function ArticleManager() {
     content: "",
     imageUrl: "",
   });
-  const [imageFile, setImageFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
+  const [commentContent, setCommentContent] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
 
-  const seedFakeData = () => {
-    const today = new Date();
-    const pad = (n) => (n < 10 ? `0${n}` : `${n}`);
-    const makeDate = (offsetDays) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() - offsetDays);
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T12:00:00Z`;
-    };
-    const base = [
-      {
-        articleId: "A001",
-        title: "Mẹo chăm sóc thú cưng vào mùa mưa",
-        content: "Giữ ấm, sấy khô lông sau khi đi mưa và bổ sung dinh dưỡng...",
-        imageUrl: "https://images.unsplash.com/photo-1517849845537-4d257902454a?q=80&w=800",
-        createdAt: makeDate(1),
-      },
-      {
-        articleId: "A002",
-        title: "Top 5 loại thức ăn cho chó con",
-        content: "Danh sách các loại thức ăn phù hợp với chó con, giàu dinh dưỡng...",
-        imageUrl: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=800",
-        createdAt: makeDate(3),
-      },
-      {
-        articleId: "A003",
-        title: "Cách tắm cho mèo không sợ nước",
-        content: "Chuẩn bị nước ấm, nhẹ nhàng trấn an, dùng sữa tắm chuyên dụng...",
-        imageUrl: "https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?q=80&w=800",
-        createdAt: makeDate(5),
-      },
-      {
-        articleId: "A004",
-        title: "Dấu hiệu nhận biết thú cưng bị cảm lạnh",
-        content: "Hắt hơi, mệt mỏi, bỏ ăn... hãy đưa đến bác sĩ khi kéo dài",
-        imageUrl: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=800",
-        createdAt: makeDate(7),
-      },
-      {
-        articleId: "A005",
-        title: "Lịch tiêm phòng cơ bản cho chó mèo",
-        content: "Parvo, Care, dại... lịch tiêm phòng và nhắc lịch định kỳ",
-        imageUrl: "https://images.unsplash.com/photo-1548199973-6c1c6c2a1f36?q=80&w=800",
-        createdAt: makeDate(9),
-      },
-      {
-        articleId: "A006",
-        title: "Chọn chuồng phù hợp cho thú cưng",
-        content: "Kích thước, chất liệu, vị trí đặt chuồng trong nhà...",
-        imageUrl: "https://images.unsplash.com/photo-1507149833265-60c372daea22?q=80&w=800",
-        createdAt: makeDate(11),
-      },
-      {
-        articleId: "A007",
-        title: "Cắt tỉa lông an toàn tại nhà",
-        content: "Dụng cụ cần thiết, lưu ý an toàn và quy trình cơ bản",
-        imageUrl: "https://images.unsplash.com/photo-1548767797-d8c844163c4c?q=80&w=800",
-        createdAt: makeDate(13),
-      },
-      {
-        articleId: "A008",
-        title: "Dinh dưỡng cho mèo trưởng thành",
-        content: "Protein, chất béo, vitamin và nước uống sạch...",
-        imageUrl: "https://images.unsplash.com/photo-1573865526739-10659fec78a5?q=80&w=800",
-        createdAt: makeDate(15),
-      },
-      {
-        articleId: "A009",
-        title: "Huấn luyện chó ngồi, nằm, ở lại",
-        content: "Các bước cơ bản và phần thưởng khích lệ",
-        imageUrl: "https://images.unsplash.com/photo-1507149833265-60c372daea22?q=80&w=800",
-        createdAt: makeDate(17),
-      },
-      {
-        articleId: "A010",
-        title: "Chăm sóc răng miệng cho thú cưng",
-        content: "Bàn chải chuyên dụng, gel đánh răng và đồ nhai làm sạch",
-        imageUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=800",
-        createdAt: makeDate(19),
-      },
-      {
-        articleId: "A011",
-        title: "Kiểm soát ve rận hiệu quả",
-        content: "Vệ sinh ổ nằm, tắm thuốc và nhỏ gáy định kỳ",
-        imageUrl: "https://images.unsplash.com/photo-1516726817505-f5ed825624d8?q=80&w=800",
-        createdAt: makeDate(21),
-      },
-      {
-        articleId: "A012",
-        title: "Dấu hiệu thú cưng bị stress",
-        content: "Trốn tránh, cào cắn đồ đạc, thay đổi thói quen ăn ngủ",
-        imageUrl: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=800",
-        createdAt: makeDate(23),
-      },
-    ];
-    return base;
-  };
+  const loadArticles = async (nextPage = 0, kw = keyword) => {
+    setListLoading(true);
+    try {
+      const data = await articleService.getPagedArticles({
+        page: nextPage,
+        size,
+        sortBy: "createdAt",
+        sortDir: "desc",
+        keyword: kw?.trim() ? kw : undefined,
+      });
 
-  const [allCommentsByArticle] = useState(() => ({
-    A001: [
-      { commentId: "C001", userName: "Minh", content: "Bài viết hữu ích!" },
-      { commentId: "C002", userName: "Lan", content: "Áp dụng mùa mưa rất tốt." },
-    ],
-    A002: [{ commentId: "C003", userName: "Huy", content: "Mình thích loại số 3." }],
-  }));
-
-  const updateDerivedArticles = (p = 0, kw = keyword, list = allArticles) => {
-    const filtered = (list || [])
-      .filter((a) =>
-        kw.trim()
-          ? `${a.title} ${a.content}`.toLowerCase().includes(kw.toLowerCase())
-          : true
-      )
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    const newTotalPages = Math.max(1, Math.ceil(filtered.length / size));
-    const safePage = Math.min(Math.max(0, p), newTotalPages - 1);
-    const start = safePage * size;
-    const pageItems = filtered.slice(start, start + size);
-
-    setArticles(pageItems);
-    setTotalPages(newTotalPages);
-    setPage(safePage);
+      setArticles(data?.articles || []);
+      setTotalPages(data?.totalPages || 1);
+      setPage(data?.currentPage ?? nextPage);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Không thể tải danh sách bài viết");
+    } finally {
+      setListLoading(false);
+    }
   };
 
   useEffect(() => {
-    const seeded = seedFakeData();
-    setAllArticles(seeded);
-    updateDerivedArticles(0, "", seeded);
+    loadArticles(0);
   }, []);
 
   useEffect(() => {
-    updateDerivedArticles(0, keyword, allArticles);
-  }, [keyword, allArticles]);
+    const handler = setTimeout(() => {
+      loadArticles(0, keyword);
+    }, 400);
 
-  const fetchArticles = (p = page) => {
-    updateDerivedArticles(p, keyword, allArticles);
+    return () => clearTimeout(handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyword]);
+
+  const fetchArticles = (targetPage) => {
+    loadArticles(targetPage);
+  };
+
+  const fetchComments = async (articleId) => {
+    const commentList = await articleService.getCommentsByArticle(articleId);
+    setComments(commentList || []);
   };
 
   const fetchArticleDetail = async (id) => {
     try {
       setLoading(true);
-      setTimeout(() => {
-        const found = allArticles.find((a) => a.articleId === id) || null;
-        setSelectedArticle(found);
-        setComments(allCommentsByArticle[id] || []);
-        setShowDetail(true);
-        setLoading(false);
-      }, 250);
+      const articleDetail = await articleService.getArticleById(id);
+      setSelectedArticle(articleDetail || null);
+      await fetchComments(id);
+      setShowDetail(true);
     } catch (err) {
       console.error(err);
+      toast.error(err.message || "Không thể tải chi tiết bài viết");
+    } finally {
       setLoading(false);
     }
   };
 
-  const openModal = async (article = null) => {
+  const openModal = (article = null) => {
     if (article?.articleId) {
       setForm({
         articleId: article.articleId,
@@ -186,21 +96,21 @@ export default function ArticleManager() {
       });
     } else {
       setForm({ articleId: "", title: "", content: "", imageUrl: "" });
-      setImageFile(null);
     }
     setShowModal(true);
   };
 
-  const uploadImage = async (file) => {
-    if (!file) return "";
-    try {
-      const url = URL.createObjectURL(file);
-      return url;
-    } catch (err) {
-      console.error(err);
-      toast.error("Tải ảnh lên thất bại!");
-      return "";
+  const buildPayload = () => {
+    if (!user?.userId) {
+      throw new Error("Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.");
     }
+
+    return {
+      title: form.title.trim(),
+      content: form.content.trim(),
+      imageUrl: form.imageUrl.trim() || null,
+      authorId: user.userId,
+    };
   };
 
   const handleSubmit = async (e) => {
@@ -209,38 +119,21 @@ export default function ArticleManager() {
 
     setSubmitting(true);
     try {
-      let uploadedUrl = form.imageUrl;
-      if (imageFile) {
-        uploadedUrl = await uploadImage(imageFile);
-        if (!uploadedUrl) throw new Error("Không thể upload ảnh!");
-      }
+      const payload = buildPayload();
 
       if (form.articleId) {
-        const updated = allArticles.map((a) =>
-          a.articleId === form.articleId
-            ? { ...a, title: form.title, content: form.content, imageUrl: uploadedUrl }
-            : a
-        );
-        setAllArticles(updated);
-        updateDerivedArticles(page, keyword, updated);
+        await articleService.updateArticle(form.articleId, payload);
         toast.success("Cập nhật bài viết thành công!");
       } else {
-        const newIdNum = allArticles.length + 1;
-        const newId = `A${String(newIdNum).padStart(3, "0")}`;
-        const nowIso = new Date().toISOString();
-        const next = [
-          ...allArticles,
-          { articleId: newId, title: form.title, content: form.content, imageUrl: uploadedUrl, createdAt: nowIso },
-        ];
-        setAllArticles(next);
-        updateDerivedArticles(0, keyword, next);
+        await articleService.createArticle(payload);
         toast.success("Thêm bài viết thành công!");
       }
 
       setShowModal(false);
+      loadArticles(form.articleId ? page : 0);
     } catch (error) {
       console.error(error);
-      toast.error("Không thể lưu bài viết!");
+      toast.error(error.message || "Không thể lưu bài viết!");
     } finally {
       setSubmitting(false);
     }
@@ -248,10 +141,86 @@ export default function ArticleManager() {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Xác nhận xóa bài viết này?")) return;
-    const next = allArticles.filter((a) => a.articleId !== id);
-    setAllArticles(next);
-    updateDerivedArticles(page, keyword, next);
-    toast.success("Đã xóa bài viết!");
+
+    if (!user?.userId) {
+      toast.error("Không xác định được người thực hiện xóa.");
+      return;
+    }
+
+    try {
+      await articleService.deleteArticle(id, user.userId);
+      toast.success("Đã xóa bài viết!");
+      loadArticles(page);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Không thể xóa bài viết!");
+    }
+  };
+
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    if (!selectedArticle?.articleId) return;
+    if (!commentContent.trim()) {
+      toast.error("Vui lòng nhập nội dung bình luận");
+      return;
+    }
+    if (!user?.userId) {
+      toast.error("Không xác định được tài khoản admin");
+      return;
+    }
+
+    setCommentSubmitting(true);
+    try {
+      await articleService.createComment({
+        articleId: selectedArticle.articleId,
+        content: commentContent.trim(),
+        userId: user.userId,
+      });
+      toast.success("Đã thêm bình luận");
+      setCommentContent("");
+      await fetchComments(selectedArticle.articleId);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Không thể gửi bình luận");
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
+  const handleDeleteComment = async (comment) => {
+    if (!selectedArticle?.articleId) return;
+
+    const requestUserId = comment?.userId || user?.userId;
+    if (!requestUserId) {
+      toast.error("Không xác định được người thực hiện yêu cầu xóa.");
+      return;
+    }
+
+    if (!window.confirm("Xóa bình luận này?")) return;
+    try {
+      setDeletingCommentId(comment.commentId);
+      await articleService.deleteComment(comment.commentId, requestUserId);
+      toast.success("Đã xóa bình luận");
+      await fetchComments(selectedArticle.articleId);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Không thể xóa bình luận");
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
+  const getCommentDisplayName = (c) => {
+    if (!c) return "Ẩn danh";
+    if (c.userRole === "ADMIN") return "Admin";
+    if (c.userName) return c.userName;
+    if (c.username) return c.username;
+    if (c.fullName) return c.fullName;
+    if (c.userId === user?.userId) {
+      return user?.fullName || user?.username || "Admin";
+    }
+    if (c.userId) return c.userId;
+    return "Ẩn danh";
   };
 
   return (
@@ -290,40 +259,50 @@ export default function ArticleManager() {
               </tr>
             </thead>
             <tbody>
-              {articles.map((a) => (
-                <tr key={a.articleId} className="border-b hover:bg-indigo-50 transition duration-150">
-                  <td className="px-4 py-3">{a.articleId}</td>
-                  <td
-                    className="px-4 py-3 font-medium cursor-pointer hover:text-indigo-600"
-                    onClick={() => fetchArticleDetail(a.articleId)}
-                    title="Xem chi tiết"
-                  >
-                    {a.title}
-                  </td>
-                  <td className="px-4 py-3">
-                    {a.imageUrl ? (
-                      <img src={a.imageUrl} alt={a.title} className="w-16 h-16 object-cover rounded-lg border" />
-                    ) : (
-                      <span className="text-gray-400 italic">Không có ảnh</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">{a.createdAt?.split("T")[0] || "—"}</td>
-                  <td className="px-4 py-3 text-center space-x-2">
-                    <button onClick={() => openModal(a)} className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600">
-                      Sửa
-                    </button>
-                    <button onClick={() => handleDelete(a.articleId)} className="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600">
-                      Xóa
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {articles.length === 0 && (
+              {listLoading ? (
                 <tr>
-                  <td colSpan="5" className="text-center text-gray-500 py-6">
-                    Không có bài viết.
+                  <td colSpan="5" className="text-center py-6 text-indigo-600 font-semibold">
+                    Đang tải dữ liệu...
                   </td>
                 </tr>
+              ) : (
+                <>
+                  {articles.map((a) => (
+                    <tr key={a.articleId} className="border-b hover:bg-indigo-50 transition duration-150">
+                      <td className="px-4 py-3">{a.articleId}</td>
+                      <td
+                        className="px-4 py-3 font-medium cursor-pointer hover:text-indigo-600"
+                        onClick={() => fetchArticleDetail(a.articleId)}
+                        title="Xem chi tiết"
+                      >
+                        {a.title}
+                      </td>
+                      <td className="px-4 py-3">
+                        {a.imageUrl ? (
+                          <img src={a.imageUrl} alt={a.title} className="w-16 h-16 object-cover rounded-lg border" />
+                        ) : (
+                          <span className="text-gray-400 italic">Không có ảnh</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">{a.createdAt?.split("T")[0] || "—"}</td>
+                      <td className="px-4 py-3 text-center space-x-2">
+                        <button onClick={() => openModal(a)} className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600">
+                          Sửa
+                        </button>
+                        <button onClick={() => handleDelete(a.articleId)} className="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600">
+                          Xóa
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {articles.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="text-center text-gray-500 py-6">
+                        Không có bài viết.
+                      </td>
+                    </tr>
+                  )}
+                </>
               )}
             </tbody>
           </table>
@@ -367,20 +346,13 @@ export default function ArticleManager() {
                 ></textarea>
               </div>
               <div>
-                <label className="block font-semibold mb-1">Ảnh minh họa</label>
+                <label className="block font-semibold mb-1">Link ảnh minh họa</label>
                 <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setImageFile(e.target.files[0])}
+                  value={form.imageUrl}
+                  onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                  placeholder="https://..."
                   className="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-indigo-500"
                 />
-                {(imageFile || form.imageUrl) && (
-                  <img
-                    src={imageFile ? URL.createObjectURL(imageFile) : form.imageUrl}
-                    alt="preview"
-                    className="mt-3 h-40 w-full object-cover rounded-lg border"
-                  />
-                )}
               </div>
               <div className="flex justify-end gap-3 pt-3">
                 <button type="button" onClick={() => setShowModal(false)} className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">
@@ -417,14 +389,48 @@ export default function ArticleManager() {
                 <ul className="space-y-2">
                   {comments.length > 0 ? (
                     comments.map((c) => (
-                      <li key={c.commentId} className="border p-2 rounded-lg">
-                        <b>{c.userName || "Ẩn danh"}:</b> <span>{c.content}</span>
+                      <li key={c.commentId} className="border p-3 rounded-lg">
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <b>{getCommentDisplayName(c)}:</b> <span>{c.content}</span>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {c.createdAt ? new Date(c.createdAt).toLocaleString("vi-VN") : ""}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteComment(c)}
+                            className="text-sm text-red-500 hover:text-red-600"
+                            disabled={deletingCommentId === c.commentId}
+                          >
+                            {deletingCommentId === c.commentId ? "Đang xóa..." : "Xóa"}
+                          </button>
+                        </div>
                       </li>
                     ))
                   ) : (
                     <p className="text-gray-500 italic">Chưa có bình luận nào.</p>
                   )}
                 </ul>
+
+                <form onSubmit={handleAddComment} className="mt-6 space-y-2">
+                  <label className="font-semibold text-sm text-gray-700">Phản hồi với tư cách Admin</label>
+                  <textarea
+                    value={commentContent}
+                    onChange={(e) => setCommentContent(e.target.value)}
+                    rows="3"
+                    placeholder="Nhập nội dung bình luận..."
+                    className="w-full border rounded-lg p-3 focus:border-indigo-500"
+                  ></textarea>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={commentSubmitting}
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-500 disabled:opacity-60"
+                    >
+                      {commentSubmitting ? "Đang gửi..." : "Gửi bình luận"}
+                    </button>
+                  </div>
+                </form>
               </>
             )}
           </div>
