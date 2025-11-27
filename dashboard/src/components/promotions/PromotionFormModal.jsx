@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HiX, HiUpload, HiCalendar } from "react-icons/hi";
 import { useDispatch } from "react-redux";
-import { addPromotion } from "../../store/promotionSlice";
+import { addPromotion, updatePromotion } from "../../store/promotionSlice";
 import { uploadToCloudinary } from "../../api/cloudinaryService";
 import toast from "react-hot-toast";
 
@@ -21,29 +21,37 @@ const categories = [
   { id: "C010", name: "Mèo Ragdoll" },
 ];
 
-export default function AddPromotionModal({ darkMode, onClose }) {
+export default function PromotionFormModal({ darkMode, onClose, promotion = null}) {
   const dispatch = useDispatch();
+  const isEdit = !!promotion?.id;
+
   const [loading, setLoading] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
-  // Tự động điền hôm nay và 7 ngày sau
   const today = new Date().toISOString().split("T")[0];
-  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
+  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   const [formData, setFormData] = useState({
-    code: "",
-    description: "",
-    promotionType: "DISCOUNT",
-    discountValue: "",
-    minOrderAmount: "",
-    maxUsage: "",
-    categoryId: null,
-    startDate: today,
-    endDate: nextWeek,
+    promotionId: promotion?.id || null,
+    code: promotion?.code || "",
+    description: promotion?.description || "",
+    promotionType: promotion?.promotionType || "DISCOUNT",
+    discountValue: promotion?.discountValue || "",
+    minOrderAmount: promotion?.minOrderAmount || "",
+    maxUsage: promotion?.maxUsage || "",
+    categoryId: promotion?.categoryId || null,
+    startDate: promotion?.startDate || today,
+    endDate: promotion?.endDate || nextWeek,
+    imageUrl: promotion?.imageUrl || null,
+    status: promotion?.status || "ACTIVE",
   });
+
+  useEffect(() => {
+    if (promotion?.image) {
+      setImagePreview(promotion.image);
+    }
+  }, [promotion]);
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
@@ -63,33 +71,49 @@ export default function AddPromotionModal({ darkMode, onClose }) {
     }
 
     setLoading(true);
-
     try {
-      let imageUrl = "";
+      let imageUrl = formData.imageUrl;
       if (imageFile) {
-        toast.loading("Đang tải ảnh lên...");
-        imageUrl = await uploadToCloudinary(imageFile);
-        toast.dismiss();
+        toast.loading("Đang tải ảnh lên Cloudinary...");
+        try {
+          imageUrl = await uploadToCloudinary(imageFile);
+          toast.dismiss();
+          toast.success("Tải ảnh thành công!");
+        } catch (err) {
+          toast.dismiss();
+          toast.error("Lỗi tải ảnh!");
+          setLoading(false);
+          return;
+        }
       }
 
       const payload = {
+        ...formData,
+        promotionId: isEdit ? formData.promotionId : null,
         code: formData.code.trim().toUpperCase(),
         description: formData.description.trim() || null,
-        promotionType: formData.promotionType,
         discountValue: formData.discountValue ? Number(formData.discountValue) : null,
         minOrderAmount: formData.minOrderAmount ? Number(formData.minOrderAmount) : null,
         maxUsage: formData.maxUsage ? Number(formData.maxUsage) : null,
         categoryId: formData.categoryId || null,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
         imageUrl: imageUrl || null,
+        status: isEdit ? formData.status : "ACTIVE",
       };
-
-      await dispatch(addPromotion(payload)).unwrap();
-      toast.success("Thêm khuyến mãi thành công!");
+      if (isEdit) {
+        await dispatch(updatePromotion(payload)).unwrap();
+        toast.success("Cập nhật khuyến mãi thành công!");
+      } else {
+        await dispatch(addPromotion(payload)).unwrap();
+        toast.success("Thêm khuyến mãi thành công!");
+      }
       onClose();
     } catch (err) {
-      toast.error("Thêm thất bại! Vui lòng thử lại");
+      const msg = err?.response?.data?.message || "";
+      if (msg.includes("already exists") || msg.includes("Duplicate entry") || msg.includes("code")) {
+        toast.error("Mã khuyến mãi đã tồn tại! Vui lòng chọn mã khác.");
+      } else {
+        toast.error(isEdit ? "Cập nhật thất bại!" : "Thêm thất bại!");
+      }
     } finally {
       setLoading(false);
     }
@@ -100,7 +124,7 @@ export default function AddPromotionModal({ darkMode, onClose }) {
       <div className={`w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border-2 ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
         {/* Header */}
         <div className="sticky top-0 bg-[#7b4f35] text-white px-6 py-4 flex justify-between items-center rounded-t-2xl">
-          <h3 className="text-2xl font-bold">Thêm Khuyến Mãi Mới</h3>
+          <h3 className="text-2xl font-bold">{isEdit ? "Chỉnh sửa" : "Thêm"} Khuyến Mãi</h3>
           <button
             onClick={onClose}
             disabled={loading}
@@ -137,7 +161,7 @@ export default function AddPromotionModal({ darkMode, onClose }) {
                 type="text"
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-gray-700" : "bg-white"} focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
+                className={`w-full px-4 py-3 rounded-lg border ${isEdit ? "bg-gray-100" : ""} ${darkMode ? "bg-gray-700" : "bg-white"}`}
                 placeholder="VD: FLASH2025"
               />
             </div>
@@ -187,7 +211,7 @@ export default function AddPromotionModal({ darkMode, onClose }) {
                 className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-gray-700" : "bg-white"} focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
                 placeholder={formData.promotionType === "DISCOUNT" ? "VD: 30" : "VD: 50000"}
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-orange-500 mt-1">
                 {formData.promotionType === "DISCOUNT" ? "Bắt buộc nhập" : "Tùy chọn"}
               </p>
             </div>
@@ -243,39 +267,50 @@ export default function AddPromotionModal({ darkMode, onClose }) {
                 <HiCalendar className="absolute right-3 top-3.5 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
             </div>
-          </div>
 
-          <div>
-              <label className="block font-medium mb-2">Danh mục áp dụng</label>
-              <select
-                value={formData.categoryId || ""}
-                onChange={(e) => setFormData({ ...formData, categoryId: e.target.value || null })}
-                className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-gray-700" : "bg-white"} focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
-              >
-                {categories.map((c) => (
-                  <option key={c.id || "all"} value={c.id || ""}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+            <div className="md:col-span-2">
+              <div className={`grid grid-cols-1 ${isEdit ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-6`}>
+                {/* Danh mục áp dụng */}
+                <div>
+                  <label className="block font-medium mb-2">Danh mục áp dụng</label>
+                  <select
+                    value={formData.categoryId || ""}
+                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value || null })}
+                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-gray-700" : "bg-white"} focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id || "all"} value={c.id || ""}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Trạng thái – chỉ hiện khi Edit */}
+                {isEdit && (
+                  <div>
+                    <label className="block font-medium mb-2">Trạng thái</label>
+                    <select
+                      value={formData.status === "active" ? "ACTIVE" : formData.status === "inactive" ? "INACTIVE" : "ACTIVE"}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-gray-700" : "bg-white"} focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
+                    >
+                      <option value="ACTIVE">Hoạt động</option>
+                      <option value="INACTIVE">Tạm dừng</option>
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
+        </div>
 
           {/* Nút bấm */}
           <div className="flex gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="flex-1 py-3 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-            >
+            <button type="button" onClick={onClose} disabled={loading} className="flex-1 py-3 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
               Hủy
             </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 py-3 bg-[#7b4f35] text-white rounded-lg hover:bg-[#6a4330] disabled:opacity-70 transition font-medium"
-            >
-              {loading ? "Đang thêm..." : "Thêm khuyến mãi"}
+            <button type="submit" disabled={loading} className="flex-1 py-3 bg-[#7b4f35] text-white rounded-lg hover:bg-[#6a4330] disabled:opacity-70 transition font-medium">
+              {loading ? "Đang lưu..." : isEdit ? "Cập nhật" : "Thêm khuyến mãi"}
             </button>
           </div>
         </form>

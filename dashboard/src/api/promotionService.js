@@ -37,5 +37,10 @@ export const promotionService = {
     const res = await api.post(`${PROMOTION_API}`, promotionData);
     return res.data;
   },
+
+  updatePromotion: async (promotionData) => {
+    const res = await api.post(`${PROMOTION_API}`, promotionData);
+    return res.data;
+  },
  
 };

@@ -11,9 +11,7 @@ import {
   inactivePromotion,
 } from "../../store/promotionSlice";
 import { HiPlus } from "react-icons/hi";
-
-import AddPromotionModal from "./AddPromotionModal";
-import EditPromotionModal from "./EditPromotionModal";
+import PromotionFormModal from "./PromotionFormModal";
 import ViewPromotionModal from "./ViewPromotionModal";
 import PromotionStatsCards from "./promotion/PromotionStatsCards";
 import PromotionFilters from "./promotion/PromotionFilters";
@@ -53,8 +51,9 @@ export default function PromotionList({ darkMode }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingPromotion, setEditingPromotion] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
 
@@ -193,7 +192,7 @@ export default function PromotionList({ darkMode }) {
             Quản lý Khuyến mãi
           </h2>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => setShowFormModal(true)}
             className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
           >
             <HiPlus className="h-5 w-5" /> Tạo mới
@@ -231,9 +230,9 @@ export default function PromotionList({ darkMode }) {
                     dispatch(fetchPromotionByCode(p.code));
                     setShowViewModal(true);
                   }}
-                  onEdit={() => {
-                    dispatch(fetchPromotionByCode(p.code));
-                    setShowEditModal(true);
+                  onEdit={(promo) => {
+                    setEditingPromotion(promo);
+                    setShowFormModal(true);
                   }}
                   onDelete={() => handleInactive(p.id, p.code)}
                   onDuplicate={() => {}}
@@ -298,21 +297,14 @@ export default function PromotionList({ darkMode }) {
           onClose={() => setLightboxImage(null)}
         />
       )}
-      {showAddModal && (
-        <AddPromotionModal
+      {showFormModal && (
+        <PromotionFormModal
           darkMode={darkMode}
-          onClose={() => setShowAddModal(false)}
-          onSave={() => {
-            setShowAddModal(false);
-            dispatch(fetchPromotions({ page: 0, size: ITEMS_PER_PAGE }));
+          promotion={editingPromotion}
+          onClose={() => {
+            setShowFormModal(false);
+            setEditingPromotion(null);
           }}
-        />
-      )}
-      {showEditModal && selectedPromotion && (
-        <EditPromotionModal
-          darkMode={darkMode}
-          promotion={selectedPromotion}
-          onClose={() => setShowEditModal(false)}
         />
       )}
       {showViewModal && selectedPromotion && (

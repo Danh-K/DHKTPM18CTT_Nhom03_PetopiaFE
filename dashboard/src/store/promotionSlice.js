@@ -46,17 +46,15 @@ export const inactivePromotion = createAsyncThunk("promotion/inactive", async (p
   }
 );
 
-export const addPromotion = createAsyncThunk("promotion/add", async (promotionData, { rejectWithValue }) => {
-    try {
-      const data = await promotionService.addPromotion(promotionData);
-      return data;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message || "Thêm khuyến mãi thất bại"
-      );
-    }
-  }
-);
+export const addPromotion = createAsyncThunk("promotion/add", async (promotionData) => {
+  const data = await promotionService.addPromotion(promotionData);
+  return data;
+});
+
+export const updatePromotion = createAsyncThunk("promotion/update", async (promotionData) => {
+  const data = await promotionService.updatePromotion(promotionData);
+  return data; 
+});
 
 const promotionSlice = createSlice({
   name: "promotion",
@@ -135,9 +133,27 @@ const promotionSlice = createSlice({
       })
       .addCase(addPromotion.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = [action.payload, ...state.list]; // Tự động thêm vào đầu danh sách
+        if (action.payload && action.payload.promotionId) {
+          state.list = [action.payload, ...state.list];
+        }
       })
       .addCase(addPromotion.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(updatePromotion.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updatePromotion.fulfilled, (state, action) => {
+        state.loading = false;
+        const idx = state.list.findIndex(p => p.promotionId === action.payload.promotionId);
+        if (idx !== -1) state.list[idx] = action.payload;
+        if (state.selected?.promotionId === action.payload.promotionId) {
+          state.selected = action.payload;
+        }
+      })
+      .addCase(updatePromotion.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
