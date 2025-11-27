@@ -1,468 +1,716 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-// Import BỘ ICON MỚI (Lucide)
 import {
   Star,
   Sun,
-  Pin,
   MessageSquare,
   Search,
-  ChevronDown,
-  Heart,
   Trash2,
   FilePenLine,
   Reply,
   X,
+  CheckCircle,
+  AlertCircle,
+  ThumbsUp,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 
-// Import dữ liệu giả (đảm bảo đúng đường dẫn)
-import { fakePets, fakeReviews, fakeReplies } from "../../data/fakeData";
+import { useReviewManagement } from "../../hooks/useReviewManagement";
 
-// ===================================================================
-// Định nghĩa hiệu ứng cho Modal
-// ===================================================================
-const backdropVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-};
+// --- CONFIG ---
+const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
 const modalVariants = {
-  hidden: { opacity: 0, scale: 0.9, y: 50 },
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
   visible: {
     opacity: 1,
     scale: 1,
     y: 0,
-    transition: { type: "spring", stiffness: 300, damping: 30 },
+    transition: { type: "spring", stiffness: 300, damping: 25 },
   },
-  exit: { opacity: 0, scale: 0.9, y: -50, transition: { duration: 0.2 } },
+  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } },
 };
 
-// ===================================================================
-// Component Thẻ Thống Kê (StatsCard) - ĐÃ LÀM LẠI ĐƠN GIẢN
-// ===================================================================
-const StatsCard = ({ title, value, icon, iconColor, bgColor }) => {
-  const IconComponent = icon;
+const transformGoogleDriveUrl = (url) => {
+  if (!url) return "";
+  if (url.includes("drive.google.com")) {
+    const idMatch = url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (idMatch && idMatch[1])
+      return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+  }
+  return url;
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return "";
+  return new Date(dateString).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+// --- SUB-COMPONENTS ---
+
+const StatsCard = ({ title, value, icon: Icon, gradient }) => {
   return (
-    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex items-start gap-4">
-      <div className={`p-3 rounded-lg ${bgColor}`}>
-        <IconComponent className={`h-6 w-6 ${iconColor}`} />
-      </div>
-      <div>
-        <p className="text-gray-500 font-medium">{title}</p>
-        <p className="text-gray-900 text-4xl font-bold">{value}</p>
+    <div className="relative overflow-hidden bg-white p-5 rounded-xl shadow-sm border border-gray-100 group hover:shadow-md transition-all">
+      <div
+        className={`absolute top-0 right-0 w-24 h-24 -mr-5 -mt-5 rounded-full opacity-10 bg-gradient-to-br ${gradient}`}
+      ></div>
+      <div className="relative flex items-center gap-4">
+        <div
+          className={`p-3 rounded-lg bg-gradient-to-br ${gradient} text-white shadow-md group-hover:scale-110 transition-transform`}
+        >
+          <Icon size={24} strokeWidth={2.5} />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+            {title}
+          </p>
+          <p className="text-3xl font-extrabold text-gray-800">{value}</p>
+        </div>
       </div>
     </div>
   );
 };
 
-// ===================================================================
-// Component Xếp hạng Sao (StarRating)
-// ===================================================================
-const StarRating = ({ rating, starClass = "h-4 w-4" }) => {
+const StarRating = ({ rating, size = 4 }) => {
   return (
-    <div className="flex items-center">
+    <div className="flex items-center gap-0.5">
       {[...Array(5)].map((_, i) => (
         <Star
           key={i}
-          className={`${starClass} ${
-            i < Math.round(rating) ? "text-yellow-400" : "text-gray-300"
+          className={`w-${size} h-${size} ${
+            i < Math.round(rating)
+              ? "text-yellow-400 fill-yellow-400"
+              : "text-gray-300"
           }`}
-          fill={i < Math.round(rating) ? "currentColor" : "none"}
         />
       ))}
     </div>
   );
 };
 
-// ===================================================================
-// Component Item Thú cưng (PetReviewCard) - THÊM ANIMATION
-// ===================================================================
-const PetReviewCard = ({ pet, reviewCount, unrepliedCount, onPetClick }) => {
+// --- PET CARD ---
+const PetReviewCard = ({ pet, onPetClick }) => {
   return (
-    // THÊM ANIMATION
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.9 }}
+      initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      whileHover={{ scale: 1.03, y: -5 }} // Hiệu ứng "nâng"
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
       onClick={() => onPetClick(pet)}
-      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden cursor-pointer"
+      className="bg-white rounded-xl border border-gray-200 overflow-hidden cursor-pointer group"
     >
-      <div className="relative">
-        <img
-          src={pet.imageUrl}
-          alt={pet.name}
-          className="w-full h-48 object-cover"
-        />
-        {/* Badge Rating */}
-        <span className="absolute top-2 right-2 bg-black/50 text-white px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
-          <Star className="w-3 h-3" fill="white" /> {pet.avgRating}
-        </span>
-        {/* Badge Tổng Review */}
-        <span className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1">
-          <MessageSquare className="w-3 h-3" /> {reviewCount}
-        </span>
+      <div className="relative h-48 bg-gray-100 overflow-hidden">
+        {pet.imageUrl ? (
+          <img
+            src={transformGoogleDriveUrl(pet.imageUrl)}
+            alt={pet.name}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            referrerPolicy="no-referrer"
+            onError={(e) =>
+              (e.target.src = "https://placehold.co/300?text=No+Image")
+            }
+          />
+        ) : (
+          <div className="w-full h-full bg-blue-50 flex items-center justify-center text-blue-300 font-bold text-5xl">
+            {pet.name.charAt(0)}
+          </div>
+        )}
 
-        {/* Badge CHƯA TRẢ LỜI (NÂNG CẤP HIỆU ỨNG PING) */}
-        {unrepliedCount > 0 && (
-          <span className="absolute top-2 left-2 flex h-6 w-6">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex items-center justify-center rounded-full h-6 w-6 bg-red-600 text-xs font-bold text-white ring-2 ring-white">
-              {unrepliedCount}
+        <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm text-gray-800">
+          <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />{" "}
+          {pet.avgRating}
+        </div>
+
+        {pet.unrepliedCount > 0 && (
+          <div className="absolute bottom-2 left-2">
+            <span className="relative inline-flex">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
+                <AlertCircle size={10} /> {pet.unrepliedCount} cần trả lời
+              </span>
             </span>
-          </span>
+          </div>
         )}
       </div>
       <div className="p-4">
-        <h3 className="font-bold text-lg text-gray-800">{pet.name}</h3>
-        <p className="text-sm text-gray-500 mb-2">{pet.type}</p>
-        <StarRating rating={pet.avgRating} />
+        <h3 className="font-bold text-lg text-gray-800 truncate mb-1">
+          {pet.name}
+        </h3>
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+            {pet.categoryName || "Thú cưng"}
+          </span>
+          <span className="text-xs text-gray-400 flex items-center gap-1">
+            <MessageCircle size={12} /> {pet.reviewCount}
+          </span>
+        </div>
       </div>
     </motion.div>
   );
 };
 
-// ===================================================================
-// Component Form Trả Lời (MỚI)
-// ===================================================================
-const ReplyForm = ({ onSend, onCancel }) => {
-  const [text, setText] = useState("");
+// --- DELETE MODAL ---
+const DeleteModal = ({ title, message, onClose, onConfirm }) => (
+  <motion.div
+    className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4"
+    variants={backdropVariants}
+    initial="hidden"
+    animate="visible"
+    exit="hidden"
+  >
+    <motion.div
+      className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full text-center"
+      variants={modalVariants}
+    >
+      <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 shadow-sm">
+        <Trash2 size={28} />
+      </div>
+      <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
+      <p className="text-sm text-gray-500 mb-6 leading-relaxed">{message}</p>
+      <div className="flex gap-3 justify-center">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+        >
+          Hủy bỏ
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium shadow-md transition-transform active:scale-95"
+        >
+          Xóa ngay
+        </button>
+      </div>
+    </motion.div>
+  </motion.div>
+);
 
-  const handleSubmit = () => {
-    if (text.trim()) {
-      onSend(text);
-      setText("");
-    }
-  };
-
+// --- REPLY FORM ---
+const ReplyForm = ({
+  initialText = "",
+  onSend,
+  onCancel,
+  isUpdate = false,
+}) => {
+  const [text, setText] = useState(initialText);
   return (
-    <div className="mt-4 ml-4">
+    <div className="mt-3 animate-fadeIn bg-blue-50 p-3 rounded-xl border border-blue-200 shadow-sm">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Viết phản hồi của bạn..."
-        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        rows={3}
+        placeholder="Nhập nội dung phản hồi..."
+        className="w-full p-3 border border-blue-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm min-h-[80px]"
+        autoFocus
       ></textarea>
-      <div className="flex gap-2 mt-2">
-        <button
-          onClick={handleSubmit}
-          className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm font-medium"
-        >
-          Gửi
-        </button>
+      <div className="flex gap-2 mt-2 justify-end">
         <button
           onClick={onCancel}
-          className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-sm"
+          className="px-3 py-1.5 bg-white text-gray-600 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-50"
         >
           Hủy
+        </button>
+        <button
+          onClick={() => {
+            if (text.trim()) onSend(text);
+          }}
+          className={`px-4 py-1.5 text-white rounded-lg text-xs font-medium shadow-sm flex items-center gap-1 transition-colors ${
+            isUpdate
+              ? "bg-indigo-600 hover:bg-indigo-700"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
+        >
+          {isUpdate ? <FilePenLine size={14} /> : <Send size={14} />}
+          {isUpdate ? "Cập nhật" : "Gửi ngay"}
         </button>
       </div>
     </div>
   );
 };
 
-// ===================================================================
-// Component Modal Đánh giá (ReviewModal) - NÂNG CẤP KÍCH THƯỚC VÀ CHỨC NĂNG
-// ===================================================================
-const ReviewModal = ({ pet, reviews, replies, onClose }) => {
-  const [replyingTo, setReplyingTo] = useState(null); // State để theo dõi đang trả lời ai
+// --- REVIEW MODAL ---
+const ReviewModal = ({
+  pet,
+  fetchReviews,
+  onReply,
+  onDeleteReply,
+  onDeleteReview,
+  onClose,
+}) => {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingReplyId, setEditingReplyId] = useState(null);
 
-  const handleSendReply = (reviewId, text) => {
-    console.log("Đã gửi trả lời cho:", reviewId, "| Nội dung:", text);
-    // (Ở đây bạn sẽ thêm logic để cập nhật state `replies` thực tế)
-    setReplyingTo(null); // Đóng form trả lời
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    isOpen: false,
+    type: null,
+    id: null,
+  });
+
+  // Load data
+  const loadReviews = async () => {
+    setLoading(true);
+    const data = await fetchReviews(pet.id);
+    setReviews(
+      data.sort((a, b) => {
+        if (!a.reply && b.reply) return -1;
+        if (a.reply && !b.reply) return 1;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      })
+    );
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadReviews();
+  }, [pet]);
+
+  const handleSendReply = async (reviewId, text) => {
+    const success = await onReply(reviewId, text);
+    if (success) {
+      setEditingReplyId(null);
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.reviewId === reviewId
+            ? { ...r, reply: text, replyDate: new Date().toISOString() }
+            : r
+        )
+      );
+    }
+  };
+
+  const requestDelete = (type, id) => {
+    setDeleteConfirm({
+      isOpen: true,
+      type,
+      id,
+      title: type === "reply" ? "Xóa câu trả lời?" : "Xóa đánh giá?",
+      message:
+        type === "reply"
+          ? "Câu trả lời này sẽ bị xóa. Bình luận của khách vẫn giữ nguyên."
+          : "Toàn bộ đánh giá này sẽ bị xóa vĩnh viễn.",
+    });
+  };
+
+  const confirmDelete = async () => {
+    const { type, id } = deleteConfirm;
+    let success = false;
+    if (type === "reply") {
+      success = await onDeleteReply(id);
+      if (success)
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.reviewId === id ? { ...r, reply: null, replyDate: null } : r
+          )
+        );
+    } else {
+      success = await onDeleteReview(id);
+      if (success) setReviews((prev) => prev.filter((r) => r.reviewId !== id));
+    }
+    if (success) setDeleteConfirm({ isOpen: false, type: null, id: null });
   };
 
   return (
-    <motion.div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      variants={backdropVariants}
-      initial="hidden"
-      animate="visible"
-      exit="hidden"
-    >
+    <>
       <motion.div
-        className="bg-slate-50 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" // TĂNG KÍCH THƯỚC
-        variants={modalVariants}
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        variants={backdropVariants}
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
       >
-        {/* Header Modal (Giống ảnh) */}
-        <div className="flex-shrink-0 p-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <Star className="w-8 h-8" fill="white" />
-            <div>
-              <h2 className="text-2xl font-bold">Đánh giá - {pet.name}</h2>
-              <p className="text-sm opacity-90">{reviews.length} đánh giá</p>
+        <motion.div
+          className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+          variants={modalVariants}
+        >
+          {/* Header */}
+          <div className="flex-shrink-0 p-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex justify-between items-center shadow-md z-10">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm border border-white/30">
+                {pet.imageUrl ? (
+                  <img
+                    src={transformGoogleDriveUrl(pet.imageUrl)}
+                    className="w-full h-full object-cover rounded-xl"
+                  />
+                ) : (
+                  <span className="font-bold text-white text-xl">
+                    {pet.name.charAt(0)}
+                  </span>
+                )}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">{pet.name}</h2>
+                <p className="text-sm text-white/80 flex items-center gap-1">
+                  <Star size={14} className="text-yellow-300 fill-yellow-300" />{" "}
+                  {pet.avgRating} • {reviews.length} đánh giá
+                </p>
+              </div>
             </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-full transition-colors text-white/90 hover:text-white"
+            >
+              <X size={24} />
+            </button>
           </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white">
-            <X size={24} strokeWidth={3} />
-          </button>
-        </div>
 
-        {/* Content Modal (Scrollable) */}
-        <div className="flex-1 p-6 space-y-5 overflow-y-auto">
-          {reviews.map((review) => {
-            const reply = replies.find((r) => r.reviewId === review.id);
-            const isReplying = replyingTo === review.id;
-
-            return (
-              <div
-                key={review.id}
-                className="bg-white p-4 rounded-lg shadow-sm"
-              >
-                {/* User Review */}
-                <div className="flex items-start gap-3">
+          {/* Content */}
+          <div className="flex-1 p-6 space-y-6 overflow-y-auto bg-gray-100">
+            {loading ? (
+              <div className="text-center py-10 text-gray-400">
+                Đang tải bình luận...
+              </div>
+            ) : reviews.length > 0 ? (
+              reviews.map((review) => {
+                const isEditing = editingReplyId === review.reviewId;
+                return (
                   <div
-                    className={`flex-shrink-0 w-10 h-10 rounded-full ${review.avatarBg} flex items-center justify-center font-bold text-white`}
+                    key={review.reviewId}
+                    className={`bg-white p-6 rounded-2xl shadow-sm border transition-all ${
+                      !review.reply
+                        ? "border-l-4 border-l-red-400"
+                        : "border-gray-100"
+                    }`}
                   >
-                    {review.userInitial}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold text-gray-800">
-                          {review.userName}
-                        </p>
-                        <p className="text-xs text-gray-400">{review.date}</p>
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center font-bold text-gray-500 text-sm uppercase overflow-hidden border border-white shadow-sm">
+                          {review.userAvatar ? (
+                            <img
+                              src={transformGoogleDriveUrl(review.userAvatar)}
+                              className="w-full h-full object-cover"
+                              onError={(e) =>
+                                (e.target.src =
+                                  "https://placehold.co/50?text=U")
+                              }
+                            />
+                          ) : (
+                            (review.userFullName || "U").charAt(0)
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 text-gray-400">
-                        <span className="flex items-center gap-1 text-red-500">
-                          <Heart className="w-4 h-4" />
-                          <span className="text-sm font-medium">
-                            {review.likes}
-                          </span>
-                        </span>
-                        <button className="hover:text-gray-600">
-                          <Pin className="w-4 h-4" />
-                        </button>
-                        <button className="hover:text-red-500">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-bold text-gray-900 text-sm">
+                              {review.userFullName || "Khách hàng"}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <StarRating rating={review.rating} size={3} />
+                              <span className="text-xs text-gray-400">
+                                • {formatDate(review.createdAt)}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Nút xóa review gốc */}
+                          <button
+                            onClick={() =>
+                              requestDelete("review", review.reviewId)
+                            }
+                            className="text-gray-300 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                            title="Xóa đánh giá"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+
+                        <p className="text-gray-700 text-sm mt-3 leading-relaxed">
+                          {review.comment}
+                        </p>
+                        {review.reviewImageUrl && (
+                          <img
+                            src={transformGoogleDriveUrl(review.reviewImageUrl)}
+                            alt="Review"
+                            className="mt-3 w-24 h-24 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90"
+                          />
+                        )}
+
+                        {/* Khu vực Phản hồi */}
+                        <div className="mt-4">
+                          {/* TH1: Đang sửa */}
+                          {isEditing ? (
+                            <ReplyForm
+                              initialText={review.reply || ""}
+                              isUpdate={true}
+                              onCancel={() => setEditingReplyId(null)}
+                              onSend={(text) =>
+                                handleSendReply(review.reviewId, text)
+                              }
+                            />
+                          ) : review.reply ? (
+                            // TH2: Đã trả lời -> Hiển thị box Admin Reply
+                            <div className="mt-4 ml-4 p-4 bg-slate-50 border border-slate-200 rounded-xl relative">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
+                                    AD
+                                  </div>
+                                  <span className="font-bold text-blue-800 text-sm">
+                                    Quản trị viên
+                                  </span>
+                                  {review.replyDate && (
+                                    <span className="text-xs text-gray-400">
+                                      • {formatDate(review.replyDate)}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* --- NÚT CẬP NHẬT & XÓA (LÀM LẠI DỄ NHÌN HƠN) --- */}
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() =>
+                                      setEditingReplyId(review.reviewId)
+                                    }
+                                    className="flex items-center gap-1 px-2 py-1 bg-white border border-indigo-200 text-indigo-600 rounded shadow-sm hover:bg-indigo-50 text-xs font-medium transition-all"
+                                    title="Sửa câu trả lời"
+                                  >
+                                    <FilePenLine size={12} /> Sửa
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      requestDelete("reply", review.reviewId)
+                                    }
+                                    className="flex items-center gap-1 px-2 py-1 bg-white border border-red-200 text-red-600 rounded shadow-sm hover:bg-red-50 text-xs font-medium transition-all"
+                                    title="Xóa câu trả lời"
+                                  >
+                                    <Trash2 size={12} /> Xóa
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed pl-8">
+                                {review.reply}
+                              </p>
+                            </div>
+                          ) : (
+                            // TH3: Chưa trả lời
+                            <button
+                              onClick={() => setEditingReplyId(review.reviewId)}
+                              className="mt-3 flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 border border-blue-100"
+                            >
+                              <Reply size={14} /> Trả lời khách hàng
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <StarRating
-                      rating={review.rating}
-                      starClass="h-5 w-5 my-1.5"
-                    />
-                    <p className="text-gray-700">{review.comment}</p>
-
-                    {/* === LOGIC TRẢ LỜI NÂNG CẤP === */}
-                    {isReplying ? (
-                      // 1. Hiển thị form nếu đang trả lời
-                      <ReplyForm
-                        onCancel={() => setReplyingTo(null)}
-                        onSend={(text) => handleSendReply(review.id, text)}
-                      />
-                    ) : reply ? (
-                      // 2. Hiển thị reply của admin nếu đã có
-                      <div className="mt-4 ml-4 p-3 bg-teal-50 border-l-4 border-teal-400 rounded-r-lg">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center font-bold text-white text-sm">
-                              A
-                            </div>
-                            <div>
-                              <p className="font-semibold text-teal-800">
-                                Admin
-                              </p>
-                              <p className="text-xs text-gray-400">
-                                {reply.date}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 text-gray-400">
-                            <button className="hover:text-blue-500">
-                              <FilePenLine className="w-4 h-4" />
-                            </button>
-                            <button className="hover:text-red-500">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-gray-700 mt-2">{reply.text}</p>
-                      </div>
-                    ) : (
-                      // 3. Hiển thị nút "Trả lời" nếu chưa có
-                      <button
-                        onClick={() => setReplyingTo(review.id)}
-                        className="mt-3 flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800"
-                      >
-                        <Reply className="w-4 h-4" />
-                        Trả lời
-                      </button>
-                    )}
-                    {/* === KẾT THÚC LOGIC === */}
                   </div>
-                </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-20 text-gray-400 flex flex-col items-center">
+                <MessageSquare size={48} className="opacity-20 mb-2" />
+                <p>Chưa có đánh giá nào.</p>
               </div>
-            );
-          })}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// ===================================================================
-// Component Chính: Quản Lý Đánh Giá (ReviewManagement)
-// ===================================================================
-export default function ReviewManagement() {
-  const [pets, setPets] = useState(fakePets);
-  const [reviews, setReviews] = useState(fakeReviews);
-  const [replies, setReplies] = useState(fakeReplies);
-
-  const [filters, setFilters] = useState({ search: "", status: "all" });
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedPet, setSelectedPet] = useState(null);
-
-  // --- Tính toán dữ liệu ---
-  const stats = useMemo(() => {
-    const totalReviews = reviews.length;
-    const fiveStar = reviews.filter((r) => r.rating === 5).length;
-    const replied = replies.length;
-    // Pinned có thể là một state riêng, ở đây fake
-    const pinned = Math.floor(totalReviews / 10) + 1;
-    return { totalReviews, fiveStar, pinned, replied };
-  }, [reviews, replies]);
-
-  const filteredPets = useMemo(() => {
-    return pets.filter((p) =>
-      p.name.toLowerCase().includes(filters.search.toLowerCase())
-    );
-    // Logic lọc theo trạng thái (đã trả lời / chưa trả lời) có thể thêm ở đây
-  }, [pets, filters.search]);
-
-  // --- Hàm Helper ---
-  const getReviewsForPet = (petId) => reviews.filter((r) => r.petId === petId);
-
-  const getUnrepliedCountForPet = (petId) => {
-    const petReviews = getReviewsForPet(petId);
-    const unreplied = petReviews.filter(
-      (review) => !replies.some((r) => r.reviewId === review.id)
-    );
-    return unreplied.length;
-  };
-
-  // --- Xử lý sự kiện ---
-  const handleOpenModal = (pet) => {
-    setSelectedPet(pet);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedPet(null);
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Stats Grid (ĐÃ LÀM LẠI ĐƠN GIẢN) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatsCard
-            title="Tổng Đánh Giá"
-            value={stats.totalReviews}
-            icon={Star}
-            iconColor="text-yellow-500"
-            bgColor="bg-yellow-100"
-          />
-          <StatsCard
-            title="Đánh Giá 5 Sao"
-            value={stats.fiveStar}
-            icon={Sun}
-            iconColor="text-green-500"
-            bgColor="bg-green-100"
-          />
-          <StatsCard
-            title="Đã Ghim"
-            value={stats.pinned}
-            icon={Pin}
-            iconColor="text-blue-500"
-            bgColor="bg-blue-100"
-          />
-          <StatsCard
-            title="Đã Trả Lời"
-            value={stats.replied}
-            icon={MessageSquare}
-            iconColor="text-indigo-500"
-            bgColor="bg-indigo-100"
-          />
-        </div>
-
-        {/* Filters (Giống ảnh) */}
-        <div className="bg-white p-4 rounded-lg border shadow-sm mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tìm kiếm thú cưng
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Nhập tên thú cưng..."
-                  value={filters.search}
-                  onChange={(e) =>
-                    setFilters((prev) => ({ ...prev, search: e.target.value }))
-                  }
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Lọc theo trạng thái
-              </label>
-              <select
-                value={filters.status}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, status: e.target.value }))
-                }
-                className="w-full p-2 border border-gray-300 rounded-lg shadow-sm"
-              >
-                <option value="all">Tất cả</option>
-                <option value="replied">Đã trả lời</option>
-                <option value="unreplied">Chưa trả lời</option>
-              </select>
-            </div>
+            )}
           </div>
-        </div>
+        </motion.div>
+      </motion.div>
 
-        {/* Pet Grid (ĐÃ THÊM ANIMATION) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          {filteredPets.map((pet) => {
-            const petReviews = getReviewsForPet(pet.id);
-            const unrepliedCount = getUnrepliedCountForPet(pet.id);
-            return (
-              <PetReviewCard
-                key={pet.id}
-                pet={pet}
-                reviewCount={petReviews.length}
-                unrepliedCount={unrepliedCount}
-                onPetClick={handleOpenModal}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Khu vực render Modal (với AnimatePresence) */}
       <AnimatePresence>
-        {isModalOpen && selectedPet && (
-          <ReviewModal
-            pet={selectedPet}
-            reviews={getReviewsForPet(selectedPet.id)}
-            replies={replies}
-            onClose={handleCloseModal}
+        {deleteConfirm.isOpen && (
+          <DeleteModal
+            title={deleteConfirm.title}
+            message={deleteConfirm.message}
+            onClose={() =>
+              setDeleteConfirm({ ...deleteConfirm, isOpen: false })
+            }
+            onConfirm={confirmDelete}
           />
         )}
       </AnimatePresence>
+    </>
+  );
+};
+
+// --- MAIN COMPONENT ---
+export default function ReviewManagement() {
+  const {
+    pets,
+    stats,
+    loading,
+    fetchPetReviews,
+    replyReview,
+    deleteAdminReply,
+    deleteReview,
+  } = useReviewManagement();
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterRating, setFilterRating] = useState("all"); // Thêm state filter rating
+  const [selectedPet, setSelectedPet] = useState(null);
+
+  const filteredPets = useMemo(() => {
+    let res = pets.filter((p) =>
+      p.name.toLowerCase().includes(search.toLowerCase())
+    );
+
+    // Lọc trạng thái trả lời
+    if (filterStatus === "unreplied")
+      res = res.filter((p) => p.unrepliedCount > 0);
+    else if (filterStatus === "replied")
+      res = res.filter((p) => p.unrepliedCount === 0 && p.reviewCount > 0);
+
+    // Lọc theo sao (Rating) - Lọc theo Avg Rating của Pet (làm tròn)
+    if (filterRating !== "all") {
+      const rating = parseInt(filterRating);
+      res = res.filter((p) => Math.round(p.avgRating) === rating);
+    }
+
+    return res;
+  }, [pets, search, filterStatus, filterRating]);
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <ToastContainer position="top-right" autoClose={2000} />
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-extrabold text-gray-900 mb-2">
+            Trung Tâm Đánh Giá
+          </h1>
+          <p className="text-gray-500">
+            Theo dõi và phản hồi ý kiến khách hàng.
+          </p>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <StatsCard
+            title="Tổng Đánh Giá"
+            value={stats.totalReviews}
+            icon={MessageSquare}
+            gradient="from-blue-400 to-blue-600"
+          />
+          <StatsCard
+            title="Điểm Trung Bình"
+            value={stats.averageRating}
+            icon={Star}
+            gradient="from-yellow-400 to-orange-500"
+          />
+          <StatsCard
+            title="Cần Trả Lời"
+            value={stats.unrepliedCount}
+            icon={AlertCircle}
+            gradient="from-red-400 to-pink-600"
+          />
+          <StatsCard
+            title="Đã Phản Hồi"
+            value={stats.repliedCount}
+            icon={ThumbsUp}
+            gradient="from-green-400 to-emerald-600"
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row gap-4 justify-between items-center sticky top-4 z-20 backdrop-blur-lg bg-white/90">
+          <div className="relative w-full md:w-80 group">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 group-focus-within:text-blue-500 transition-colors">
+              <Search size={20} />
+            </span>
+            <input
+              type="text"
+              placeholder="Tìm kiếm thú cưng..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 focus:bg-white"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto bg-gray-50 p-1 rounded-xl border border-gray-200">
+            {/* Filter Status */}
+            <div className="flex">
+              <button
+                onClick={() => setFilterStatus("all")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterStatus === "all"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Tất cả
+              </button>
+              <button
+                onClick={() => setFilterStatus("unreplied")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                  filterStatus === "unreplied"
+                    ? "bg-white text-red-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Cần trả lời{" "}
+                {stats.unrepliedCount > 0 && (
+                  <span className="bg-red-100 text-red-600 px-1.5 rounded-full text-[10px]">
+                    {stats.unrepliedCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setFilterStatus("replied")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterStatus === "replied"
+                    ? "bg-white text-green-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Đã trả lời
+              </button>
+            </div>
+
+            {/* Filter Rating Dropdown */}
+            <div className="h-8 w-px bg-gray-300 mx-1"></div>
+
+            <select
+              value={filterRating}
+              onChange={(e) => setFilterRating(e.target.value)}
+              className="bg-transparent text-sm font-medium text-gray-600 outline-none px-2 cursor-pointer"
+            >
+              <option value="all">⭐ Tất cả sao</option>
+              <option value="5">5 sao (Tuyệt vời)</option>
+              <option value="4">4 sao (Tốt)</option>
+              <option value="3">3 sao (Bình thường)</option>
+              <option value="2">2 sao (Tệ)</option>
+              <option value="1">1 sao (Rất tệ)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Grid */}
+        {loading ? (
+          <div className="text-center py-20 text-gray-400 font-medium">
+            Đang đồng bộ dữ liệu...
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredPets.map((pet) => (
+              <PetReviewCard
+                key={pet.id}
+                pet={pet}
+                onPetClick={setSelectedPet}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Modal */}
+        <AnimatePresence>
+          {selectedPet && (
+            <ReviewModal
+              pet={selectedPet}
+              fetchReviews={fetchPetReviews}
+              onReply={replyReview}
+              onDeleteReply={deleteAdminReply}
+              onDeleteReview={deleteReview}
+              onClose={() => setSelectedPet(null)}
+            />
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

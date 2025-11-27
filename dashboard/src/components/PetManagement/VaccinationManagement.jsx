@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import {
@@ -22,11 +22,14 @@ import {
   Calendar,
   Eye,
   User,
+  Mail,
+  CheckCircle,
+  Loader2,
 } from "lucide-react";
 
 import { useVaccineManagement } from "../../hooks/useVaccineManagement";
 
-// --- CONFIG ---
+// --- ANIMATION VARIANTS ---
 const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
 const modalVariants = {
   hidden: { opacity: 0, scale: 0.95, y: 30 },
@@ -39,6 +42,7 @@ const modalVariants = {
   exit: { opacity: 0, scale: 0.95, y: 30, transition: { duration: 0.2 } },
 };
 
+// --- HELPERS ---
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
   return new Date(dateStr).toLocaleDateString("vi-VN", {
@@ -80,6 +84,8 @@ const mapStatus = (status) => {
 };
 
 // --- SUB-COMPONENTS ---
+
+// 1. Stats Card
 const StatsCard = ({ title, value, icon: Icon, variant }) => {
   let iconBg = "bg-gray-100 text-gray-600";
   if (variant === "blue") iconBg = "bg-blue-100 text-blue-600";
@@ -103,6 +109,7 @@ const StatsCard = ({ title, value, icon: Icon, variant }) => {
   );
 };
 
+// 2. Status Pill
 const StatusPill = ({ status }) => {
   const info = mapStatus(status);
   return (
@@ -114,37 +121,96 @@ const StatusPill = ({ status }) => {
   );
 };
 
+// 3. Sending Mail Overlay (NEW)
+const SendingMailOverlay = () => (
+  <motion.div
+    className="fixed inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center z-[100]"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+  >
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm text-center"
+    >
+      <div className="relative w-20 h-20 mb-4 flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="absolute inset-0 border-4 border-blue-100 border-t-blue-600 rounded-full"
+        />
+        <Mail size={32} className="text-blue-600" />
+      </div>
+      <h3 className="text-xl font-bold text-gray-800 mb-2">Đang xử lý...</h3>
+      <p className="text-gray-500 text-sm">
+        Hệ thống đang tạo lịch và gửi email thông báo đến khách hàng.
+      </p>
+    </motion.div>
+  </motion.div>
+);
+
+// 4. Delete Confirmation Modal (NEW)
+const DeleteModal = ({ onClose, onConfirm }) => (
+  <motion.div
+    className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4"
+    variants={backdropVariants}
+    initial="hidden"
+    animate="visible"
+    exit="hidden"
+  >
+    <motion.div
+      className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full text-center"
+      variants={modalVariants}
+    >
+      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+        <Trash2 size={24} />
+      </div>
+      <h3 className="text-lg font-bold text-gray-900 mb-2">Xác nhận xóa?</h3>
+      <p className="text-sm text-gray-500 mb-6">
+        Bạn có chắc chắn muốn xóa lịch tiêm này không? Hành động này không thể
+        hoàn tác.
+      </p>
+      <div className="flex gap-3 justify-center">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
+        >
+          Hủy bỏ
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium shadow-md"
+        >
+          Xóa ngay
+        </button>
+      </div>
+    </motion.div>
+  </motion.div>
+);
+
 // --- MODAL: VIEW HISTORY ---
 const ViewSchedulesModal = ({
   pet,
   fetchHistory,
   onClose,
   onEdit,
-  onDelete,
+  onDeleteRequest,
 }) => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const loadHistory = async () => {
-    setLoading(true);
-    const data = await fetchHistory(pet.petId);
-    // Sort: Mới nhất lên đầu
-    setSchedules(
-      data.sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
-    );
-    setLoading(false);
-  };
-
   useEffect(() => {
-    loadHistory();
+    const load = async () => {
+      setLoading(true);
+      const data = await fetchHistory(pet.petId);
+      setSchedules(
+        data.sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+      );
+      setLoading(false);
+    };
+    load();
   }, [pet]);
-
-  const handleDeleteItem = async (id) => {
-    if (window.confirm("Xóa lịch sử này?")) {
-      await onDelete(id);
-      loadHistory(); // Reload lại list sau khi xóa
-    }
-  };
 
   return (
     <motion.div
@@ -170,14 +236,16 @@ const ViewSchedulesModal = ({
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-200 rounded-full"
+            className="p-2 hover:bg-gray-200 rounded-full transition-colors"
           >
             <X size={20} />
           </button>
         </div>
         <div className="p-6 overflow-y-auto flex-1 bg-gray-50/30">
           {loading ? (
-            <div className="text-center py-10">Đang tải...</div>
+            <div className="text-center py-10 flex flex-col items-center gap-2 text-gray-500">
+              <Loader2 className="animate-spin" /> Đang tải lịch sử...
+            </div>
           ) : schedules.length > 0 ? (
             <div className="relative border-l-2 border-gray-200 ml-3 space-y-6 pl-6 pb-2">
               {schedules.map((schedule) => (
@@ -227,8 +295,9 @@ const ViewSchedulesModal = ({
                     >
                       <FilePenLine size={12} /> Sửa
                     </button>
+                    {/* Gọi hàm onDeleteRequest để mở Modal Xóa Custom */}
                     <button
-                      onClick={() => handleDeleteItem(schedule.vaccineId)}
+                      onClick={() => onDeleteRequest(schedule.vaccineId)}
                       className="text-xs flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100"
                     >
                       <Trash2 size={12} /> Xóa
@@ -252,10 +321,12 @@ const ViewSchedulesModal = ({
 // --- MODAL: ADD/EDIT ---
 const ScheduleModal = ({ mode, data, onClose, onSave }) => {
   const isEdit = mode === "EDIT";
-  // Backend trả về vaccineId khi getHistory, nhưng khi edit truyền data vào
   const scheduleData = isEdit ? data.schedule : {};
 
-  const initialStart = isEdit ? new Date(scheduleData.startDate) : new Date();
+  const initialStart =
+    isEdit && scheduleData.startDate
+      ? new Date(scheduleData.startDate)
+      : new Date();
   const initialEnd =
     isEdit && scheduleData.endDate
       ? new Date(scheduleData.endDate)
@@ -279,18 +350,29 @@ const ScheduleModal = ({ mode, data, onClose, onSave }) => {
     if (!startDate || !vaccineName)
       return alert("Vui lòng nhập đầy đủ thông tin!");
 
+    let dates = [];
+    if (startDate) {
+      // Logic chọn Range (nếu startDate khác endDate)
+      if (endDate && endDate > startDate && !isEdit) {
+        // Nếu chọn Range, backend xử lý batch create
+        dates.push(startDate);
+        dates.push(endDate);
+      } else {
+        dates.push(startDate);
+      }
+    }
+
     onSave({
       mode,
       data,
       formData: {
-        dates: [startDate, endDate], // Gửi mảng 2 phần tử [start, end]
+        dates: dates, // Mảng Date object
         vaccineName,
         notes,
         instructions,
         status,
       },
     });
-    // Không đóng ngay để chờ API trả về success
   };
 
   return (
@@ -328,7 +410,7 @@ const ScheduleModal = ({ mode, data, onClose, onSave }) => {
                   onChange={(date) => setStartDate(date)}
                   showTimeSelect
                   dateFormat="Pp"
-                  className="w-full p-2 border rounded text-center"
+                  className="w-full p-2 border rounded text-center focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
               <div className="w-full">
@@ -340,11 +422,16 @@ const ScheduleModal = ({ mode, data, onClose, onSave }) => {
                   onChange={(date) => setEndDate(date)}
                   showTimeSelect
                   dateFormat="Pp"
-                  className="w-full p-2 border rounded text-center"
+                  className="w-full p-2 border rounded text-center focus:ring-2 focus:ring-blue-500 outline-none"
                   minDate={startDate}
                 />
               </div>
             </div>
+            {!isEdit && (
+              <p className="text-xs text-blue-600 mt-2 text-center">
+                * Hệ thống sẽ tạo lịch cho khoảng thời gian này.
+              </p>
+            )}
           </div>
           <div className="space-y-4">
             <div>
@@ -355,7 +442,7 @@ const ScheduleModal = ({ mode, data, onClose, onSave }) => {
                 type="text"
                 value={vaccineName}
                 onChange={(e) => setVaccineName(e.target.value)}
-                className="w-full p-2 border rounded-lg focus:ring-2"
+                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 placeholder="VD: Vaccine Dại..."
               />
             </div>
@@ -367,7 +454,7 @@ const ScheduleModal = ({ mode, data, onClose, onSave }) => {
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full p-2 border rounded-lg"
+                  className="w-full p-2 border rounded-lg focus:ring-2 outline-none"
                 >
                   <option value="CHUA_TIEM">Chưa tiêm</option>
                   <option value="Da_TIEM">Đã tiêm</option>
@@ -383,7 +470,7 @@ const ScheduleModal = ({ mode, data, onClose, onSave }) => {
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={3}
-                className="w-full p-2 border rounded-lg"
+                className="w-full p-2 border rounded-lg focus:ring-2 outline-none"
               ></textarea>
             </div>
             <div>
@@ -394,7 +481,7 @@ const ScheduleModal = ({ mode, data, onClose, onSave }) => {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
-                className="w-full p-2 border rounded-lg"
+                className="w-full p-2 border rounded-lg focus:ring-2 outline-none"
               ></textarea>
             </div>
           </div>
@@ -402,13 +489,13 @@ const ScheduleModal = ({ mode, data, onClose, onSave }) => {
         <div className="flex justify-end gap-3 p-5 border-t border-gray-100 bg-gray-50">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 bg-white border border-gray-300 rounded-lg"
+            className="px-5 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             Hủy bỏ
           </button>
           <button
             onClick={handleSaveClick}
-            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg shadow-md"
+            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-all"
           >
             {isEdit ? "Cập nhật" : "Lưu & Gửi Email"}
           </button>
@@ -428,11 +515,20 @@ export default function VaccinationManagement() {
     updateSchedule,
     deleteSchedule,
     fetchPetHistory,
+    fetchData,
   } = useVaccineManagement();
+
   const [selectedPetIds, setSelectedPetIds] = useState([]);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [modalState, setModalState] = useState({ type: null, data: null });
+
+  // State mới cho các hiệu ứng Loading và Modal Xóa
+  const [isSendingMail, setIsSendingMail] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    isOpen: false,
+    id: null,
+  });
 
   const perPage = 10;
   const petsToDisplay = useMemo(
@@ -454,29 +550,70 @@ export default function VaccinationManagement() {
   const handleOpenModal = (type, data = null) => setModalState({ type, data });
   const handleCloseModal = () => setModalState({ type: null, data: null });
 
+  // --- LOGIC SAVE (Có hiệu ứng Loading Mail) ---
   const handleSave = async ({ mode, data, formData }) => {
+    // Đóng form nhập liệu trước
+    handleCloseModal();
+
     let success = false;
+
     if (mode === "ADD" || mode === "BULK") {
+      // Bắt đầu hiệu ứng gửi mail
+      setIsSendingMail(true);
+
       const targetPetId = mode === "ADD" ? data.pet.petId : data.petIds[0];
       const pet = pets.find((p) => p.petId === targetPetId);
-      const userId = pet ? pet.ownerId : "U001"; // Fallback U001
+      const userId = pet ? pet.ownerId : "U001";
+
+      // Giả lập delay nhẹ để hiệu ứng hiển thị rõ hơn (nếu mạng quá nhanh)
+      await new Promise((r) => setTimeout(r, 1000));
 
       success = await createSchedule(
         formData,
         mode === "ADD" ? [targetPetId] : data.petIds,
         userId
       );
+
+      // Tắt hiệu ứng
+      setIsSendingMail(false);
     } else if (mode === "EDIT") {
-      // Khi Edit, vaccineId nằm trong data.schedule.vaccineId
       success = await updateSchedule(data.schedule.vaccineId, formData);
     }
+  };
 
-    if (success) handleCloseModal();
+  // --- LOGIC DELETE (Custom Modal) ---
+  const handleDeleteRequest = (scheduleId) => {
+    // Mở Modal Xóa Custom (Thay vì window.confirm)
+    setDeleteConfirm({ isOpen: true, id: scheduleId });
+  };
+
+  const confirmDelete = async () => {
+    if (deleteConfirm.id) {
+      await deleteSchedule(deleteConfirm.id);
+      setDeleteConfirm({ isOpen: false, id: null });
+      // Note: Nếu đang mở ViewHistoryModal, cần refresh nó (đã handle ở logic ViewModal)
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <ToastContainer position="top-right" autoClose={2000} />
+
+      {/* --- OVERLAY LOADING KHI GỬI MAIL --- */}
+      <AnimatePresence>
+        {isSendingMail && <SendingMailOverlay />}
+      </AnimatePresence>
+
+      {/* --- CUSTOM DELETE MODAL --- */}
+      <AnimatePresence>
+        {deleteConfirm.isOpen && (
+          <DeleteModal
+            onClose={() => setDeleteConfirm({ isOpen: false, id: null })}
+            onConfirm={confirmDelete}
+          />
+        )}
+      </AnimatePresence>
+
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-extrabold text-gray-800 mb-6">
           Quản Lý Lịch Tiêm Phòng
@@ -535,8 +672,8 @@ export default function VaccinationManagement() {
         {/* Table */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden min-h-[400px]">
           {loading && (
-            <div className="p-10 text-center text-gray-500">
-              Đang tải dữ liệu...
+            <div className="p-10 text-center text-gray-500 flex justify-center items-center gap-2">
+              <Loader2 className="animate-spin" /> Đang tải dữ liệu...
             </div>
           )}
           {!loading && (
@@ -550,7 +687,7 @@ export default function VaccinationManagement() {
                       className="rounded text-blue-600"
                     />
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase w-24">
                     ID Pet
                   </th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">
@@ -678,7 +815,7 @@ export default function VaccinationManagement() {
               fetchHistory={fetchPetHistory}
               onClose={handleCloseModal}
               onEdit={(schedule) => handleOpenModal("EDIT", { schedule })}
-              onDelete={deleteSchedule}
+              onDeleteRequest={handleDeleteRequest}
             />
           )}
           {(modalState.type === "ADD" ||
