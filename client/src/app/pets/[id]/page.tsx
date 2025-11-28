@@ -51,6 +51,21 @@ interface PetDetailDTO {
   updatedAt?: string;
 }
 
+// Hàm format rating: nếu phần thập phân từ 0.1 đến 0.9 thì làm tròn xuống
+const formatRating = (rating: number | null | undefined): string => {
+  if (!rating) return "0";
+  
+  const decimal = rating % 1; // Lấy phần thập phân
+  if (decimal >= 0.1 && decimal <= 0.9) {
+    return Math.floor(rating).toString(); // Làm tròn xuống (2.1 → 2, 2.5 → 2, 2.9 → 2)
+  }
+  // Nếu là số nguyên (decimal = 0) thì hiển thị số nguyên
+  if (decimal === 0) {
+    return Math.floor(rating).toString(); // 3.0 → 3
+  }
+  return rating.toFixed(1); // Trường hợp khác (hiếm khi xảy ra)
+};
+
 // Fetcher cho SWR (dùng axiosInstance)
 const fetcher = async (url: string): Promise<PetDetailDTO> => {
   try {
@@ -303,10 +318,10 @@ export default function PetDetailPage() {
                     />
                   ))}
                 </div>
-                <span className="text-muted-foreground text-sm">
+                <span className="text-muted-foreground text-sm flex items-center gap-1">
                   {pet.rating ? (
                     <>
-                      {pet.rating.toFixed(1)} ({pet.reviewCount || 0} đánh giá)
+                      {formatRating(pet.rating)} <Star size={14} className="fill-yellow-400 text-yellow-400" /> ({pet.reviewCount || 0} đánh giá)
                     </>
                   ) : (
                     '(Chưa có đánh giá)'

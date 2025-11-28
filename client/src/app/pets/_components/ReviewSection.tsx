@@ -6,6 +6,10 @@ import Image from "next/image";
 import axiosInstance from "@/lib/utils/axios";
 import { Star, User } from "lucide-react";
 import { Review, PageResponse } from "@/types/Review";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 
 interface ReviewSectionProps {
   petId: string;
@@ -50,6 +54,7 @@ export default function ReviewSection({ petId }: ReviewSectionProps) {
   const [page, setPage] = useState(0);
   const [filterType, setFilterType] = useState<'all' | 'latest' | '1' | '2' | '3' | '4' | '5'>('all');
   const pageSize = 10;
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Fetch reviews từ API
   const { data, error, isLoading } = useSWR<PageResponse<Review>>(
@@ -295,7 +300,10 @@ export default function ReviewSection({ petId }: ReviewSectionProps) {
 
               {/* Review image nếu có */}
               {getReviewImageSrc(review.reviewImageUrl) && (
-                <div className="mb-4 relative w-[200px] h-[200px] overflow-hidden rounded-lg">
+                <div 
+                  className="mb-4 relative w-[200px] h-[200px] overflow-hidden rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => setSelectedImage(getReviewImageSrc(review.reviewImageUrl) as string)}
+                >
                   <Image
                     src={getReviewImageSrc(review.reviewImageUrl) as string}
                     alt="Review image"
@@ -361,6 +369,24 @@ export default function ReviewSection({ petId }: ReviewSectionProps) {
           )}
         </div>
       )}
+
+      {/* Dialog để xem ảnh to */}
+      <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl w-full p-0 bg-transparent border-0">
+          {selectedImage && (
+            <div className="relative w-full h-[80vh] flex items-center justify-center">
+              <Image
+                src={selectedImage}
+                alt="Review image full size"
+                fill
+                sizes="100vw"
+                className="object-contain"
+                priority
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
