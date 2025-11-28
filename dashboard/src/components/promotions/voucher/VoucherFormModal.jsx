@@ -3,87 +3,111 @@
 import { useEffect, useState } from "react";
 import { HiX, HiUpload, HiCalendar } from "react-icons/hi";
 import toast from "react-hot-toast";
+import { useDispatch } from 'react-redux';
+import { addVoucher, updateVoucher } from "../../../store/voucherSlice";
+import { uploadToCloudinary } from "../../../api/cloudinaryService";
 
 export default function VoucherFormModal({
   darkMode,
   onClose,
-  voucher = null,     // Nếu có voucher → đang edit, không có → đang thêm mới
-  onSave,
+  voucher = null,
 }) {
-  const isEdit = !!voucher?.id;
+  const dispatch = useDispatch();
+  const isEdit = !!voucher?.voucherId;
 
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState(voucher?.image || null);
+  const [imageFile, setImageFile] = useState(null);
 
   const today = new Date().toISOString().split("T")[0];
   const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split("T")[0];
 
-  const [formData, setFormData] = useState({
-    id: voucher?.id || null,
+    const [formData, setFormData] = useState({
+    voucherId: voucher?.voucherId || null,
     code: voucher?.code || "",
     description: voucher?.description || "",
-    discountType: voucher?.discountType || "percentage",
+    discountType: voucher?.discountType === "PERCENTAGE" ? "percentage" : "fixed" || "percentage",
     discountValue: voucher?.discountValue || "",
-    minOrderValue: voucher?.minOrderValue || "",
-    maxDiscount: voucher?.maxDiscount || "",
-    usageLimit: voucher?.usageLimit || "",
+    minOrderAmount: voucher?.minOrderAmount || "",
+    maxUsage: voucher?.maxUsage || "",
     startDate: voucher?.startDate || today,
     endDate: voucher?.endDate || nextWeek,
-    status: voucher?.status || "active",
-    image: voucher?.image || null,
+    imageUrl: voucher?.imageUrl || null,
+    status: voucher?.status || "ACTIVE",
   });
 
   // Khi mở modal edit → load ảnh preview
   useEffect(() => {
-    if (voucher?.image) setImagePreview(voucher.image);
+    if (voucher?.imageUrl) setImagePreview(voucher.imageUrl);
   }, [voucher]);
 
-  const handleImageChange = (e) => {
+    const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      setImageFile(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-        setFormData((prev) => ({ ...prev, image: reader.result }));
-      };
+      reader.onloadend = () => setImagePreview(reader.result);
       reader.readAsDataURL(file);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!formData.code.trim()) {
       toast.error("Vui lòng nhập mã voucher!");
       return;
     }
-    if (!formData.discountValue) {
-      toast.error("Vui lòng nhập giá trị giảm!");
-      return;
-    }
 
     setLoading(true);
+    try {
+      let imageUrl = formData.imageUrl;
+      if (imageFile) {
+        toast.loading("Đang tải ảnh lên Cloudinary...");
+        try {
+          imageUrl = await uploadToCloudinary(imageFile);
+          toast.dismiss();
+          toast.success("Tải ảnh thành công!");
+        } catch (err) {
+          toast.dismiss();
+          toast.error("Lỗi tải ảnh!");
+          setLoading(false);
+          return;
+        }
+      }
 
-    // Giả lập delay nhẹ cho đẹp
-    await new Promise((r) => setTimeout(r, 600));
+      const payload = {
+        ...formData,
+        voucherId: isEdit ? formData.voucherId : null,
+        code: formData.code.trim().toUpperCase(),
+        description: formData.description.trim() || null,
+        discountType: formData.discountType === "percentage" ? "PERCENTAGE" : "FIXED_AMOUNT",
+        discountValue: formData.discountValue ? Number(formData.discountValue) : null,
+        minOrderAmount: formData.minOrderAmount ? Number(formData.minOrderAmount) : null,
+        maxUsage: formData.maxUsage ? Number(formData.maxUsage) : null,
+        imageUrl: imageUrl || null,
+        status: isEdit ? (formData.status === "active" ? "ACTIVE" : "INACTIVE") : "ACTIVE",
+      };
 
-    const payload = {
-      ...formData,
-      id: isEdit ? formData.id : Date.now(),
-      code: formData.code.trim().toUpperCase(),
-      discountValue: Number(formData.discountValue),
-      minOrderValue: formData.minOrderValue ? Number(formData.minOrderValue) : 0,
-      maxDiscount: formData.maxDiscount ? Number(formData.maxDiscount) : null,
-      usageLimit: Number(formData.usageLimit),
-      usedCount: isEdit ? voucher.usedCount : 0,
-    };
-
-    onSave(payload);
-    toast.success(isEdit ? "Cập nhật voucher thành công!" : "Thêm voucher thành công!");
-    setLoading(false);
-    onClose();
+      if (isEdit) {
+        await dispatch(updateVoucher(payload)).unwrap();
+        toast.success("Cập nhật voucher thành công!");
+      } else {
+        await dispatch(addVoucher(payload)).unwrap();
+        toast.success("Thêm voucher thành công!");
+      }
+      onClose();
+    } catch (err) {
+      const msg = err?.response?.data?.message || "";
+      if (msg.includes("already exists") || msg.includes("Duplicate entry") || msg.includes("code")) {
+        toast.error("Mã voucher đã tồn tại! Vui lòng chọn mã khác.");
+      } else {
+        toast.error(isEdit ? "Cập nhật thất bại!" : "Thêm thất bại!");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -219,31 +243,14 @@ export default function VoucherFormModal({
               <input
                 type="number"
                 min="0"
-                value={formData.minOrderValue}
+                value={formData.minOrderAmount}
                 onChange={(e) =>
-                  setFormData({ ...formData, minOrderValue: e.target.value })
+                  setFormData({ ...formData, minOrderAmount: e.target.value })
                 }
                 className={`w-full px-4 py-3 rounded-lg border ${
                   darkMode ? "bg-gray-700" : "bg-white"
                 } focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
                 placeholder="100000"
-              />
-            </div>
-
-            {/* Giảm tối đa */}
-            <div>
-              <label className="block font-medium mb-2">Giảm tối đa (VNĐ)</label>
-              <input
-                type="number"
-                min="0"
-                value={formData.maxDiscount}
-                onChange={(e) =>
-                  setFormData({ ...formData, maxDiscount: e.target.value })
-                }
-                className={`w-full px-4 py-3 rounded-lg border ${
-                  darkMode ? "bg-gray-700" : "bg-white"
-                } focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
-                placeholder="50000"
               />
             </div>
 
@@ -254,9 +261,9 @@ export default function VoucherFormModal({
                 required
                 type="number"
                 min="1"
-                value={formData.usageLimit}
+                value={formData.maxUsage}
                 onChange={(e) =>
-                  setFormData({ ...formData, usageLimit: e.target.value })
+                  setFormData({ ...formData, maxUsage: e.target.value })
                 }
                 className={`w-full px-4 py-3 rounded-lg border ${
                   darkMode ? "bg-gray-700" : "bg-white"
