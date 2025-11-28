@@ -85,52 +85,52 @@ export default function PromotionFilters({
       </div>
 
       {isSearching && (
-  <div className="mt-4 -mb-2 text-sm animate-fadeIn flex flex-wrap items-center gap-2">
-    <span className={darkMode ? "text-gray-400" : "text-gray-600"}>
-      Đang tìm kiếm theo:
-    </span>
+        <div className="mt-4 -mb-2 text-sm animate-fadeIn flex flex-wrap items-center gap-2">
+          <span className={darkMode ? "text-gray-400" : "text-gray-600"}>
+            Đang tìm kiếm theo:
+          </span>
 
-    <div className="flex flex-wrap gap-2">
-      {/* Từ khóa */}
-      {searchTerm.trim() && (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 font-medium text-xs">
-          <HiSearch className="w-3.5 h-3.5" />
-          Từ khóa: "{searchTerm.trim()}"
-        </span>
-      )}
+          <div className="flex flex-wrap gap-2">
+            {/* Từ khóa */}
+            {searchTerm.trim() && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 font-medium text-xs">
+                <HiSearch className="w-3.5 h-3.5" />
+                Từ khóa: "{searchTerm.trim()}"
+              </span>
+            )}
 
-      {/* Danh mục */}
-      {categoryFilter !== "all" && (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 font-medium text-xs">
-          Danh mục: {categories.find(c => c.id === categoryFilter)?.name || categoryFilter}
-        </span>
-      )}
+            {/* Danh mục */}
+            {categoryFilter !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 font-medium text-xs">
+                Danh mục: {categories.find(c => c.id === categoryFilter)?.name || categoryFilter}
+              </span>
+            )}
 
-      {/* Trạng thái */}
-      {statusFilter !== "all" && (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 font-medium text-xs">
-          Trạng thái: {
-            statusFilter === "active" ? "Đang hoạt động" :
-            statusFilter === "inactive" ? "Tạm dừng" :
-            statusFilter === "expired" ? "Hết hạn" : statusFilter
-          }
-        </span>
-      )}
+            {/* Trạng thái */}
+            {statusFilter !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 font-medium text-xs">
+                Trạng thái: {
+                  statusFilter === "active" ? "Đang hoạt động" :
+                  statusFilter === "inactive" ? "Tạm dừng" :
+                  statusFilter === "expired" ? "Hết hạn" : statusFilter
+                }
+              </span>
+            )}
 
-      {/* Loại khuyến mãi */}
-      {typeFilter !== "all" && (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 font-medium text-xs">
-          Loại: {
-            typeFilter === "discount" ? "Giảm giá" :
-            typeFilter === "freeship" ? "Miễn phí vận chuyển" :
-            typeFilter === "cashback" ? "Hoàn tiền" :
-            typeFilter === "bundle" ? "Gói sản phẩm" : typeFilter
-          }
-        </span>
+            {/* Loại khuyến mãi */}
+            {typeFilter !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 font-medium text-xs">
+                Loại: {
+                  typeFilter === "discount" ? "Giảm giá" :
+                  typeFilter === "freeship" ? "Miễn phí vận chuyển" :
+                  typeFilter === "cashback" ? "Hoàn tiền" :
+                  typeFilter === "bundle" ? "Gói sản phẩm" : typeFilter
+                }
+              </span>
+            )}
+          </div>
+        </div>
       )}
-    </div>
-  </div>
-)}
     </div>
   );
 }
