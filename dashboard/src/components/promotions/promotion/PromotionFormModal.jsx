@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { HiX, HiUpload, HiCalendar } from "react-icons/hi";
 import { useDispatch } from "react-redux";
-import { addPromotion, updatePromotion } from "../../store/promotionSlice";
-import { uploadToCloudinary } from "../../api/cloudinaryService";
+import { addPromotion, updatePromotion } from "../../../store/promotionSlice";
+import { uploadToCloudinary } from "../../../api/cloudinaryService";
 import toast from "react-hot-toast";
 
 const categories = [

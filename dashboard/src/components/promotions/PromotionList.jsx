@@ -11,8 +11,8 @@ import {
   inactivePromotion,
 } from "../../store/promotionSlice";
 import { HiPlus } from "react-icons/hi";
-import PromotionFormModal from "./PromotionFormModal";
-import ViewPromotionModal from "./ViewPromotionModal";
+import PromotionFormModal from "./promotion/PromotionFormModal";
+import ViewPromotionModal from "./promotion/ViewPromotionModal";
 import PromotionStatsCards from "./promotion/PromotionStatsCards";
 import PromotionFilters from "./promotion/PromotionFilters";
 import PromotionCard from "./promotion/PromotionCard";
