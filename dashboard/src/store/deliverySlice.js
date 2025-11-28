@@ -30,6 +30,16 @@ export const updateDeliveryStatus = createAsyncThunk( "delivery/updateStatus", a
   }
 )
 
+export const searchDeliveries = createAsyncThunk("delivery/searchDeliveries", async ({ query, page = 0, size = 9 }, { rejectWithValue }) => {
+    try {
+      const data = await deliveryService.search(query, page, size);
+      return { ...data, query };
+    } catch (error) {
+      return rejectWithValue(error.message || "Lỗi tìm kiếm");
+    }
+  }
+)
+
 const initialState = {
   deliveries: [],
   selectedDelivery: null,
@@ -39,6 +49,7 @@ const initialState = {
   pageSize: 9,
   totalElements: 0,
   totalPages: 0,
+  searchQuery: "",
 }
 
 const deliverySlice = createSlice({
@@ -90,7 +101,25 @@ const deliverySlice = createSlice({
         if (index !== -1) {
             state.deliveries[index] = updated
         }
-    })
+      })
+      .addCase(searchDeliveries.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(searchDeliveries.fulfilled, (state, action) => {
+        state.loading = false;
+        state.deliveries = action.payload.content || [];
+        state.totalElements = action.payload.totalElements || 0;
+        state.totalPages = (action.payload.totalElements / state.pageSize) > 0
+          ? Math.ceil(action.payload.totalElements / state.pageSize)
+          : 1;
+        state.currentPage = action.payload.page || 0;
+        state.searchQuery = action.payload.query || "";
+      })
+      .addCase(searchDeliveries.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
   },
 })
 

@@ -31,4 +31,16 @@ export const deliveryService = {
       throw error.response?.data?.message || "Cập nhật thất bại"
     }
   },
+
+  search: async (query = "", page = 0, size = 9) => {
+    try {
+      const res = await api.get(`${DELIVERY_API}/search`, {
+      params: { query: query.trim() || undefined, page, size }
+    });
+    return res.data;
+    } catch (error) {
+      console.error("Error searching deliveries:", error);
+      throw error;
+    }
+  },
 }
