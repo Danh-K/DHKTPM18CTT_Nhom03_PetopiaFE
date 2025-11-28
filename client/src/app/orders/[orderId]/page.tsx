@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import axiosInstance from "@/lib/utils/axios";
 import { Loading } from "@/app/components/loading";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useToast } from "@/hook/useToast";
 import type { Order, OrderItem, OrderStatus, PaymentMethod } from "@/types/Order";
 import type { Delivery } from "@/types/Delivery";
 import type { Review, PageResponse } from "@/types/Review";
@@ -197,6 +198,7 @@ export default function OrderDetailPage() {
 
   const { user } = useAuthStore();
   const userId = user?.userId;
+  const { success, error: showError, warning, ToastContainer } = useToast();
 
   // Fetch reviews cho các sản phẩm trong đơn hàng để kiểm tra đã đánh giá chưa
   const fetchReviewsForPets = async (petIds: string[]): Promise<Review[]> => {
@@ -325,19 +327,19 @@ export default function OrderDetailPage() {
   const handleSubmitReview = async () => {
     // Validation
     if (!selectedPetId) {
-      alert("⚠️ Vui lòng chọn sản phẩm để đánh giá");
+      warning("Thiếu thông tin", "Vui lòng chọn sản phẩm để đánh giá");
       return;
     }
     if (!comment.trim()) {
-      alert("⚠️ Vui lòng nhập nội dung đánh giá");
+      warning("Thiếu thông tin", "Vui lòng nhập nội dung đánh giá");
       return;
     }
     if (comment.trim().length < 10) {
-      alert("⚠️ Nội dung đánh giá phải có ít nhất 10 ký tự");
+      warning("Nội dung không hợp lệ", "Nội dung đánh giá phải có ít nhất 10 ký tự");
       return;
     }
     if (rating < 1 || rating > 5) {
-      alert("⚠️ Vui lòng chọn số sao đánh giá từ 1 đến 5");
+      warning("Đánh giá không hợp lệ", "Vui lòng chọn số sao đánh giá từ 1 đến 5");
       return;
     }
 
@@ -345,12 +347,12 @@ export default function OrderDetailPage() {
     if (reviewImage) {
       const maxSize = 5 * 1024 * 1024; // 5MB
       if (reviewImage.size > maxSize) {
-        alert("⚠️ Kích thước ảnh không được vượt quá 5MB");
+        warning("Kích thước ảnh quá lớn", "Kích thước ảnh không được vượt quá 5MB");
         return;
       }
       const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
       if (!allowedTypes.includes(reviewImage.type)) {
-        alert("⚠️ Chỉ chấp nhận file ảnh định dạng JPG, PNG hoặc WEBP");
+        warning("Định dạng không hợp lệ", "Chỉ chấp nhận file ảnh định dạng JPG, PNG hoặc WEBP");
         return;
       }
     }
@@ -394,7 +396,7 @@ export default function OrderDetailPage() {
       // Kiểm tra kết quả
       if (response.data.status === 201) {
         // Thành công
-        alert("✅ Đánh giá thành công! Cảm ơn bạn đã chia sẻ trải nghiệm.");
+        success("Đánh giá thành công!", "Cảm ơn bạn đã chia sẻ trải nghiệm.");
         
         // Reset form
         setSelectedPetId("");
@@ -460,7 +462,7 @@ export default function OrderDetailPage() {
         }
       }
 
-      alert(`❌ ${errorMessage}`);
+      showError("Gửi đánh giá thất bại", errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -855,6 +857,9 @@ export default function OrderDetailPage() {
           Quay lại đơn hàng
         </Button>
       </div>
+
+      {/* Toast Container */}
+      <ToastContainer />
     </div>
   );
 }
