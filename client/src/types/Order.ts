@@ -32,13 +32,14 @@ export interface Order {
   userId: string;
   customerName: string;
   customerPhone: string;
-  shippingAddress: string;
+  shippingAddress?: string | null;
   totalAmount: number;
-  shippingFee: number;
+  shippingFee?: number | null;
+  discountAmount?: number | null;
   status: OrderStatus;
   paymentStatus: OrderPaymentStatus;
-  paymentMethod: PaymentMethod;
-  note?: string;
+  paymentMethod?: PaymentMethod | null;
+  note?: string | null;
   createdAt: string;
   
   // Payment Info (Nếu chọn Chuyển khoản)
@@ -46,6 +47,6 @@ export interface Order {
   transactionId?: string;   // Nội dung chuyển khoản (VD: "THANHTOAN ORxxx")
   
   // Order Items
-  orderItems: OrderItem[];
+  orderItems?: OrderItem[];
 }
 
