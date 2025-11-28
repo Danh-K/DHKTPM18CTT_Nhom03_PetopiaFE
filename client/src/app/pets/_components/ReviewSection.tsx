@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import Image from "next/image";
 import axiosInstance from "@/lib/utils/axios";
 import { Star, User } from "lucide-react";
 import { Review, PageResponse } from "@/types/Review";
@@ -57,6 +58,27 @@ export default function ReviewSection({ petId }: ReviewSectionProps) {
   );
 
   const allReviews = data?.content || [];
+
+  // Chuẩn hóa URL ảnh (hỗ trợ Google Drive, Cloudinary, và path tương đối)
+  const getReviewImageSrc = (url?: string | null): string | null => {
+    if (!url) return null;
+
+    // Xử lý URL đầy đủ (Google Drive, Cloudinary, hoặc domain khác)
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      // Cloudinary: https://res.cloudinary.com/...
+      // Google Drive: https://drive.google.com/...
+      // Hoặc bất kỳ URL https/http nào khác
+      return url;
+    }
+
+    // Xử lý path tương đối từ backend (ví dụ: /uploads/reviews/abc.jpg)
+    if (url.startsWith("/")) {
+      return url;
+    }
+
+    // Path không có dấu / ở đầu, thêm vào
+    return `/${url}`;
+  };
   
   // Lọc reviews dựa trên filterType
   const filteredReviews = allReviews.filter((review) => {
@@ -272,12 +294,14 @@ export default function ReviewSection({ petId }: ReviewSectionProps) {
               </div>
 
               {/* Review image nếu có */}
-              {review.reviewImageUrl && (
-                <div className="mb-4">
-                  <img
-                    src={review.reviewImageUrl}
+              {getReviewImageSrc(review.reviewImageUrl) && (
+                <div className="mb-4 relative w-[200px] h-[200px] overflow-hidden rounded-lg">
+                  <Image
+                    src={getReviewImageSrc(review.reviewImageUrl) as string}
                     alt="Review image"
-                    className="rounded-lg object-cover w-[200px] h-[200px]"
+                    fill
+                    sizes="200px"
+                    className="object-cover"
                   />
                 </div>
               )}
