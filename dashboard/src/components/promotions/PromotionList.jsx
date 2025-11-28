@@ -90,7 +90,7 @@ export default function PromotionList({ darkMode }) {
         dispatch(fetchPromotions({ page: 0, size: ITEMS_PER_PAGE }));
         dispatch(setIsSearching(false));
       }
-    }, 500);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [searchTerm, categoryFilter, statusFilter, typeFilter, dispatch]);
@@ -211,6 +211,7 @@ export default function PromotionList({ darkMode }) {
           typeFilter={typeFilter}
           setTypeFilter={setTypeFilter}
           categories={categories}
+          isSearching={loading}
         />
 
         {/* Danh sách khuyến mãi */}
