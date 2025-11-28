@@ -74,7 +74,7 @@ export default function PromotionCard({
             {promotion.categoryName}
           </span>
         </div>
-        <div className="text-xs text-gray-500 mb-4">
+        <div className="text-xs text-blue-500 mb-4 font-semibold">
           {new Date(promotion.startDate).toLocaleDateString("vi-VN")} -{" "}
           {new Date(promotion.endDate).toLocaleDateString("vi-VN")}
         </div>

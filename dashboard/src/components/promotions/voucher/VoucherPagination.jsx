@@ -2,7 +2,7 @@ export default function VoucherPagination({ currentPage, totalPages, totalItems,
   if (totalPages <= 1) return null;
 
   return (
-    <div className="px-6 pb-6 border-t border-gray-200 dark:border-gray-700">
+    <div className="px-6 pt-2 pb-6 ">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="text-sm text-gray-500">
           Hiển thị {(currentPage - 1) * 9 + 1} - {Math.min(currentPage * 9, totalItems)} trong {totalItems} mục

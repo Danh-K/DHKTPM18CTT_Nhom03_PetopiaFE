@@ -17,7 +17,7 @@ import PromotionStatsCards from "./promotion/PromotionStatsCards";
 import PromotionFilters from "./promotion/PromotionFilters";
 import PromotionCard from "./promotion/PromotionCard";
 import PromotionPagination from "./promotion/PromotionPagination";
-import ImageLightbox from "./promotion/ImageLightbox";
+import ImageLightbox from "./ImageLightbox";
 
 const categories = [
   { id: null, name: "Tất cả danh mục" },
@@ -59,11 +59,6 @@ export default function PromotionList({ darkMode }) {
 
   const [inactiveId, setInactiveId] = useState(null);
   const [inactiveCode, setInactiveCode] = useState("");
-
-  useEffect(() => {
-    dispatch(fetchPromotions({ page: 0, size: ITEMS_PER_PAGE }));
-    dispatch(setIsSearching(false));
-  }, [dispatch]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

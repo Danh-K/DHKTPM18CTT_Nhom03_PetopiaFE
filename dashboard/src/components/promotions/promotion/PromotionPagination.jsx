@@ -10,7 +10,7 @@ export default function PromotionPagination({
   if (totalPages <= 1) return null; // ẩn nếu chỉ có 1 trang
 
   return (
-    <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+    <div className="p-6">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="text-sm text-gray-500">
           Hiển thị {startIndex + 1} -{" "}

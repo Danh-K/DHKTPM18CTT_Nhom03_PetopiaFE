@@ -3,6 +3,15 @@
 import { HiX } from "react-icons/hi"
 
 export default function ViewVoucherModal({ darkMode, voucher, onClose }) {
+  if (!voucher) return (
+    <div>Không có voucher nào được chọn</div>
+ )
+
+  const formatTime = (dateString) => {
+    const options = { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" };
+    return new Date(dateString).toLocaleDateString("vi-VN", options).replace(",", "");
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className={`w-full max-w-2xl rounded-xl shadow-2xl ${darkMode ? "bg-gray-800" : "bg-white"}`}>
@@ -23,18 +32,18 @@ export default function ViewVoucherModal({ darkMode, voucher, onClose }) {
               <p className="text-sm text-gray-500 mb-1">Trạng thái</p>
               <span
                 className={`inline-block px-3 py-1 text-sm font-semibold rounded-full ${
-                  voucher.status === "active"
+                  voucher.status === "ACTIVE"
                     ? "bg-green-100 text-green-800"
-                    : voucher.status === "expired"
+                    : voucher.status === "INACTIVE"
                       ? "bg-red-100 text-red-800"
                       : "bg-gray-100 text-gray-800"
                 }`}
               >
-                {voucher.status === "active"
+                {voucher.status === "ACTIVE"
                   ? "Hoạt động"
-                  : voucher.status === "expired"
-                    ? "Hết hạn"
-                    : "Không hoạt động"}
+                  : voucher.status === "INACTIVE"
+                    ? "Không hoạt động"
+                    : "Hết hạn"}
               </span>
             </div>
           </div>
@@ -47,12 +56,12 @@ export default function ViewVoucherModal({ darkMode, voucher, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-500 mb-1">Loại giảm giá</p>
-              <p className="text-base font-medium">{voucher.discountType === "percentage" ? "Phần trăm" : "Cố định"}</p>
+              <p className="text-base font-medium">{voucher.discountType === "PERCENTAGE" ? "Phần trăm" : "Cố định"}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-1">Giá trị giảm</p>
               <p className="text-base font-bold text-[#7b4f35]">
-                {voucher.discountType === "percentage"
+                {voucher.discountType === "PERCENTAGE"
                   ? `${voucher.discountValue}%`
                   : `${voucher.discountValue.toLocaleString()}đ`}
               </p>
@@ -63,13 +72,7 @@ export default function ViewVoucherModal({ darkMode, voucher, onClose }) {
             <div>
               <p className="text-sm text-gray-500 mb-1">Giá trị đơn hàng tối thiểu</p>
               <p className="text-base">
-                {voucher.minOrderValue ? `${voucher.minOrderValue.toLocaleString()}đ` : "Không giới hạn"}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Giảm tối đa</p>
-              <p className="text-base">
-                {voucher.maxDiscount ? `${voucher.maxDiscount.toLocaleString()}đ` : "Không giới hạn"}
+                {voucher.minOrderAmount ? `${voucher.minOrderAmount.toLocaleString()}đ` : "Không giới hạn"}
               </p>
             </div>
           </div>
@@ -77,11 +80,11 @@ export default function ViewVoucherModal({ darkMode, voucher, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-500 mb-1">Ngày bắt đầu</p>
-              <p className="text-base">{voucher.startDate}</p>
+              <p className="text-base">{formatTime(voucher.startDate)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-1">Ngày kết thúc</p>
-              <p className="text-base">{voucher.endDate}</p>
+              <p className="text-base">{formatTime(voucher.endDate)}</p>
             </div>
           </div>
 
@@ -89,12 +92,12 @@ export default function ViewVoucherModal({ darkMode, voucher, onClose }) {
             <div>
               <p className="text-sm text-gray-500 mb-1">Số lượng sử dụng</p>
               <p className="text-base">
-                {voucher.usedCount} / {voucher.usageLimit}
+                {voucher.usedCount} / {voucher.maxUsage}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-1">Còn lại</p>
-              <p className="text-base font-bold text-green-600">{voucher.usageLimit - voucher.usedCount}</p>
+              <p className="text-base font-bold text-green-600">{voucher.maxUsage - voucher.usedCount}</p>
             </div>
           </div>
 
