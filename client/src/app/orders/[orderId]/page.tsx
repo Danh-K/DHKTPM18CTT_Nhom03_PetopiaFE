@@ -45,6 +45,13 @@ const paymentMethodLabel: Record<PaymentMethod, string> = {
   BANK_TRANSFER: "Chuyển khoản ngân hàng",
 };
 
+const paymentStatusLabel: Record<string, string> = {
+  UNPAID: "Chưa thanh toán",
+  PAID: "Đã thanh toán",
+  FAILED: "Thanh toán thất bại",
+  REFUNDED: "Đã hoàn tiền",
+};
+
 const currencyFormatter = new Intl.NumberFormat("vi-VN", {
   style: "currency",
   currency: "VND",
@@ -431,7 +438,7 @@ export default function OrderDetailPage() {
             <p className="text-sm text-slate-600">
               Trạng thái:{" "}
               <span className="font-semibold text-slate-900">
-                {order.paymentStatus}
+                {paymentStatusLabel[order.paymentStatus] || order.paymentStatus}
               </span>
             </p>
             {order.transactionId && (

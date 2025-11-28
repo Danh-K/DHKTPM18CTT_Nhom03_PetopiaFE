@@ -452,12 +452,8 @@ const CartPage = () => {
         }
       }
 
-      console.log('📦 Order Data:', orderData)
-
       // Gửi request lên backend
       const response = await axiosInstance.post<{ status: number; message: string; data: Order }>('/orders', orderData)
-
-      console.log('✅ Order Response:', response.data)
 
       const orderResult = response.data.data
 

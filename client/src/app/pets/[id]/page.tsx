@@ -93,6 +93,15 @@ export default function PetDetailPage() {
     }
   );
   
+  // Debug: log rating & reviewCount lấy từ backend
+  if (pet) {
+    console.log("[PetDetail] Rating data:", {
+      petId,
+      rating: pet.rating,
+      reviewCount: pet.reviewCount,
+    });
+  }
+  
   if (isLoading) return <Loading />
   
   if (error) {
