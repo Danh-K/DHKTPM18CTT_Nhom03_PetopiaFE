@@ -11,9 +11,10 @@ export default function VoucherFilters({ darkMode, searchTerm, setSearchTerm, st
           <input
             type="text"
             placeholder="Tìm kiếm mã hoặc mô tả..."
+            autoFocus
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className={`w-full pl-10 pr-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"} focus:outline-none focus:ring-2 focus:ring-[#7b4f35]`}
+            className={`w-full pl-10 pr-4 py-2 rounded-lg border ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-200"} focus:outline-none focus:ring-2 focus:ring-green-500`}
           />
           {searchTerm && (
             <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -35,6 +36,45 @@ export default function VoucherFilters({ darkMode, searchTerm, setSearchTerm, st
           <option value="fixed">Cố định</option>
         </select>
       </div>
+
+      {isSearching && (
+        <div className="mt-4 -mb-2 text-sm animate-fadeIn flex flex-wrap items-center gap-2">
+          <span className={darkMode ? "text-gray-400" : "text-gray-600"}>
+            Đang tìm kiếm theo:
+          </span>
+
+          <div className="flex flex-wrap gap-2">
+            {/* Từ khóa */}
+            {searchTerm.trim() && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 font-medium text-xs">
+                <HiSearch className="w-3.5 h-3.5" />
+                Từ khóa: "{searchTerm.trim()}"
+              </span>
+            )}
+
+            {/* Trạng thái */}
+            {statusFilter !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 font-medium text-xs">
+                Trạng thái: {
+                  statusFilter === "active" ? "Đang hoạt động" :
+                  statusFilter === "inactive" ? "Tạm dừng" :
+                  statusFilter === "expired" ? "Hết hạn" : statusFilter
+                }
+              </span>
+            )}
+
+            {/* Loại giảm giá */}
+            {typeFilter !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 font-medium text-xs">
+                Loại: {
+                    typeFilter === "percentage" ? "Phần trăm" :
+                    typeFilter === "fixed" ? "Cố định" : typeFilter
+                }
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

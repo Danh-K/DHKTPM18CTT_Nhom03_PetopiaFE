@@ -73,7 +73,9 @@ export default function VoucherCard({
           <button onClick={onView} className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm" title="Chi tiết">Chi tiết</button>
           <button onClick={onDuplicate} className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg" title="Nhân bản"><HiDuplicate className="h-5 w-5" /></button>
           <button onClick={onEdit} className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg" title="Chỉnh sửa"><HiPencil className="h-5 w-5" /></button>
-          <button onClick={onDelete} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Vô hiệu hóa"><HiTrash className="h-5 w-5" /></button>
+          {voucher.status !== "INACTIVE" && (
+            <button onClick={onDelete} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Vô hiệu hóa"><HiTrash className="h-5 w-5" /></button>
+          )}
         </div>
       </div>
     </div>

@@ -43,29 +43,25 @@ export default function VoucherList({ darkMode }) {
   const [inactiveId, setInactiveId] = useState(null);
 
   useEffect(() => {
-    dispatch(fetchVouchers({ page: 0, size: ITEMS_PER_PAGE }));
-  }, [dispatch]);
-
-  // useEffect(() => {
-  //   const timer = setTimeout(() => {
-  //     const hasFilter = searchTerm.trim() || statusFilter !== "all" || typeFilter !== "all";
-  //     if (hasFilter) {
-  //       dispatch(searchVouchers({
-  //         keyword: searchTerm.trim() || null,
-  //         status: statusFilter === "all" ? null : statusFilter,
-  //         type: typeFilter === "all" ? null : typeFilter,
-  //         page: 0,
-  //         size: ITEMS_PER_PAGE,
-  //       }));
-  //       dispatch(setCurrentPage(1));
-  //       dispatch(setIsSearching(true));
-  //     } else {
-  //       dispatch(fetchVouchers({ page: 0, size: ITEMS_PER_PAGE }));
-  //       dispatch(setIsSearching(false));
-  //     }
-  //   }, 400);
-  //   return () => clearTimeout(timer);
-  // }, [searchTerm, statusFilter, typeFilter, dispatch]);
+    const timer = setTimeout(() => {
+      const hasFilter = searchTerm.trim() || statusFilter !== "all" || typeFilter !== "all";
+      if (hasFilter) {
+        dispatch(searchVouchers({
+          keyword: searchTerm.trim() || null,
+          status: statusFilter === "all" ? null : statusFilter,
+          type: typeFilter === "all" ? null : typeFilter,
+          page: 0,
+          size: ITEMS_PER_PAGE,
+        }));
+        dispatch(setCurrentPage(1));
+        dispatch(setIsSearching(true));
+      } else {
+        dispatch(fetchVouchers({ page: 0, size: ITEMS_PER_PAGE }));
+        dispatch(setIsSearching(false));
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm, statusFilter, typeFilter, dispatch]);
 
   const vouchers = serverVouchers.map(v => ({
     ...v,
@@ -152,8 +148,7 @@ export default function VoucherList({ darkMode }) {
                   //   setShowFormModal(true);
                   // }}
                   onEdit={() => {}}
-                  // onDelete={() => setInactiveId(v.voucherId)}
-                  onDelete={() => {}}
+                  onDelete={() => setInactiveId(v.voucherId)}
                   onDuplicate={() => {}}
                   onImageClick={() => setLightboxImage({ image: v.imageUrl, alt: v.code })}
                 />
