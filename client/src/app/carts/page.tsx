@@ -457,20 +457,23 @@ const CartPage = () => {
 
       const orderResult = response.data.data
 
-      // Hiển thị thông báo thành công
-      success('Đặt hàng thành công', 'Đơn hàng của bạn đã được tạo thành công')
-
       // Clear giỏ hàng
       clearCart()
 
       // Kiểm tra phương thức thanh toán
       if (orderResult.paymentMethod === 'BANK_TRANSFER' && orderResult.paymentUrl) {
+        // Hiển thị thông báo thành công với thông tin QR
+        success('Đặt hàng thành công', 'Đơn hàng của bạn đã được tạo thành công. Đang hiển thị QR thanh toán...')
+        
         // Redirect đến trang thanh toán SePay ngay lập tức
         setTimeout(() => {
           router.push(`/payment/${orderResult.orderId}`)
         }, 1500)
       } else {
-        // COD: Redirect đến trang đơn hàng
+        // COD: Hiển thị thông báo thành công thông thường
+        success('Đặt hàng thành công', 'Đơn hàng của bạn đã được tạo thành công')
+        
+        // Redirect đến trang đơn hàng
         setTimeout(() => {
           router.push('/orders')
         }, 2000)
