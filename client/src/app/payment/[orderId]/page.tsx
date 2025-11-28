@@ -127,36 +127,17 @@ export default function PaymentPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Left Column - QR Code */}
-            <div className="flex flex-col items-center">
-              {/* VietQR PRO Logo */}
-              <div className="flex items-center gap-2 mb-6">
-                <div className="text-red-600 font-bold text-2xl">VIET</div>
-                <div className="text-gray-800 font-bold text-2xl">QR</div>
-                <div className="bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded">PRO</div>
-              </div>
-
+            <div className="flex flex-col items-center justify-center">
               {/* QR Code */}
-              <div className="relative mb-4">
+              <div className="relative">
                 <Image
                   src={order.paymentUrl}
                   alt="QR Code"
-                  width={280}
-                  height={280}
-                  className="rounded-lg border-2 border-gray-200"
+                  width={320}
+                  height={320}
+                  className="rounded-lg"
                   unoptimized
                 />
-                {/* Bank Logo in Center */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-full p-2 shadow-lg">
-                  <div className="w-12 h-12 flex items-center justify-center">
-                    <span className="text-blue-600 font-bold text-lg">ICB</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bank Logos */}
-              <div className="flex justify-center gap-4">
-                <div className="text-xs text-blue-600 font-semibold">napas 24/7</div>
-                <div className="text-xs text-blue-600 font-bold">ICB</div>
               </div>
             </div>
 

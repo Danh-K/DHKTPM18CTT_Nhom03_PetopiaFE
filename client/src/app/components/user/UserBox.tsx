@@ -10,6 +10,7 @@ import {
   Bookmark,
   Clock,
   Star,
+  Package,
 } from "lucide-react";
 import Link from "next/link";
 export default function UserBox() {
@@ -67,6 +68,17 @@ export default function UserBox() {
                 <Star className="w-5 h-5 text-[#7B4F35]" />
                 Đánh giá từ tôi
               </span>
+            </li>
+            <li>
+              <Link
+                href="/orders"
+                className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 text-gray-700 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-[#7B4F35]" />
+                  Đơn hàng của tôi
+                </span>
+              </Link>
             </li>
           </ul>
         </div>
