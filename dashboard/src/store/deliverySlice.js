@@ -30,15 +30,15 @@ export const updateDeliveryStatus = createAsyncThunk( "delivery/updateStatus", a
   }
 )
 
-export const searchDeliveries = createAsyncThunk("delivery/searchDeliveries", async ({ query, page = 0, size = 9 }, { rejectWithValue }) => {
+export const searchDeliveries = createAsyncThunk( "delivery/searchDeliveries", async ({ query, status, page = 0, size = 9 }, { rejectWithValue }) => {
     try {
-      const data = await deliveryService.search(query, page, size);
-      return { ...data, query };
+      const data = await deliveryService.search(query, status, page, size);
+      return { ...data, query, status };
     } catch (error) {
       return rejectWithValue(error.message || "Lỗi tìm kiếm");
     }
   }
-)
+);
 
 const initialState = {
   deliveries: [],

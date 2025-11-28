@@ -32,12 +32,14 @@ export const deliveryService = {
     }
   },
 
-  search: async (query = "", page = 0, size = 9) => {
+  search: async (query = "", status = null, page = 0, size = 9) => {
     try {
-      const res = await api.get(`${DELIVERY_API}/search`, {
-      params: { query: query.trim() || undefined, page, size }
-    });
-    return res.data;
+      const params = { page, size };
+      if (query?.trim()) params.query = query.trim();
+      if (status) params.status = status;
+
+      const res = await api.get(`${DELIVERY_API}/search`, { params });
+      return res.data;
     } catch (error) {
       console.error("Error searching deliveries:", error);
       throw error;

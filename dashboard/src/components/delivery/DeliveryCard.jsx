@@ -53,7 +53,7 @@ export default function DeliveryCard({ delivery, darkMode = false }) {
               {currentStatus}
             </span>
           </div>
-          <h3 className={`font-bold text-base ${darkMode ? "text-white" : "text-gray-900"}`}>Mã: {trackingNumber}</h3>
+          <h3 className={`font-bold text-base ${darkMode ? "text-white" : "text-gray-900"}`}>Mã: {trackingNumber} - Hóa đơn ({delivery.orderId})</h3>
         </div>
         {/* Customer Name */}
         <div className="flex gap-2">
