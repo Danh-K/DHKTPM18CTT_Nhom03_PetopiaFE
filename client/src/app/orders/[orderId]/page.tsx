@@ -20,11 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import axiosInstance from "@/lib/utils/axios";
 import { Loading } from "@/app/components/loading";
-import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/hook/useToast";
 import type { Order, OrderItem, OrderStatus, PaymentMethod } from "@/types/Order";
 import type { Delivery } from "@/types/Delivery";
-import type { Review, PageResponse } from "@/types/Review";
 
 interface ApiResponse<T> {
   status: number;
@@ -196,64 +194,15 @@ export default function OrderDetailPage() {
     }
   );
 
-  const { user } = useAuthStore();
-  const userId = user?.userId;
   const { success, error: showError, warning, ToastContainer } = useToast();
 
-  // Fetch reviews cho các sản phẩm trong đơn hàng để kiểm tra đã đánh giá chưa
-  const fetchReviewsForPets = async (petIds: string[]): Promise<Review[]> => {
-    if (!petIds.length || !userId) return [];
-    
-    try {
-      const allReviews: Review[] = [];
-      // Gọi API cho từng petId để lấy reviews
-      for (const petId of petIds) {
-        try {
-          const response = await axiosInstance.get<ApiResponse<PageResponse<Review>>>(
-            `/reviews?petId=${petId}&size=100`
-          );
-          if (response.data.status === 200 && response.data.data?.content) {
-            allReviews.push(...response.data.data.content);
-          }
-        } catch (error) {
-          console.error(`[Review] Lỗi khi fetch reviews cho petId ${petId}:`, error);
-        }
-      }
-      return allReviews;
-    } catch (error) {
-      console.error("[Review] Lỗi khi fetch reviews:", error);
-      return [];
-    }
-  };
-
   const orderItems: OrderItem[] = useMemo(() => order?.orderItems ?? [], [order?.orderItems]);
-  const petIds = useMemo(() => 
-    orderItems.map(item => item.petId).filter(Boolean) as string[],
-    [orderItems]
-  );
   
-  const { data: allReviews, mutate: mutateReviews } = useSWR<Review[]>(
-    order && petIds.length > 0 && userId ? ["reviews-for-order", petIds, userId] : null,
-    () => fetchReviewsForPets(petIds),
-    {
-      revalidateOnFocus: false,
-    }
-  );
-
-  // Lọc ra các petId đã được user đánh giá
-  const reviewedPetIds = useMemo(() => {
-    if (!allReviews || !userId) return new Set<string>();
-    return new Set(
-      allReviews
-        .filter(review => review.userId === userId && review.petId)
-        .map(review => review.petId as string)
-    );
-  }, [allReviews, userId]);
-
-  // Lọc các sản phẩm chưa được đánh giá
+  // Cho phép đánh giá tất cả sản phẩm trong đơn hàng (không kiểm tra đã đánh giá)
+  // Vì mỗi đơn hàng là một trải nghiệm mua hàng riêng biệt
   const availableItems = useMemo(() => {
-    return orderItems.filter(item => !reviewedPetIds.has(item.petId));
-  }, [orderItems, reviewedPetIds]);
+    return orderItems;
+  }, [orderItems]);
 
   const subtotal = useMemo(() => {
     if (!order?.orderItems) return 0;
@@ -350,9 +299,9 @@ export default function OrderDetailPage() {
         warning("Kích thước ảnh quá lớn", "Kích thước ảnh không được vượt quá 5MB");
         return;
       }
-      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-      if (!allowedTypes.includes(reviewImage.type)) {
-        warning("Định dạng không hợp lệ", "Chỉ chấp nhận file ảnh định dạng JPG, PNG hoặc WEBP");
+      // Chấp nhận mọi loại file ảnh (bất kỳ MIME type nào bắt đầu bằng "image/")
+      if (!reviewImage.type || !reviewImage.type.startsWith("image/")) {
+        warning("Định dạng không hợp lệ", "Vui lòng chọn file ảnh hợp lệ");
         return;
       }
     }
@@ -413,8 +362,7 @@ export default function OrderDetailPage() {
           fileInput.value = "";
         }
 
-        // Cập nhật lại danh sách reviews để ẩn sản phẩm đã đánh giá
-        mutateReviews();
+        // Reset form sau khi đánh giá thành công
 
         // Scroll lên đầu form để user thấy form đã được reset
         const reviewSection = document.querySelector('[data-review-section]');
@@ -712,29 +660,18 @@ export default function OrderDetailPage() {
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Chọn sản phẩm để đánh giá <span className="text-red-500">*</span>
               </label>
-              {availableItems.length === 0 ? (
-                <div className="rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  Bạn đã đánh giá tất cả sản phẩm trong đơn hàng này.
-                </div>
-              ) : (
-                <select
-                  value={selectedPetId}
-                  onChange={(e) => setSelectedPetId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
-                >
-                  <option value="">-- Chọn sản phẩm --</option>
-                  {availableItems.map((item) => (
-                    <option key={item.petId} value={item.petId}>
-                      {item.petName} (×{item.quantity})
-                    </option>
-                  ))}
-                </select>
-              )}
-              {reviewedPetIds.size > 0 && (
-                <p className="mt-2 text-xs text-slate-500">
-                  Đã đánh giá {reviewedPetIds.size}/{orderItems.length} sản phẩm
-                </p>
-              )}
+              <select
+                value={selectedPetId}
+                onChange={(e) => setSelectedPetId(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+              >
+                <option value="">-- Chọn sản phẩm --</option>
+                {availableItems.map((item) => (
+                  <option key={item.petId} value={item.petId}>
+                    {item.petName} (×{item.quantity})
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Đánh giá sao */}
