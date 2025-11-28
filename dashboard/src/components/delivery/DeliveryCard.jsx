@@ -1,7 +1,7 @@
 "use client"
 
 import DeliveryTimeline from "./DeliveryTimeLine"
-import { HiOutlineMapPin, HiOutlinePhone, HiOutlineArchiveBox } from "react-icons/hi2"
+import { HiOutlineMapPin, HiOutlinePhone, HiOutlineArchiveBox, HiOutlineClock } from "react-icons/hi2"
 
 export default function DeliveryCard({ delivery, darkMode = false }) {
   const defaults = {
@@ -27,6 +27,12 @@ export default function DeliveryCard({ delivery, darkMode = false }) {
     "Đã giao hàng": "bg-green-100 text-green-800",
     "Đã trả hàng": "bg-red-100 text-red-800",
     "Giao hàng thất bại": "bg-red-200 text-red-900",
+  }
+
+  const formatEEstimatedDeliveryDate = (date) => {
+    if (!date) return "Chưa có thông tin"
+    const options = { year: 'numeric', month: 'long', day: 'numeric' }
+    return new Date(date).toLocaleDateString('vi-VN', options)
   }
 
   return (
@@ -89,6 +95,17 @@ export default function DeliveryCard({ delivery, darkMode = false }) {
               Liên hệ
             </p>
             <p className={`text-xs font-medium ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{customerPhone}</p>
+          </div>
+        </div>
+
+        {/* Estimated Delivery Date */}
+         <div className="flex gap-2">
+          <HiOutlineClock className="w-5 h-5 flex-shrink-0 text-orange-600 mt-0.5" />
+          <div className="flex-1">
+            <p className={`text-xs font-semibold opacity-70 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+              Ngày nhận hàng dự kiến
+            </p>
+            <p className={`text-xs font-medium ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{formatEEstimatedDeliveryDate(delivery.estimatedDeliveryDate)}</p>
           </div>
         </div>
       </div>
