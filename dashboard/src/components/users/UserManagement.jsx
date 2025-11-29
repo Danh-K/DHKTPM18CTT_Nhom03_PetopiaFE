@@ -28,7 +28,7 @@ const AllUsers = () => {
         const filters = {
           keyword: searchTerm,
           role: filterRole !== "All" ? filterRole : undefined,
-          status: filterStatus !== "All" ? filterStatus : "ACTIVE",
+          isActive: filterStatus !== "All" ? filterStatus === "ACTIVE" ? true : false : undefined,
           page: 0,
           size,
         }
@@ -86,8 +86,8 @@ const AllUsers = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Quản lý người dùng</h1>
-          <p className="text-gray-600 mt-1">Quản lý tất cả người dùng trong hệ thống</p>
+          <h1 className="text-3xl font-bold text-[#7b4f35]">Quản lý người dùng</h1>
+          <p className="text-[#7b4f35] mt-1">Quản lý tất cả người dùng trong hệ thống</p>
         </div>
 
         {/* Stats */}
@@ -96,7 +96,7 @@ const AllUsers = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Tổng người dùng</p>
-                <p className="text-3xl font-bold text-gray-900">{totalElements}</p>
+                <p className="text-3xl font-bold text-blue-500">{totalElements}</p>
               </div>
               <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-lg">
                 <FaUser className="text-white text-xl" />

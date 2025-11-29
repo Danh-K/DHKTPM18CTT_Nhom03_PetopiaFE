@@ -54,7 +54,7 @@ export default function DeliveryManagement({ darkMode }) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Quản lý lịch sử giao hàng</h1>
+        <h1 className="text-3xl text-[#7b4f35] font-bold">Quản lý lịch sử giao hàng</h1>
       </div>
 
       {/* Search Bar */}

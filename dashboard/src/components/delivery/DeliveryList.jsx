@@ -63,13 +63,13 @@ export default function DeliveryList({ darkMode = false }) {
           <button
             onClick={handlePrev}
             disabled={currentPage === 0}
-            className={`p-3 rounded-xl transition-all ${
+            className={`p-3 rounded-xl flex transition-all ${
               currentPage === 0
                 ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                 : "bg-orange-100 text-orange-600 hover:bg-orange-200 shadow-md"
             }`}
           >
-            <HiChevronLeft className="w-5 h-5" />
+            <HiChevronLeft className="w-5 h-5" /> Trước
           </button>
 
           <div className="flex gap-2">
@@ -79,7 +79,7 @@ export default function DeliveryList({ darkMode = false }) {
                 onClick={() => goToPage(i)}
                 className={`w-12 h-12 rounded-xl font-medium transition-all ${
                   currentPage === i
-                    ? "bg-orange-600 text-white shadow-lg scale-110"
+                    ? "bg-[#7b4f35] text-white shadow-lg scale-110"
                     : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                 } ${darkMode ? "dark:bg-gray-800" : ""}`}
               >
@@ -91,13 +91,13 @@ export default function DeliveryList({ darkMode = false }) {
           <button
             onClick={handleNext}
             disabled={currentPage >= totalPages - 1}
-            className={`p-3 rounded-xl transition-all ${
+            className={`p-3 rounded-xl flex transition-all ${
               currentPage >= totalPages - 1
                 ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                 : "bg-orange-100 text-orange-600 hover:bg-orange-200 shadow-md"
             }`}
           >
-            <HiChevronRight className="w-5 h-5" />
+            Tiếp <HiChevronRight className="w-5 h-5" />
           </button>
         </div>
       )}

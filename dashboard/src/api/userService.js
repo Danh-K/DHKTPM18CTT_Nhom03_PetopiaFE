@@ -24,7 +24,7 @@ export const userService = {
     const params = new URLSearchParams()
     if (filters.keyword) params.append("keyword", filters.keyword)
     if (filters.role) params.append("role", filters.role)
-    if (filters.status) params.append("status", filters.status)
+    if (filters.isActive !== undefined) params.append("isActive", filters.isActive)
     if (filters.page !== undefined) params.append("page", filters.page)
     if (filters.size !== undefined) params.append("size", filters.size)
     const res = await api.get(`${USER_API}/search?${params.toString()}`)
