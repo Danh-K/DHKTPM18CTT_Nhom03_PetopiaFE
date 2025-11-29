@@ -8,7 +8,7 @@ import MyInvoices from "./components/MyInvoices";
 import CreateInvoice from "./components/CreateInvoice";
 import Transactions from "./components/Transactions";
 import SingleTransaction from "./components/SingleTransaction";
-import AllUsers from "./components/AllUsers";
+import AllUsers from "./components/users/UserManagement";
 import Profile from "./components/Profile";
 import RevenueStatistics from "./components/RevenueStatistics";
 import PetStatistics from "./components/PetStatistics";
@@ -22,6 +22,7 @@ import VaccinationManagement from "./components/PetManagement/VaccinationManagem
 import LoginPage from "./pages/LoginPage";
 import useAuth from "./hooks/useAuth";
 import DeliveryManagement from "./components/delivery/DeliveryManagement";
+import DeliveryHome from "./components/delivery/DeliveryHome";
 
 function App() {
   const [darkMode, setDarkMode] = useState(false);
@@ -83,7 +84,7 @@ function App() {
       case "user-profiles":
         return <Profile />;
       case "delivery":
-        return <DeliveryManagement />;
+        return <DeliveryHome darkMode={darkMode} />;
       default:
         return <Dashboard />;
     }

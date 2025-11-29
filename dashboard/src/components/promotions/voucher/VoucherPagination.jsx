@@ -1,3 +1,5 @@
+import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
+
 export default function VoucherPagination({ currentPage, totalPages, totalItems, onPageChange }) {
   if (totalPages <= 1) return null;
 
@@ -9,8 +11,8 @@ export default function VoucherPagination({ currentPage, totalPages, totalItems,
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}
-            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium">
-            Trước
+            className="px-4 py-2 flex rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium">
+            <HiChevronLeft className="w-5 h-5" /> Trước
           </button>
           {[...Array(totalPages)].map((_, i) => (
             <button key={i + 1} onClick={() => onPageChange(i + 1)}
@@ -19,8 +21,8 @@ export default function VoucherPagination({ currentPage, totalPages, totalItems,
             </button>
           ))}
           <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages}
-            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium">
-            Tiếp
+            className="px-4 py-2 flex rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium">
+            Tiếp <HiChevronRight className="w-5 h-5" />
           </button>
         </div>
       </div>

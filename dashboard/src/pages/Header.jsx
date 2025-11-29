@@ -160,8 +160,8 @@ function Header({ darkMode, setDarkMode, user, logout }) {
             {isUserMenuOpen && (
               <div className="absolute top-14 right-0 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                  <p className="text-black dark:text-white">Chào {user?.fullName || "User"}</p>
-                  <p className="text-sm text-black dark:text-gray-400">{user?.email || "admin@petopia.com"}</p>
+                  <p className="text-black dark:text-white">Chào Admin!</p>
+                  <p className="text-lg text-black dark:text-gray-400">{user?.fullName}</p>
                 </div>
 
                 <button className="w-full text-left px-4 py-3 text-sm text-gray-700 transition flex items-center gap-2">
