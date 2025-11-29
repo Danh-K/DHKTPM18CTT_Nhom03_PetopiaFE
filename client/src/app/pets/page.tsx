@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
-import axios from "axios";
+import axiosInstance from "@/lib/utils/axios";
 import Image from "next/image";
 import { Loading } from "../components/loading";
 import { useCart } from "@/store/useCartStore";
@@ -46,20 +46,24 @@ interface PetSearchRequest {
   sortDirection?: string;
 }
 
-// SWR fetcher cho GET request (dùng fetch thông thường)
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+// SWR fetcher cho GET request (dùng axiosInstance)
+const fetcher = async (url: string) => {
+  const response = await axiosInstance.get(url);
+  return response.data;
+};
 
-// Axios fetcher cho POST search request
+// Axios fetcher cho POST search request (dùng axiosInstance)
 const axiosSearchFetcher = async ([url, body]: [string, PetSearchRequest]) => {
   try {
     console.log('🚀 Calling Search API:', { url, body });
-    const response = await axios.post(url, body);
+    const response = await axiosInstance.post(url, body);
     console.log('✅ Search API Response:', response.data);
     return response.data;
-  } catch (error: any) {
-    console.error('❌ Search API Error:', error.response?.data || error.message);
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: unknown; status?: number }; message?: string };
+    console.error('❌ Search API Error:', err.response?.data || err.message);
     // Nếu là 404 (không tìm thấy), trả về empty response thay vì throw error
-    if (error.response?.status === 404) {
+    if (err.response?.status === 404) {
       return {
         content: [],
         totalElements: 0,
@@ -72,7 +76,6 @@ const axiosSearchFetcher = async ([url, body]: [string, PetSearchRequest]) => {
 };
 
 export default function PetsPage() {
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   const pageSize = 6;
   const [page, setPage] = useState(0);
   const { addItem, openMiniCart } = useCart();
@@ -82,15 +85,15 @@ export default function PetsPage() {
   const [searchInput, setSearchInput] = useState(""); // Input từ user
   const [sortBy, setSortBy] = useState("default");
 
-  // Fetch categories từ API (dùng SWR với fetch)
+  // Fetch categories từ API (dùng axiosInstance với relative path)
   const { data: categoriesData } = useSWR<Category[]>(
-    `${apiUrl}/categories/list`,
+    '/pets/categories',
     fetcher
   );
 
   // Tính count cho mỗi category và lấy giá cao nhất dựa trên tất cả pets (không phân trang)
   const { data: allPetsData } = useSWR<PetResponse>(
-    `${apiUrl}/pets?page=0&size=1000`,
+    '/pets?page=0&size=1000',
     fetcher
   );
 
@@ -143,7 +146,7 @@ export default function PetsPage() {
       request.maxFinalPrice = priceRange[1];
     }
 
-    // Sort mapping - LUÔN gửi sortBy và sortDirection
+    // Sort mapping - Rating sẽ được sort ở client side
     switch (sortBy) {
       case "price-low":
         request.sortBy = "price";
@@ -154,7 +157,9 @@ export default function PetsPage() {
         request.sortDirection = "desc";
         break;
       case "rating":
-        request.sortBy = "rating";
+        // Không gửi sortBy cho rating vì field này không có trong DB
+        // Sẽ sort ở client side sau khi nhận data
+        request.sortBy = "createdAt";
         request.sortDirection = "desc";
         break;
       case "latest":
@@ -196,8 +201,8 @@ export default function PetsPage() {
   // Fetch data với search API (POST) hoặc get all API (GET với SWR fetch)
   const { data, error, isLoading } = useSWR<PetResponse>(
     shouldUseSearch 
-      ? [`${apiUrl}/pets/search`, searchRequest]
-      : `${apiUrl}/pets?page=${page}&size=${pageSize}`,
+      ? ['/pets/search', searchRequest]
+      : `/pets?page=${page}&size=${pageSize}`,
     shouldUseSearch
       ? axiosSearchFetcher
       : fetcher
@@ -212,15 +217,36 @@ export default function PetsPage() {
       maxPrice,
       priceRange,
       isPriceRangeInitialized,
-      categoriesData,
-      apiUrl
+      categoriesData
     });
-  }, [shouldUseSearch, selectedCategory, searchRequest, maxPrice, priceRange, isPriceRangeInitialized, categoriesData, apiUrl]);
+  }, [shouldUseSearch, selectedCategory, searchRequest, maxPrice, priceRange, isPriceRangeInitialized, categoriesData]);
 
-  const pets = data?.content || [];
+  // Sort pets theo rating ở client side nếu cần
+  const pets = useMemo(() => {
+    const petsData = data?.content || [];
+    
+    // Nếu sort by rating, sort ở client side
+    if (sortBy === "rating") {
+      return [...petsData].sort((a, b) => {
+        const ratingA = a.rating || 0;
+        const ratingB = b.rating || 0;
+        return ratingB - ratingA; // Sort descending (cao đến thấp)
+      });
+    }
+    
+    return petsData;
+  }, [data?.content, sortBy]);
+  
   const totalElements = data?.totalElements || 0;
 
-  const categories = (categoriesData || []).map(cat => {
+  // Xử lý categoriesData - có thể là array trực tiếp hoặc object wrapper
+  const categoriesArray: Category[] = Array.isArray(categoriesData) 
+    ? categoriesData 
+    : (categoriesData && typeof categoriesData === 'object' && 'data' in categoriesData) 
+      ? (categoriesData as { data: Category[] }).data 
+      : [];
+
+  const categories = categoriesArray.map((cat: Category) => {
     const count = (allPetsData?.content || []).filter(pet => pet.categoryName === cat.name).length;
     return {
       ...cat,
@@ -369,7 +395,7 @@ export default function PetsPage() {
                     <option value="default">Sắp xếp mặc định</option>
                     <option value="price-low">Giá: Thấp đến cao</option>
                     <option value="price-high">Giá: Cao đến thấp</option>
-                    <option value="rating">Đánh giá cao nhất</option>
+                    <option value="rating">Đánh giá: Cao đến thấp</option>
                     <option value="latest">Mới nhất</option>
                   </select>
                   <ChevronDown
@@ -381,25 +407,58 @@ export default function PetsPage() {
             </div>
 
             {/* Product Grid */}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
-              {pets.map((pet) => (
-                <ProductCard
-                  key={pet.petId}
-                  product={{
-                    petId: pet.petId,
-                    name: pet.name,
-                    price: pet.price,
-                    discountPrice: pet.discountPrice || undefined,
-                    image: getThumbnail(pet.petId, pet.mainImageUrl || null),
-                    isSale: !!pet.discountPrice
-                  }}
-                  onAddToCart={() => {
-                    addItem({ pet: pet, quantity: 1, img: getThumbnail(pet.petId, pet.mainImageUrl || null) });
-                    openMiniCart();
-                  }}
-                />
-              ))}
-            </div>
+            {pets.length === 0 ? (
+              // Empty state - Không tìm thấy thú cưng
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="mb-8">
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width="120" 
+                    height="120" 
+                    fill="none"
+                    className="text-[#A0694B]"
+                  >
+                    <path 
+                      fill="currentColor" 
+                      d="M60 0C26.863 0 0 26.863 0 60s26.863 60 60 60 60-26.863 60-60S93.137 0 60 0Zm19.355 40.645a7.742 7.742 0 0 1 7.742 7.742 7.742 7.742 0 0 1-7.742 7.742 7.742 7.742 0 0 1-7.742-7.742 7.742 7.742 0 0 1 7.742-7.742ZM36.774 98.71c-6.41 0-11.613-5.081-11.613-11.355 0-4.84 6.892-14.606 10.065-18.806a1.927 1.927 0 0 1 3.096 0c3.173 4.2 10.065 13.966 10.065 18.806 0 6.274-5.203 11.355-11.613 11.355Zm3.871-42.581a7.742 7.742 0 0 1-7.742-7.742 7.742 7.742 0 0 1 7.742-7.742 7.742 7.742 0 0 1 7.742 7.742 7.742 7.742 0 0 1-7.742 7.742Zm41.161 37.29A28.403 28.403 0 0 0 60 83.226c-5.129 0-5.129-7.742 0-7.742a36.013 36.013 0 0 1 27.742 13.032c3.337 3.968-2.71 8.826-5.936 4.903Z"
+                    />
+                  </svg>
+                </div>
+                
+                <div className="text-center">
+                  <h2 className="text-3xl font-bold text-gray-700 mb-4">Không có thú cưng nào</h2>
+                  <p className="text-gray-500 text-lg">
+                    {shouldUseSearch 
+                      ? "Không tìm thấy thú cưng nào phù hợp với tiêu chí bạn tìm kiếm" 
+                      : "Hiện chưa có thú cưng nào trong danh sách"}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+                {pets.map((pet) => (
+                  <ProductCard
+                    key={pet.petId}
+                    product={{
+                      petId: pet.petId,
+                      name: pet.name,
+                      price: pet.price,
+                      discountPrice: pet.discountPrice || undefined,
+                      rating: pet.rating || undefined,
+                      image: getThumbnail(pet.petId, pet.mainImageUrl || null),
+                      isSale: !!pet.discountPrice
+                    }}
+                    onAddToCart={() => {
+                      addItem({ pet: pet, quantity: 1, img: getThumbnail(pet.petId, pet.mainImageUrl || null) });
+                      openMiniCart();
+                    }}
+                    onBuyNow={() => {
+                      addItem({ pet: pet, quantity: 1, img: getThumbnail(pet.petId, pet.mainImageUrl || null) });
+                    }}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Pagination */}
             {totalPages > 1 && (

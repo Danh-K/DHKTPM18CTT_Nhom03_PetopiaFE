@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@/lib/utils/trpc";
 // import { useSession } from "next-auth/react"; // Giả sử bạn dùng NextAuth để lấy session
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

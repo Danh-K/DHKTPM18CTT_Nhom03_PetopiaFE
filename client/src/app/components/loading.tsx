@@ -1,4 +1,4 @@
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/utils/util"
 
 export function Loading({ className }: { className?: string }) {
     return (

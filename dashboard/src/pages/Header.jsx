@@ -1,6 +1,6 @@
 "use client";
 
-import { HiBell, HiSearch, HiMoon, HiSun } from "react-icons/hi";
+import { HiBell, HiSearch, HiMoon, HiSun, HiLogout, HiCog } from "react-icons/hi";
 import { useState } from "react";
 import logo from "../assets/image.png";
 
@@ -37,7 +37,7 @@ const notifications = [
   },
 ];
 
-function Header({ darkMode, setDarkMode }) {
+function Header({ darkMode, setDarkMode, user, logout }) {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const unreadCount = notifications.length;
@@ -147,26 +147,40 @@ function Header({ darkMode, setDarkMode }) {
           <div className="relative">
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className="flex items-center gap-2 p-1 hover:bg-white/10 rounded-lg transition-colors"
+              className="flex flex-col items-center gap-2 p-1 hover:bg-white/10 rounded-lg transition-colors"
             >
               <img
-                src="https://flowbite.com/docs/images/people/profile-picture-5.jpg"
-                className="h-9 w-9 rounded-full border-2 border-white/30"
-                alt="User"
+                src={user?.avatarUrl || "https://flowbite.com/docs/images/people/profile-picture-5.jpg"}
+                alt={user?.fullName || "User"}
+                className="w-10 h-10 rounded-full object-cover border-2 border-white/30"
               />
             </button>
 
             {/* User Dropdown */}
             {isUserMenuOpen && (
-              <div className="absolute top-12 right-0 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                  Profile
+              <div className="absolute top-14 right-0 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                  <p className="text-black dark:text-white">Chào Admin!</p>
+                  <p className="text-lg text-black dark:text-gray-400">{user?.fullName}</p>
+                </div>
+
+                <button className="w-full text-left px-4 py-3 text-sm text-gray-700 transition flex items-center gap-2">
+                  <HiSearch className="h-4 w-4" />
+                  Hồ sơ cá nhân
                 </button>
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                  Settings
+                <button className="w-full text-left px-4 py-3 text-sm text-gray-700 transition flex items-center gap-2">
+                  <HiCog className="h-4 w-4" />
+                  Cài đặt
                 </button>
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition border-t border-gray-200 dark:border-gray-700">
-                  Logout
+
+                <hr className="border-gray-200 dark:border-gray-700" />
+
+                <button
+                  onClick={logout}
+                  className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition flex items-center gap-2 font-medium"
+                >
+                  <HiLogout className="h-4 w-4" />
+                  Đăng xuất
                 </button>
               </div>
             )}

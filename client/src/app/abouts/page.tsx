@@ -179,9 +179,9 @@ export default function AboutPage() {
 
 
   return (
-    <div className="min-h-screen ">
+    <div className="min-h-screen">
       {/* Title Section with Background */}
-      <div className="relative py-24">
+      <div className="relative py-24 overflow-hidden">
         <div className="absolute inset-0">
           <img 
             src="/assets/imgs/imgBackgroundTitle/bc-store-loc.jpg"

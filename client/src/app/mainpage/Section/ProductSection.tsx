@@ -1,17 +1,19 @@
 "use client";
 import React from "react";
 import Image from "next/image";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@/lib/utils/trpc";
 import { Loading } from "../../components/loading";
 import { ShoppingCart, Star, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/store/useCartStore";
 import MiniCart from "@/app/carts/_components/MiniCart";
 import type { Pet } from "@/types/Pet";
+import { usePets } from "@/hook/usePets";
+import { useAllPetImages, usePetImages, useSetThumbnail } from "@/hook/usePetImgs";
 
 export default function ProductSection() {
-  const { data: pets, isLoading, error } = trpc.pet.getAll.useQuery();
-  const { data: petImgs } = trpc.petImg.getAll.useQuery();
+  const {data: pets, isLoading, error} = usePets();
+  const { data: petImgs } = useAllPetImages();
   const { addItem, openMiniCart } = useCart();
   const router = useRouter();
 
@@ -22,19 +24,21 @@ export default function ProductSection() {
 
   if (isLoading) return <Loading />;
   if (error) return <div className="text-center py-10 text-red-500">Lỗi: {error.message}</div>;
+  console.log(pets)
 
-  // Lấy 5 pets đầu tiên
-  const products = (pets || []).slice(0, 5);
+  
+  const productList: Pet[] = (Array.isArray(pets) ? pets : Object.values(pets ?? {})) as Pet[];
+  const products = productList.slice(0, 5) ;
 
   return (
     <section className="py-16 px-8 bg-white">
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
+        
         <div className="text-center mb-12">
           <h2 className="text-4xl text-[#8B4513] mb-4">SẢN PHẨM</h2>
         </div>
 
-        {/* Product Cards - Layout từ ProductCard */}
+        
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product) => (
             <div 
@@ -42,14 +46,14 @@ export default function ProductSection() {
               onClick={() => router.push(`/pets/${product.petId}`)}
               className="group rounded-2xl bg-[#fff0f0] p-4 shadow-lg hover:shadow-xl hover:bg-[#FF6B6B] transition-all duration-300 relative cursor-pointer"
             >
-              {/* Heart Icon - appears on hover */}
+              
               <div className="absolute top-6 left-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 cursor-pointer">
                 <div className="w-10 h-10 bg-[#FF6B6B] rounded-full flex items-center justify-center shadow-md hover:bg-[#102937] transition-colors duration-300">
                   <Heart size={18} className="text-white" />
                 </div>
               </div>
 
-              {/* Shopping Cart Icon - appears on hover */}
+              
               <div 
                 className="absolute top-6 left-18 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 cursor-pointer"
                 onClick={(e) => {
@@ -63,7 +67,7 @@ export default function ProductSection() {
                 </div>
               </div>
 
-              {/* Image Container */}
+              
               <div className="relative mb-4 overflow-hidden rounded-xl bg-[#F5E6D3]">
                 <Image
                   src={getThumbnail(product.petId)}
@@ -79,7 +83,7 @@ export default function ProductSection() {
                 )}
               </div>
 
-              {/* Rating */}
+              
               <div className="mb-3 flex gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
@@ -90,22 +94,24 @@ export default function ProductSection() {
                 ))}
               </div>
 
-              {/* Product Name */}
+              
               <h3 className="mb-2 font-bold text-[#2d2d2d] group-hover:text-white text-lg line-clamp-2 transition-colors duration-300">{product.name}</h3>
 
-              {/* Price */}
+              
               <div className="mb-4 flex items-center gap-2">
-                {product.discountPrice ? (
+                {product.discountPrice != null ? (
                   <>
-                    <span className="text-[#2d2d2d] group-hover:text-white font-bold text-xl transition-colors duration-300">{product.discountPrice.toLocaleString('vi-VN')}₫</span>
-                    <span className="text-gray-400 group-hover:text-white line-through text-sm transition-colors duration-300">{product.price.toLocaleString('vi-VN')}₫</span>
+                    <span className="text-[#2d2d2d] group-hover:text-white font-bold text-xl transition-colors duration-300">{(product.discountPrice ?? product.price ?? 0).toLocaleString('vi-VN')}₫</span>
+                    {product.price != null && (
+                      <span className="text-gray-400 group-hover:text-white line-through text-sm transition-colors duration-300">{(product.price ?? 0).toLocaleString('vi-VN')}₫</span>
+                    )}
                   </>
                 ) : (
-                  <span className="text-[#2d2d2d] group-hover:text-white font-bold text-xl transition-colors duration-300">{product.price.toLocaleString('vi-VN')}₫</span>
+                  <span className="text-[#2d2d2d] group-hover:text-white font-bold text-xl transition-colors duration-300">{(product.price ?? 0).toLocaleString('vi-VN')}₫</span>
                 )}
               </div>
 
-              {/* Buy Now Button */}
+              
               <button 
                 onClick={(e) => {
                   e.stopPropagation();

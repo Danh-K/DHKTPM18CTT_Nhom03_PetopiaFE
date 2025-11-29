@@ -2,14 +2,86 @@
 
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Heart, Eye, Minus, Plus, Star, Clock, Users, ArrowLeft } from "lucide-react"
+import { Heart, Minus, Plus, Star, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { trpc } from "@/utils/trpc"
 import { useCart } from "@/store/useCartStore"
+import { useFavorite } from "@/store/useFavoriteStore"
+import { useAuthStore } from "@/store/useAuthStore"
+import { useToast } from "@/hook/useToast"
 import { Loading } from "@/app/components/loading"
 import Image from "next/image"
 import MiniCart from "@/app/carts/_components/MiniCart"
+import ReviewSection from "@/app/pets/_components/ReviewSection"
+import useSWR from "swr"
+import axiosInstance from "@/lib/utils/axios"
+import type { Pet } from "@/types/Pet"
+
+// Interface cho API Response từ backend
+interface ApiResponse<T> {
+  status: number;
+  message: string;
+  data?: T;
+}
+
+// Interface cho Pet chi tiết từ backend
+interface PetDetailDTO {
+  petId: string;
+  name: string;
+  description?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  age?: number | null;
+  gender?: "MALE" | "FEMALE" | "UNKNOWN" | null;
+  price: number;
+  discountPrice?: number | null;
+  healthStatus?: string | null;
+  vaccinationHistory?: string | null;
+  stockQuantity?: number | null;
+  status?: "AVAILABLE" | "SOLD" | "RESERVED" | "DRAFT" | null;
+  videoUrl?: string | null;
+  weight?: number | null;
+  height?: number | null;
+  color?: string | null;
+  furType?: "SHORT" | "LONG" | "CURLY" | "NONE" | "OTHER" | null;
+  mainImageUrl?: string | null;
+  rating?: number | null;
+  reviewCount?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Hàm format rating: nếu phần thập phân từ 0.1 đến 0.9 thì làm tròn xuống
+const formatRating = (rating: number | null | undefined): string => {
+  if (!rating) return "0";
+  
+  const decimal = rating % 1; // Lấy phần thập phân
+  if (decimal >= 0.1 && decimal <= 0.9) {
+    return Math.floor(rating).toString(); // Làm tròn xuống (2.1 → 2, 2.5 → 2, 2.9 → 2)
+  }
+  // Nếu là số nguyên (decimal = 0) thì hiển thị số nguyên
+  if (decimal === 0) {
+    return Math.floor(rating).toString(); // 3.0 → 3
+  }
+  return rating.toFixed(1); // Trường hợp khác (hiếm khi xảy ra)
+};
+
+// Fetcher cho SWR (dùng axiosInstance)
+const fetcher = async (url: string): Promise<PetDetailDTO> => {
+  try {
+    const response = await axiosInstance.get<ApiResponse<PetDetailDTO>>(url);
+    const apiResponse = response.data;
+    
+    if (apiResponse.status !== 200 || !apiResponse.data) {
+      throw new Error(apiResponse.message || 'Không tìm thấy thú cưng');
+    }
+    
+    return apiResponse.data;
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { message?: string } }; message?: string };
+    throw new Error(err.response?.data?.message || err.message || 'Không tìm thấy thú cưng');
+  }
+};
 
 export default function PetDetailPage() {
   const params = useParams()
@@ -17,34 +89,61 @@ export default function PetDetailPage() {
   const petId = params.id as string
   
   const [quantity, setQuantity] = useState(1)
-  const [isWishlisted, setIsWishlisted] = useState(false)
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false)
   
   const { addItem, openMiniCart } = useCart()
+  const { addItem: addToFavorite, removeItem: removeFromFavorite, isFavorite } = useFavorite()
+  const { isAuthenticated } = useAuthStore()
+  const { success, error: showError, ToastContainer } = useToast()
   
-  // Fetch pet data
-  const { data: pet, isLoading: petLoading, error } = trpc.pet.getById.useQuery({ petId: petId })
-  const { data: petImgs } = trpc.petImg.getAll.useQuery()
-  const { data: allPets } = trpc.pet.getAll.useQuery() // Để debug
+  const isWishlisted = isFavorite(petId)
   
-  // Debug log
-  console.log("Pet ID:", petId)
-  console.log("Pet data:", pet)
-  console.log("All pets:", allPets?.map(p => p.petId))
-  console.log("Loading:", petLoading)
-  console.log("Error:", error)
+  // Fetch pet data từ backend API (dùng axiosInstance với relative path)
+  const { data: pet, error, isLoading } = useSWR<PetDetailDTO>(
+    `/pets/${petId}`,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false
+    }
+  );
   
-  if (petLoading) return <Loading />
-  if (error) return <div className="text-center py-10 text-red-500">Lỗi: {error.message}</div>
-  if (!pet) {
+  // Debug: log rating & reviewCount lấy từ backend
+  if (pet) {
+    console.log("[PetDetail] Rating data:", {
+      petId,
+      rating: pet.rating,
+      reviewCount: pet.reviewCount,
+    });
+  }
+  
+  if (isLoading) return <Loading />
+  
+  if (error) {
     return (
-      <div className="text-center py-10">
-        <div className="text-red-500 mb-4">Không tìm thấy thú cưng với ID: {petId}</div>
-        <div className="text-sm text-gray-500">
-          Các ID có sẵn: {allPets?.map(p => p.petId).join(", ")}
+      <div className="text-center py-20">
+        <div className="text-red-500 mb-4 text-xl font-semibold">
+          {error.message || 'Không tìm thấy thú cưng'}
         </div>
         <button 
           onClick={() => router.push('/pets')}
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          className="mt-4 px-6 py-3 bg-[#FF6B6B] text-white rounded-full hover:bg-[#FF5555] transition-colors"
+        >
+          Quay lại danh sách thú cưng
+        </button>
+      </div>
+    );
+  }
+  
+  if (!pet) {
+    return (
+      <div className="text-center py-20">
+        <div className="text-red-500 mb-4 text-xl font-semibold">
+          Không tìm thấy thú cưng với ID: {petId}
+        </div>
+        <button 
+          onClick={() => router.push('/pets')}
+          className="mt-4 px-6 py-3 bg-[#FF6B6B] text-white rounded-full hover:bg-[#FF5555] transition-colors"
         >
           Quay lại danh sách thú cưng
         </button>
@@ -52,14 +151,48 @@ export default function PetDetailPage() {
     )
   }
 
-  // Get images for this pet
-  const petImages = petImgs?.filter((img: any) => img.petId === petId) || []
-  const thumbnailImage = petImages.find((img: any) => img.isThumbnail)?.imageUrl || "/assets/imgs/imgPet/animal-8165466_1280.jpg"
-  const allImages = petImages.length > 0 ? petImages.map((img: any) => img.imageUrl) : [thumbnailImage]
+  // Xử lý ảnh giống như trang pets
+  const getThumbnail = (mainImageUrl: string | null) => {
+    if (mainImageUrl) {
+      // Chỉ dùng URL đầy đủ
+      if (mainImageUrl.startsWith('http://') || mainImageUrl.startsWith('https://')) {
+        return mainImageUrl;
+      }
+      // Nếu bắt đầu bằng / thì là đường dẫn tuyệt đối
+      if (mainImageUrl.startsWith('/')) {
+        return mainImageUrl;
+      }
+    }
+    // Fallback về ảnh local
+    return "/assets/imgs/imgPet/cat-6593947_1280.jpg";
+  };
+
+  const thumbnailImage = getThumbnail(pet.mainImageUrl || null);
+  const allImages = [thumbnailImage];
+
+  // Convert sang Pet type cho cart
+  const convertToPetType = (): Pet => {
+    return {
+      petId: pet.petId,
+      name: pet.name,
+      description: pet.description,
+      price: pet.price,
+      discountPrice: pet.discountPrice,
+      stockQuantity: pet.stockQuantity,
+      mainImageUrl: pet.mainImageUrl,
+      categoryName: pet.categoryName,
+      gender: (pet.gender === 'UNKNOWN' || !pet.gender) ? null : pet.gender as "MALE" | "FEMALE",
+      healthStatus: pet.healthStatus,
+      status: pet.status === 'DRAFT' ? null : pet.status as "AVAILABLE" | "SOLD" | "RESERVED" | null,
+      rating: pet.rating,
+      reviewCount: pet.reviewCount,
+      totalSold: null,
+    };
+  };
 
   const handleAddToCart = () => {
     addItem({ 
-      pet: pet, 
+      pet: convertToPetType(), 
       quantity: quantity, 
       img: thumbnailImage 
     })
@@ -68,7 +201,7 @@ export default function PetDetailPage() {
 
   const handleBuyNow = () => {
     addItem({ 
-      pet: pet, 
+      pet: convertToPetType(), 
       quantity: quantity, 
       img: thumbnailImage 
     })
@@ -76,8 +209,45 @@ export default function PetDetailPage() {
     router.push('/carts')
   }
 
+  const handleToggleWishlist = async () => {
+    if (!isAuthenticated) {
+      showError('Chưa đăng nhập', 'Vui lòng đăng nhập để thêm vào yêu thích')
+      return
+    }
+
+    if (isTogglingWishlist) return
+
+    setIsTogglingWishlist(true)
+
+    try {
+      const response = await axiosInstance.post(`/wishlists/toggle/${petId}`)
+      
+      if (response.data.status === 200) {
+        const action = response.data.data // "Added" or "Removed"
+        
+        if (action === "Added") {
+          addToFavorite({
+            pet: convertToPetType(),
+            img: thumbnailImage,
+          })
+          success('Đã thêm vào yêu thích', `${pet.name} đã được thêm vào danh sách yêu thích`)
+        } else {
+          removeFromFavorite(petId)
+          success('Đã xóa khỏi yêu thích', `${pet.name} đã được xóa khỏi danh sách yêu thích`)
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling wishlist:', err)
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể thêm vào yêu thích'
+      showError('Lỗi', errorMessage)
+    } finally {
+      setIsTogglingWishlist(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background">
+      <ToastContainer />
       {/* Back Button */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <button
@@ -137,10 +307,26 @@ export default function PetDetailPage() {
               <div className="flex items-center gap-3">
                 <div className="flex gap-1">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={18} className="fill-yellow-400 text-yellow-400" />
+                    <Star 
+                      key={i} 
+                      size={18} 
+                      className={
+                        i < Math.floor(pet.rating || 0)
+                          ? "fill-yellow-400 text-yellow-400" 
+                          : "text-gray-300"
+                      }
+                    />
                   ))}
                 </div>
-                <span className="text-muted-foreground text-sm">(Đánh giá từ khách hàng)</span>
+                <span className="text-muted-foreground text-sm flex items-center gap-1">
+                  {pet.rating ? (
+                    <>
+                      {formatRating(pet.rating)} <Star size={14} className="fill-yellow-400 text-yellow-400" /> ({pet.reviewCount || 0} đánh giá)
+                    </>
+                  ) : (
+                    '(Chưa có đánh giá)'
+                  )}
+                </span>
               </div>
             </div>
 
@@ -182,22 +368,70 @@ export default function PetDetailPage() {
             <div className="space-y-3">
               <h3 className="font-bold text-foreground text-lg">Thông tin chi tiết</h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-semibold text-muted-foreground">Loại:</span>
-                  <span className="ml-2 text-foreground">{pet.category}</span>
-                </div>
+                {pet.categoryName && (
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Loại:</span>
+                    <span className="ml-2 text-foreground">{pet.categoryName}</span>
+                  </div>
+                )}
                 <div>
                   <span className="font-semibold text-muted-foreground">Giới tính:</span>
-                  <span className="ml-2 text-foreground">{pet.gender}</span>
+                  <span className="ml-2 text-foreground">
+                    {pet.gender === 'MALE' ? 'Đực' : pet.gender === 'FEMALE' ? 'Cái' : 'Chưa xác định'}
+                  </span>
                 </div>
-                <div>
-                  <span className="font-semibold text-muted-foreground">Tuổi:</span>
-                  <span className="ml-2 text-foreground">{pet.age} tháng</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-muted-foreground">Cân nặng:</span>
-                  <span className="ml-2 text-foreground">{pet.weight} kg</span>
-                </div>
+                {pet.age && (
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Tuổi:</span>
+                    <span className="ml-2 text-foreground">{pet.age} tháng</span>
+                  </div>
+                )}
+                {pet.weight && (
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Cân nặng:</span>
+                    <span className="ml-2 text-foreground">{pet.weight} kg</span>
+                  </div>
+                )}
+                {pet.height && (
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Chiều cao:</span>
+                    <span className="ml-2 text-foreground">{pet.height} cm</span>
+                  </div>
+                )}
+                {pet.color && (
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Màu sắc:</span>
+                    <span className="ml-2 text-foreground">{pet.color}</span>
+                  </div>
+                )}
+                {pet.furType && pet.furType !== 'NONE' && (
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Loại lông:</span>
+                    <span className="ml-2 text-foreground">
+                      {pet.furType === 'SHORT' ? 'Lông ngắn' : 
+                       pet.furType === 'LONG' ? 'Lông dài' : 
+                       pet.furType === 'CURLY' ? 'Lông xoăn' : 'Khác'}
+                    </span>
+                  </div>
+                )}
+                {pet.healthStatus && (
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Tình trạng sức khỏe:</span>
+                    <span className="ml-2 text-foreground">{pet.healthStatus}</span>
+                  </div>
+                )}
+                {pet.vaccinationHistory && (
+                  <div className="col-span-2">
+                    <span className="font-semibold text-muted-foreground">Lịch sử tiêm chủng:</span>
+                    <span className="ml-2 text-foreground">{pet.vaccinationHistory}</span>
+                  </div>
+                )}
+                {pet.stockQuantity !== null && pet.stockQuantity !== undefined && (
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Số lượng:</span>
+                    <span className="ml-2 text-foreground">{pet.stockQuantity}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -242,10 +476,16 @@ export default function PetDetailPage() {
 
                 {/* Wishlist Button */}
                 <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
-                  className="p-4 bg-white border-2 border-gray-200 rounded-full transition-all duration-300 cursor-pointer group"
+                  onClick={handleToggleWishlist}
+                  disabled={isTogglingWishlist}
+                  className={`p-4 bg-white border-2 rounded-full transition-all duration-300 cursor-pointer group ${
+                    isWishlisted ? 'border-red-500' : 'border-gray-200'
+                  } ${isTogglingWishlist ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <Heart size={20} className={isWishlisted ? "fill-red-500 text-red-500" : "text-gray-400 group-hover:text-red-500"} />
+                  <Heart 
+                    size={20} 
+                    className={isWishlisted ? "fill-red-500 text-red-500" : "text-gray-400 group-hover:text-red-500"} 
+                  />
                 </button>
               </div>
 
@@ -261,6 +501,12 @@ export default function PetDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Reviews Section */}
+      <div className="max-w-7xl mx-auto px-4 pb-12">
+        <ReviewSection petId={petId} />
+      </div>
+
       <MiniCart />
     </main>
   )
