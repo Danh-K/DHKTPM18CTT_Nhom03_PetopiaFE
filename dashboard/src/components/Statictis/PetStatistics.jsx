@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { FaPaw } from "react-icons/fa";
-import { TrendingUp, TrendingDown, Crown, CalendarIcon, X } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  Crown,
+  CalendarIcon,
+  X,
+  Download,
+} from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -20,7 +27,49 @@ import {
   Line,
 } from "recharts";
 
+// Import thư viện PDF
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+// Import Hook
+import { useDashboard } from "../../hooks/useDashboard";
+
+// --- HELPER: CHUYỂN TIẾNG VIỆT CÓ DẤU SANG KHÔNG DẤU (ĐỂ KHÔNG LỖI FONT PDF) ---
+const removeVietnameseTones = (str) => {
+  if (!str) return "";
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+  str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+  str = str.replace(/đ/g, "d");
+  str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+  str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+  str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+  str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+  str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+  str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+  str = str.replace(/Đ/g, "D");
+  return str;
+};
+
 export default function PetStatistics() {
+  // --- SỬ DỤNG HOOK ---
+  const {
+    loading,
+    generalStats,
+    topSelling,
+    topUsers,
+    healthStats,
+    fetchPetDashboardData,
+  } = useDashboard();
+
+  useEffect(() => {
+    fetchPetDashboardData();
+  }, [fetchPetDashboardData]);
+  // --------------------
+
   const [dateRange, setDateRange] = useState({
     from: new Date(2024, 0, 1),
     to: new Date(),
@@ -35,91 +84,128 @@ export default function PetStatistics() {
     return `${day}/${month}/${year}`;
   };
 
-  const handleDateChange = (type, value) => {
-    if (!value) return;
-    const newDate = new Date(value);
-    setDateRange((prev) => ({
-      ...prev,
-      [type]: newDate,
-    }));
+  // --- XỬ LÝ XUẤT PDF (TIẾNG ANH) ---
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const dateStr = new Date().toLocaleDateString("en-GB");
+
+    // 1. Header Background
+    doc.setFillColor(236, 72, 153); // Pink-500
+    doc.rect(0, 0, 210, 40, "F");
+
+    // 2. Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("PETOPIA - STATISTICAL REPORT", 105, 20, { align: "center" });
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Export Date: ${dateStr}`, 105, 30, { align: "center" });
+
+    // 3. General Stats Section
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("1. General Overview", 14, 55);
+
+    const generalData = [
+      ["Category", "Value"],
+      ["Total Pets Sold", generalStats?.totalSoldPets || 0],
+      ["Shipping Orders", generalStats?.shippingOrders || 0],
+      ["Scheduled Vaccines", generalStats?.scheduledVaccines || 0],
+      [
+        "Total Revenue",
+        `$ ${new Intl.NumberFormat("en-US").format(
+          generalStats?.totalRevenue || 0
+        )}`,
+      ],
+    ];
+
+    autoTable(doc, {
+      startY: 60,
+      head: [generalData[0]],
+      body: generalData.slice(1),
+      theme: "grid",
+      headStyles: { fillColor: [236, 72, 153] }, // Pink header
+    });
+
+    // 4. Top Selling Pets Section
+    let finalY = doc.lastAutoTable.finalY + 15;
+    doc.text("2. Top Selling Pets", 14, finalY);
+
+    const sellingRows = topSelling.map((item) => [
+      removeVietnameseTones(item.name), // Chuyển tên thú cưng sang không dấu
+      item.sales,
+      `$ ${new Intl.NumberFormat("en-US").format(item.revenue)}`,
+    ]);
+
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [["Pet Name", "Quantity Sold", "Revenue"]],
+      body: sellingRows,
+      theme: "striped",
+      headStyles: { fillColor: [59, 130, 246] }, // Blue header
+    });
+
+    // 5. Top Customers Section
+    finalY = doc.lastAutoTable.finalY + 15;
+    // Check nếu trang hết chỗ thì sang trang mới
+    if (finalY > 250) {
+      doc.addPage();
+      finalY = 20;
+    }
+    doc.text("3. VIP Customers", 14, finalY);
+
+    const userRows = topUsers.map((u) => [
+      u.rank,
+      removeVietnameseTones(u.name), // Chuyển tên user sang không dấu
+      u.email,
+      u.purchases,
+      `$ ${u.amount.replace(/[^0-9.-]+/g, "")}`, // Lấy số từ string format currency việt nam
+    ]);
+
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [["Rank", "Customer Name", "Email", "Orders", "Total Spent"]],
+      body: userRows,
+      theme: "striped",
+      headStyles: { fillColor: [245, 158, 11] }, // Orange header
+    });
+
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(10);
+      doc.setTextColor(150);
+      doc.text("Page " + i + " of " + pageCount, 196, 290, { align: "right" });
+      doc.text("Petopia Management System", 14, 290);
+    }
+
+    doc.save(`Petopia_Report_${dateStr.replace(/\//g, "-")}.pdf`);
   };
 
-  const toInputFormat = (date) => {
-    if (!date) return "";
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
-  // Data for charts
-  const bestSellingData = [
-    { name: "Chó Golden", sales: 145, color: "#ec4899" },
-    { name: "Mèo Ba Tư", sales: 132, color: "#8b5cf6" },
-    { name: "Chó Corgi", sales: 118, color: "#3b82f6" },
-    { name: "Mèo Anh", sales: 98, color: "#06b6d4" },
-    { name: "Chó Poodle", sales: 87, color: "#f59e0b" },
-    { name: "Hamster", sales: 76, color: "#10b981" },
-  ];
-
-  const statusData = [
-    { name: "Khỏe Mạnh", value: 1547, color: "#10b981" },
-    { name: "Đang Điều Trị", value: 234, color: "#f59e0b" },
-    { name: "Cần Chăm Sóc", value: 89, color: "#ef4444" },
-    { name: "Đang Kiểm Tra", value: 145, color: "#3b82f6" },
-  ];
-
+  // --- CHART DATA GIỮ NGUYÊN ---
   const salesData = [
-    { month: "T1", sold: 145, revenue: 320 },
-    { month: "T2", sold: 178, revenue: 398 },
-    { month: "T3", sold: 165, revenue: 365 },
-    { month: "T4", sold: 198, revenue: 445 },
-    { month: "T5", sold: 223, revenue: 502 },
-    { month: "T6", sold: 245, revenue: 558 },
-    { month: "T7", sold: 267, revenue: 612 },
-    { month: "T8", sold: 289, revenue: 665 },
-    { month: "T9", sold: 312, revenue: 723 },
-    { month: "T10", sold: 298, revenue: 689 },
-    { month: "T11", sold: 334, revenue: 778 },
-    { month: "T12", sold: 356, revenue: 825 },
-  ];
-
-  const topCustomers = [
-    {
-      name: "Nguyễn Văn A",
-      purchases: 45,
-      amount: "₫125M",
-      avatar: "👨",
-      rank: 1,
-    },
-    {
-      name: "Trần Thị B",
-      purchases: 38,
-      amount: "₫98M",
-      avatar: "👩",
-      rank: 2,
-    },
-    { name: "Lê Văn C", purchases: 32, amount: "₫87M", avatar: "👨‍💼", rank: 3 },
-    {
-      name: "Phạm Thị D",
-      purchases: 28,
-      amount: "₫76M",
-      avatar: "👩‍💼",
-      rank: 4,
-    },
-    {
-      name: "Hoàng Văn E",
-      purchases: 24,
-      amount: "₫65M",
-      avatar: "👨‍🦱",
-      rank: 5,
-    },
+    { month: "Jan", sold: 12, revenue: 120 },
+    { month: "Feb", sold: 19, revenue: 198 },
+    { month: "Mar", sold: 15, revenue: 165 },
+    { month: "Apr", sold: 22, revenue: 245 },
+    { month: "May", sold: 28, revenue: 302 },
+    { month: "Jun", sold: 24, revenue: 258 },
+    { month: "Jul", sold: 30, revenue: 312 },
+    { month: "Aug", sold: 35, revenue: 365 },
+    { month: "Sep", sold: 31, revenue: 323 },
+    { month: "Oct", sold: 29, revenue: 289 },
+    { month: "Nov", sold: 33, revenue: 378 },
+    { month: "Dec", sold: 40, revenue: 425 },
   ];
 
   const statsCards = [
     {
       title: "Thú Cưng Đã Bán",
-      value: "1,847",
+      value: generalStats?.totalSoldPets || 0,
       change: "+12.5%",
       trend: "up",
       color: "pink",
@@ -127,23 +213,26 @@ export default function PetStatistics() {
     },
     {
       title: "Đang Vận Chuyển",
-      value: "234",
+      value: generalStats?.shippingOrders || 0,
       change: "+8.2%",
       trend: "up",
       color: "blue",
       icon: "🚚",
     },
     {
-      title: "Thú Cưng Bị Bệnh",
-      value: "18",
-      change: "-3.1%",
-      trend: "down",
+      title: "Lịch Vaccine Sắp Tới",
+      value: generalStats?.scheduledVaccines || 0,
+      change: "+2.4%",
+      trend: "up",
       color: "orange",
-      icon: "🏥",
+      icon: "💉",
     },
     {
       title: "Tổng Doanh Thu",
-      value: "₫2.4M",
+      value: new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+      }).format(generalStats?.totalRevenue || 0),
       change: "+15.3%",
       trend: "up",
       color: "green",
@@ -183,7 +272,6 @@ export default function PetStatistics() {
     2: "bg-gradient-to-br from-gray-300 to-gray-400",
     3: "bg-gradient-to-br from-orange-400 to-amber-600",
   };
-
   const RADIAN = Math.PI / 180;
   const renderCustomizedLabel = ({
     cx,
@@ -196,7 +284,6 @@ export default function PetStatistics() {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
     return (
       <text
         x={x}
@@ -205,33 +292,29 @@ export default function PetStatistics() {
         textAnchor={x > cx ? "start" : "end"}
         dominantBaseline="central"
         className="font-bold text-sm"
-      >
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
+      >{`${(percent * 100).toFixed(0)}%`}</text>
     );
   };
 
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
   };
-
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: {
-        duration: 0.5,
-        ease: "easeOut",
-      },
+      transition: { duration: 0.5, ease: "easeOut" },
     },
   };
+
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
+      </div>
+    );
 
   return (
     <div className="min-h-screen bg-white p-6 md:p-8">
@@ -257,67 +340,22 @@ export default function PetStatistics() {
             </div>
           </div>
 
-          <div className="relative">
-            <button
-              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-              className="flex items-center gap-2 px-4 py-2 border-2 border-gray-200 rounded-xl hover:border-pink-300 transition-colors bg-white font-medium text-sm"
-            >
+          <div className="flex gap-3">
+            <button className="flex items-center gap-2 px-4 py-2 border-2 border-gray-200 rounded-xl hover:border-pink-300 transition-colors bg-white font-medium text-sm">
               <CalendarIcon className="h-4 w-4 text-pink-500" />
               <span>
                 {formatDate(dateRange.from)} - {formatDate(dateRange.to)}
               </span>
             </button>
 
-            {/* Simple Date Picker Dropdown */}
-            {isCalendarOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="absolute right-0 mt-2 p-4 bg-white border-2 border-gray-200 rounded-xl shadow-lg z-50 min-w-[300px]"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-gray-900">
-                    Chọn khoảng thời gian
-                  </h3>
-                  <button
-                    onClick={() => setIsCalendarOpen(false)}
-                    className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <X className="h-4 w-4 text-gray-500" />
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Từ ngày
-                    </label>
-                    <input
-                      type="date"
-                      value={toInputFormat(dateRange.from)}
-                      onChange={(e) => handleDateChange("from", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Đến ngày
-                    </label>
-                    <input
-                      type="date"
-                      value={toInputFormat(dateRange.to)}
-                      onChange={(e) => handleDateChange("to", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                    />
-                  </div>
-                  <button
-                    onClick={() => setIsCalendarOpen(false)}
-                    className="w-full px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-medium rounded-lg hover:from-pink-600 hover:to-rose-600 transition-all"
-                  >
-                    Áp dụng
-                  </button>
-                </div>
-              </motion.div>
-            )}
+            {/* NÚT EXPORT PDF MỚI */}
+            <button
+              onClick={handleExportPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-pink-500 text-white rounded-xl hover:bg-pink-600 transition-colors font-medium text-sm shadow-md"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export Report</span>
+            </button>
           </div>
         </div>
       </motion.div>
@@ -358,7 +396,10 @@ export default function PetStatistics() {
                 <h3 className="text-sm font-medium text-gray-600 mb-2">
                   {stat.title}
                 </h3>
-                <p className={`text-3xl font-bold ${colors.text}`}>
+                <p
+                  className={`text-2xl font-bold ${colors.text} truncate`}
+                  title={stat.value}
+                >
                   {stat.value}
                 </p>
               </motion.div>
@@ -371,7 +412,7 @@ export default function PetStatistics() {
           variants={itemVariants}
           className="grid grid-cols-1 lg:grid-cols-2 gap-6"
         >
-          {/* Best Selling Pets */}
+          {/* Best Selling */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -383,13 +424,13 @@ export default function PetStatistics() {
                 <h2 className="text-xl font-bold text-gray-900">
                   Thú Cưng Bán Chạy Nhất
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">Top 6 sản phẩm</p>
+                <p className="text-sm text-gray-500 mt-1">Top 10 sản phẩm</p>
               </div>
               <div className="text-2xl">🏆</div>
             </div>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart
-                data={bestSellingData}
+                data={topSelling}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -398,7 +439,7 @@ export default function PetStatistics() {
                   tick={{ fill: "#6b7280", fontSize: 12 }}
                   angle={-15}
                   textAnchor="end"
-                  height={80}
+                  height={60}
                 />
                 <YAxis tick={{ fill: "#6b7280", fontSize: 12 }} />
                 <Tooltip
@@ -411,7 +452,7 @@ export default function PetStatistics() {
                   cursor={{ fill: "rgba(236, 72, 153, 0.1)" }}
                 />
                 <Bar dataKey="sales" radius={[8, 8, 0, 0]}>
-                  {bestSellingData.map((entry, index) => (
+                  {topSelling.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
@@ -419,7 +460,7 @@ export default function PetStatistics() {
             </ResponsiveContainer>
           </motion.div>
 
-          {/* Pet Status Chart */}
+          {/* Pet Health */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -429,10 +470,10 @@ export default function PetStatistics() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">
-                  Tình Trạng Thú Cưng
+                  Tình Trạng Sức Khỏe
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  Phân bổ theo sức khỏe
+                  Thống kê tiêm chủng
                 </p>
               </div>
               <div className="text-2xl">🏥</div>
@@ -440,7 +481,7 @@ export default function PetStatistics() {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={statusData}
+                  data={healthStats}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -449,7 +490,7 @@ export default function PetStatistics() {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {statusData.map((entry, index) => (
+                  {healthStats.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -474,12 +515,12 @@ export default function PetStatistics() {
           </motion.div>
         </motion.div>
 
-        {/* Charts Row 2 */}
+        {/* Charts Row 2 - Top Users */}
         <motion.div
           variants={itemVariants}
           className="grid grid-cols-1 lg:grid-cols-3 gap-6"
         >
-          {/* Sales Chart */}
+          {/* Sales Chart (Line) */}
           <div className="lg:col-span-2">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -569,7 +610,7 @@ export default function PetStatistics() {
               <Crown className="h-6 w-6 text-yellow-500" />
             </div>
             <div className="space-y-3">
-              {topCustomers.map((customer, index) => (
+              {topUsers.map((customer, index) => (
                 <motion.div
                   key={customer.name}
                   initial={{ opacity: 0, x: -20 }}
@@ -587,9 +628,22 @@ export default function PetStatistics() {
                   >
                     {customer.rank}
                   </div>
-                  <div className="text-2xl">{customer.avatar}</div>
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-gray-100 text-2xl border border-gray-200">
+                    {customer.avatar.includes("http") ? (
+                      <img
+                        src={customer.avatar}
+                        alt={customer.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      customer.avatar
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 text-sm truncate">
+                    <p
+                      className="font-semibold text-gray-900 text-sm truncate"
+                      title={customer.name}
+                    >
                       {customer.name}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -600,10 +654,6 @@ export default function PetStatistics() {
                     <p className="font-bold text-pink-600 text-sm">
                       {customer.amount}
                     </p>
-                    <div className="flex items-center gap-1 text-xs text-green-600">
-                      <TrendingUp className="h-3 w-3" />
-                      <span>+12%</span>
-                    </div>
                   </div>
                 </motion.div>
               ))}
