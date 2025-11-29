@@ -6,7 +6,7 @@ import { useDispatch } from 'react-redux';
 import { fetchDeliveries, searchDeliveries } from "../../store/deliverySlice";
 import { HiSearch } from "react-icons/hi";
 
-export default function DeliveryManagement({ darkMode }) {
+export default function DeliveryManagement({ darkMode, onViewDetail }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("");
@@ -65,7 +65,7 @@ export default function DeliveryManagement({ darkMode }) {
             <HiSearch className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Tìm kiếm theo mã vận đơn, tên, số điện thoại..."
+              placeholder="Tìm kiếm theo mã vận chuyển, tên, số điện thoại..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`w-full pl-10 pr-10 py-2 rounded-lg border transition-all ${
@@ -112,7 +112,7 @@ export default function DeliveryManagement({ darkMode }) {
       </div>
 
       <div className="animate-fadeIn">
-        <DeliveryList darkMode={darkMode} />
+        <DeliveryList darkMode={darkMode} onViewDetail={onViewDetail}/>
       </div>
     </div>
   )

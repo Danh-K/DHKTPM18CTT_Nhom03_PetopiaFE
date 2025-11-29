@@ -6,7 +6,7 @@ import DeliveryCard from "./DeliveryCard"
 import { fetchDeliveries } from "../../store/deliverySlice"
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi"
 
-export default function DeliveryList({ darkMode = false }) {
+export default function DeliveryList({ darkMode = false, onViewDetail }) {
   const dispatch = useDispatch()
   const {
     deliveries,
@@ -54,7 +54,13 @@ export default function DeliveryList({ darkMode = false }) {
       {/* Grid 9 card */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {deliveries.map((delivery) => (
-          <DeliveryCard key={delivery.deliveryId} delivery={delivery} darkMode={darkMode} />
+          <div
+            key={delivery.deliveryId}
+            onClick={() => onViewDetail(delivery.deliveryId)}
+            className="cursor-pointer transition-all hover:scale-105 hover:shadow-2xl rounded-lg overflow-hidden"
+          >
+            <DeliveryCard delivery={delivery} darkMode={darkMode} />
+          </div>
         ))}
       </div>
 
