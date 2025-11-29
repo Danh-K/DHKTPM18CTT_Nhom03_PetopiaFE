@@ -8,7 +8,7 @@ import MyInvoices from "./components/MyInvoices";
 import CreateInvoice from "./components/CreateInvoice";
 import Transactions from "./components/Transactions";
 import SingleTransaction from "./components/SingleTransaction";
-import AllUsers from "./components/AllUsers";
+import AllUsers from "./components/users/UserManagement";
 import Profile from "./components/Profile";
 import RevenueStatistics from "./components/RevenueStatistics";
 import PetStatistics from "./components/PetStatistics";
