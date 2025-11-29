@@ -91,7 +91,7 @@ export default function DeliveryManagement({ darkMode }) {
                 : "bg-gray-50 border-gray-200 text-gray-900"
             } focus:border-orange-600 outline-none`}
           >
-            <option value="">Tất cả trạng thái</option>
+            <option value="">Trạng thái</option>
             <option value="Chuẩn bị">Chuẩn bị</option>
             <option value="Đã đóng gói">Đã đóng gói</option>
             <option value="Đang giao">Đang giao</option>
