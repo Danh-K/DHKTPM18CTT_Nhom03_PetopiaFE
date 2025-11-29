@@ -16,7 +16,7 @@ export const userService = {
   },
 
   updateUser: async (userId, userData) => {
-    const res = await api.put(`${USER_API}/${userId}`, userData)
+    const res = await api.post(`${USER_API}/save`, { userId: userId, ...userData})
     return res.data
   },
 
