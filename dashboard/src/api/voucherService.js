@@ -19,7 +19,7 @@ export const voucherService = {
     const params = new URLSearchParams();
     if (filters.keyword) params.append("keyword", filters.keyword);
     if (filters.status) params.append("status", filters.status);
-    if (filters.type) params.append("type", filters.type);
+    if (filters.discountType) params.append("discountType", filters.discountType);
     if (filters.page !== undefined) params.append("page", filters.page);
     if (filters.size !== undefined) params.append("size", filters.size);
 
