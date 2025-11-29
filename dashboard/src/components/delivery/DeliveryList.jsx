@@ -59,52 +59,54 @@ export default function DeliveryList({ darkMode = false }) {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-3 py-8">
-          <button
-            onClick={handlePrev}
-            disabled={currentPage === 0}
-            className={`p-3 rounded-xl flex transition-all ${
-              currentPage === 0
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-orange-100 text-orange-600 hover:bg-orange-200 shadow-md"
-            }`}
-          >
-            <HiChevronLeft className="w-5 h-5" /> Trước
-          </button>
-
-          <div className="flex gap-2">
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => goToPage(i)}
-                className={`w-12 h-12 rounded-xl font-medium transition-all ${
-                  currentPage === i
-                    ? "bg-[#7b4f35] text-white shadow-lg scale-110"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                } ${darkMode ? "dark:bg-gray-800" : ""}`}
-              >
-                {i + 1}
-              </button>
-            ))}
+        <div className="flex flex-col md:flex-row items-center justify-between">
+          <div className={`text-center text-lg ${darkMode ? "text-gray-500" : "text-gray-600"}`}>
+            Hiển thị {(currentPage * 9) + 1} - {Math.min((currentPage + 1) * 9, totalElements)} trong tổng số {totalElements} đơn hàng
           </div>
+          <div className="flex justify-center items-center gap-3">
+            <button
+              onClick={handlePrev}
+              disabled={currentPage === 0}
+              className={`p-3 rounded-xl flex transition-all ${
+                currentPage === 0
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-orange-100 text-orange-600 hover:bg-orange-200 shadow-md"
+              }`}
+            >
+              <HiChevronLeft className="w-5 h-5" /> Trước
+            </button>
 
-          <button
-            onClick={handleNext}
-            disabled={currentPage >= totalPages - 1}
-            className={`p-3 rounded-xl flex transition-all ${
-              currentPage >= totalPages - 1
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-orange-100 text-orange-600 hover:bg-orange-200 shadow-md"
-            }`}
-          >
-            Tiếp <HiChevronRight className="w-5 h-5" />
-          </button>
+            <div className="flex gap-2">
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => goToPage(i)}
+                  className={`w-12 h-12 rounded-xl font-medium transition-all ${
+                    currentPage === i
+                      ? "bg-[#7b4f35] text-white shadow-lg scale-110"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  } ${darkMode ? "dark:bg-gray-800" : ""}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handleNext}
+              disabled={currentPage >= totalPages - 1}
+              className={`p-3 rounded-xl flex transition-all ${
+                currentPage >= totalPages - 1
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-orange-100 text-orange-600 hover:bg-orange-200 shadow-md"
+              }`}
+            >
+              Tiếp <HiChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       )}
 
-      <div className={`text-center text-sm ${darkMode ? "text-gray-500" : "text-gray-600"}`}>
-        Hiển thị {(currentPage * 9) + 1} - {Math.min((currentPage + 1) * 9, totalElements)} trong tổng số {totalElements} đơn hàng
-      </div>
     </div>
   )
 }
