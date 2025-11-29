@@ -5,11 +5,8 @@ import Header from "./pages/Header";
 import Transactions from "./components/Payment_Order/Transactions";
 import RevenueStatistics from "./components/Statictis/RevenueStatistics";
 import PetStatistics from "./components/Statictis/PetStatistics";
-import Products from "./components/Products";
 import { useState } from "react";
-import SingleTransaction from "./components/SingleTransaction";
 import AllUsers from "./components/users/UserManagement";
-import Profile from "./components/Profile";
 import Dashboard from "./components/Dashboard";
 import ArticleManager from "./components/ArticleManager";
 import PromotionManagement from "./components/promotions/PromotionManagement";
@@ -56,21 +53,8 @@ function App() {
       case "promotions":
         return <PromotionManagement />;
       case "transactions":
-        return (
-          <Transactions
-            onSelectTransaction={(tx) => {
-              setSelectedTransaction(tx);
-              setCurrentPage("single-transactions");
-            }}
-          />
-        );
-      case "single-transactions":
-        return (
-          <SingleTransaction
-            transaction={selectedTransaction}
-            onBack={() => setCurrentPage("transactions")}
-          />
-        );
+        return <Transactions />;
+
       case "users":
         return <AllUsers />;
       case "user-profiles":

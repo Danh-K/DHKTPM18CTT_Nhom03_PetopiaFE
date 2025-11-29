@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { login } from "../api/authService";
-
+import { login } from "../api/axiosClient";
 
 export const loginUser = createAsyncThunk(
   "auth/login",
@@ -9,12 +8,16 @@ export const loginUser = createAsyncThunk(
       const { user, token } = await login(identifier, password);
 
       if (!user?.role || user.role.toUpperCase() !== "ADMIN") {
-        return rejectWithValue("Bạn không có quyền truy cập trang quản trị. Chỉ dành cho Admin.");
+        return rejectWithValue(
+          "Bạn không có quyền truy cập trang quản trị. Chỉ dành cho Admin."
+        );
       }
 
       return { user, token };
     } catch (err) {
-      return rejectWithValue(err.message || "Tên đăng nhập hoặc mật khẩu không đúng");
+      return rejectWithValue(
+        err.message || "Tên đăng nhập hoặc mật khẩu không đúng"
+      );
     }
   }
 );
