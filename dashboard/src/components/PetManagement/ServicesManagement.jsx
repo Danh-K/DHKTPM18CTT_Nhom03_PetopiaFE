@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -7,110 +7,108 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  UploadCloud,
+  Loader,
+  DollarSign,
+  FileText,
+  Type,
+  AlertTriangle,
+  ImageIcon,
+  ListFilter,
 } from "lucide-react";
+import { toast } from "react-toastify";
+import { useServiceManagement } from "../../hooks/useServiceManagement";
 
-// --- FAKE DATA ---
-const INITIAL_DATA = [
-  {
-    serviceId: "S001",
-    name: "Pet Training Basic",
-    description:
-      "Khóa huấn luyện cơ bản giúp thú cưng nghe lời và ngoan ngoãn hơn.",
-    price: 234.0,
-    imageUrl:
-      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&q=80&w=500",
-  },
-  {
-    serviceId: "S002",
-    name: "Veterinary Care",
-    description:
-      "Dịch vụ chăm sóc thú y toàn diện, tiêm phòng và kiểm tra sức khỏe.",
-    price: 72.0,
-    imageUrl:
-      "https://images.unsplash.com/photo-1628009368231-7603358486cf?auto=format&fit=crop&q=80&w=500",
-  },
-  {
-    serviceId: "S003",
-    name: "Pet Hotel (Boarding)",
-    description:
-      "Khách sạn thú cưng tiêu chuẩn 5 sao, máy lạnh và thức ăn ngon.",
-    price: 172.0,
-    imageUrl:
-      "https://images.unsplash.com/photo-1597595280738-947b0eb23da6?auto=format&fit=crop&q=80&w=500",
-  },
-  {
-    serviceId: "S004",
-    name: "Dog Walking",
-    description: "Dắt chó đi dạo mỗi ngày tại công viên xanh mát.",
-    price: 45.0,
-    imageUrl:
-      "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?auto=format&fit=crop&q=80&w=500",
-  },
-  {
-    serviceId: "S005",
-    name: "Pet Spa & Grooming",
-    description: "Cắt tỉa lông, tắm rửa và massage thư giãn cho thú cưng.",
-    price: 89.0,
-    imageUrl:
-      "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?auto=format&fit=crop&q=80&w=500",
-  },
-  {
-    serviceId: "S006",
-    name: "Pet Dental Care",
-    description: "Lấy cao răng và chăm sóc sức khỏe răng miệng.",
-    price: 120.0,
-    imageUrl:
-      "https://images.unsplash.com/photo-1599443015574-be5fe8a05783?auto=format&fit=crop&q=80&w=500",
-  },
-  {
-    serviceId: "S007",
-    name: "Nutrition Consulting",
-    description: "Tư vấn chế độ dinh dưỡng phù hợp cho từng giống loài.",
-    price: 55.0,
-    imageUrl:
-      "https://images.unsplash.com/photo-1589924691195-41432c84c161?auto=format&fit=crop&q=80&w=500",
-  },
-];
+// --- SUB-COMPONENT: DELETE CONFIRM MODAL ---
+const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, isDeleting }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
+        <div className="p-6 text-center">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
+            <AlertTriangle className="h-8 w-8 text-red-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            Xác nhận xóa?
+          </h3>
+          <p className="text-sm text-gray-500">
+            Bạn có chắc chắn muốn xóa dịch vụ này không? Hành động này không thể
+            hoàn tác.
+          </p>
+        </div>
+        <div className="bg-gray-50 px-6 py-4 flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
+          >
+            Hủy bỏ
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium shadow-md transition-colors flex justify-center items-center gap-2 disabled:opacity-70"
+          >
+            {isDeleting ? (
+              <Loader className="animate-spin h-5 w-5" />
+            ) : (
+              "Xóa ngay"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
+// --- MAIN COMPONENT ---
 const ServiceManagement = () => {
-  // --- STATES ---
-  const [services, setServices] = useState(INITIAL_DATA);
+  const {
+    services,
+    loading,
+    totalPages,
+    totalElements,
+    fetchServices,
+    createService,
+    updateService,
+    removeService,
+  } = useServiceManagement();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(6);
+  const [pageSize, setPageSize] = useState(6);
 
-  // Hover State (FIX CHO BẠN: Dùng JS để bắt hover thay vì CSS thuần)
   const [hoveredId, setHoveredId] = useState(null);
-
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [serviceToDelete, setServiceToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Form State
   const [formData, setFormData] = useState({
-    serviceId: "",
     name: "",
     description: "",
     price: "",
-    imageUrl: "",
   });
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
 
-  // --- FILTERS & PAGINATION ---
-  const filteredServices = services.filter((service) =>
-    service.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    const delayDebounce = setTimeout(() => {
+      fetchServices(searchTerm, currentPage, pageSize);
+    }, 500);
+    return () => clearTimeout(delayDebounce);
+  }, [searchTerm, currentPage, pageSize, fetchServices]);
 
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredServices.slice(
-    indexOfFirstItem,
-    indexOfLastItem
-  );
-  const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
-
-  // --- HANDLERS ---
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (e) => {
+    setPageSize(parseInt(e.target.value));
     setCurrentPage(1);
   };
 
@@ -119,313 +117,459 @@ const ServiceManagement = () => {
     setFormData({ ...formData, [name]: value });
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File ảnh quá lớn (Max 5MB)");
+        return;
+      }
+      setSelectedImage(file);
+      setPreviewImage(URL.createObjectURL(file));
+    }
+  };
+
   const openAddModal = () => {
     setEditingService(null);
-    setFormData({
-      serviceId: `S${Math.floor(Math.random() * 1000)}`,
-      name: "",
-      description: "",
-      price: "",
-      imageUrl: "",
-    });
+    setFormData({ name: "", description: "", price: "" });
+    setSelectedImage(null);
+    setPreviewImage(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (service) => {
     setEditingService(service);
-    setFormData(service);
+    setFormData({
+      name: service.name,
+      description: service.description,
+      price: service.price,
+    });
+    setSelectedImage(null);
+    setPreviewImage(service.imageUrl);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa dịch vụ này không?")) {
-      setServices(services.filter((s) => s.serviceId !== id));
+  const confirmDelete = (service) => {
+    setServiceToDelete(service);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteExecute = async () => {
+    if (!serviceToDelete) return;
+    setIsDeleting(true);
+    const success = await removeService(serviceToDelete.serviceId);
+    setIsDeleting(false);
+    setIsDeleteModalOpen(false);
+    setServiceToDelete(null);
+
+    if (success) {
+      if (services.length === 1 && currentPage > 1) {
+        setCurrentPage((prev) => prev - 1);
+      } else {
+        fetchServices(searchTerm, currentPage, pageSize);
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.price) {
-      alert("Vui lòng điền tên và giá");
+      toast.warning("Vui lòng điền tên và giá dịch vụ");
       return;
     }
+
+    setIsSubmitting(true);
     const payload = {
-      ...formData,
+      name: formData.name,
+      description: formData.description,
       price: parseFloat(formData.price),
     };
+
+    let success = false;
     if (editingService) {
-      setServices(
-        services.map((s) => (s.serviceId === payload.serviceId ? payload : s))
+      success = await updateService(
+        editingService.serviceId,
+        payload,
+        selectedImage
       );
     } else {
-      setServices([...services, payload]);
+      success = await createService(payload, selectedImage);
     }
-    setIsModalOpen(false);
+
+    setIsSubmitting(false);
+
+    if (success) {
+      setIsModalOpen(false);
+      fetchServices(searchTerm, currentPage, pageSize);
+    }
   };
 
-  // --- RENDER ---
   return (
-    <div className="p-6 bg-gray-50 min-h-screen font-sans">
-      {/* 1. HEADER & CONTROLS */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          Quản Lý Dịch Vụ
-        </h1>
-        <p className="text-gray-500 mb-6">
-          Quản lý các gói dịch vụ chăm sóc thú cưng
-        </p>
+    <div className="p-6 bg-slate-50 min-h-screen font-sans">
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
+            Quản Lý Dịch Vụ
+          </h1>
+          <p className="text-slate-500 mt-2">
+            Tổng cộng:{" "}
+            <span className="font-bold text-blue-600">{totalElements}</span>{" "}
+            dịch vụ trong hệ thống
+          </p>
+        </div>
 
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-lg shadow-sm">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+        <button
+          onClick={openAddModal}
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-medium"
+        >
+          <Plus className="h-5 w-5" />
+          <span>Thêm Dịch Vụ</span>
+        </button>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-4 mb-8 justify-between">
+        <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-100 max-w-xl flex-1">
+          <div className="relative flex items-center w-full">
+            <Search className="absolute left-4 text-slate-400 h-5 w-5" />
             <input
               type="text"
-              placeholder="Tìm kiếm dịch vụ..."
+              placeholder="Tìm kiếm theo tên dịch vụ..."
               value={searchTerm}
               onChange={handleSearch}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-12 pr-4 py-3 bg-transparent border-none outline-none text-slate-700 placeholder-slate-400 font-medium rounded-xl focus:ring-0"
             />
           </div>
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors w-full md:w-auto justify-center"
+        </div>
+
+        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl shadow-sm border border-slate-100">
+          <ListFilter className="text-slate-500 h-5 w-5" />
+          <span className="text-sm text-slate-600 font-medium whitespace-nowrap">
+            Hiển thị:
+          </span>
+          <select
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none font-bold"
           >
-            <Plus className="h-5 w-5" />
-            <span>Thêm Dịch Vụ</span>
-          </button>
+            <option value={6}>6</option>
+            <option value={12}>12</option>
+            <option value={24}>24</option>
+            <option value={50}>50</option>
+          </select>
         </div>
       </div>
 
-      {/* 2. GRID LIST (SỬ DỤNG REACT STATE CHO HOVER) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {currentItems.length > 0 ? (
-          currentItems.map((service) => (
-            <div
-              key={service.serviceId}
-              className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col"
-            >
-              {/* Image Wrapper */}
+      {loading ? (
+        <div className="flex flex-col justify-center items-center h-80">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          </div>
+          <p className="mt-4 text-slate-500 font-medium">Đang tải dữ liệu...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {services.length > 0 ? (
+            services.map((service) => (
               <div
-                className="relative h-48 overflow-hidden cursor-pointer"
-                onMouseEnter={() => setHoveredId(service.serviceId)} // Bắt sự kiện chuột vào
-                onMouseLeave={() => setHoveredId(null)} // Bắt sự kiện chuột ra
+                key={service.serviceId}
+                // --- CHỈNH SỬA Ở ĐÂY: Thêm border-2 và border-slate-200, hover border màu xanh ---
+                className="group bg-white rounded-2xl shadow-md hover:shadow-2xl 
+                           border-2 border-slate-200 hover:border-blue-500 hover:ring-4 hover:ring-blue-50
+                           transition-all duration-300 overflow-hidden flex flex-col hover:-translate-y-2"
+                onMouseEnter={() => setHoveredId(service.serviceId)}
+                onMouseLeave={() => setHoveredId(null)}
               >
-                <img
-                  src={
-                    service.imageUrl ||
-                    "https://via.placeholder.com/400x300?text=No+Image"
-                  }
-                  alt={service.name}
-                  className={`w-full h-full object-cover transition-transform duration-500 ${
-                    hoveredId === service.serviceId ? "scale-110" : "scale-100"
-                  }`}
-                />
+                <div className="relative h-52 overflow-hidden bg-slate-100">
+                  <img
+                    src={
+                      service.imageUrl ||
+                      "https://via.placeholder.com/400x300?text=No+Image"
+                    }
+                    alt={service.name}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
 
-                {/* Badge ID */}
-                <div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded text-xs font-bold text-blue-800 shadow-sm z-20">
-                  {service.serviceId}
+                  <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg text-sm font-bold text-emerald-600 shadow-md flex items-center gap-1">
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(service.price)}
+                  </div>
+
+                  <div className="absolute top-3 left-3 bg-slate-900/60 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono text-white">
+                    #{service.serviceId}
+                  </div>
+
+                  <div
+                    className={`absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center gap-3 transition-opacity duration-300 ${
+                      hoveredId === service.serviceId
+                        ? "opacity-100"
+                        : "opacity-0"
+                    }`}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditModal(service);
+                      }}
+                      className="bg-white text-yellow-600 p-3 rounded-xl hover:bg-yellow-50 transform hover:scale-110 transition-all shadow-lg"
+                      title="Chỉnh sửa"
+                    >
+                      <Edit className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        confirmDelete(service);
+                      }}
+                      className="bg-white text-red-600 p-3 rounded-xl hover:bg-red-50 transform hover:scale-110 transition-all shadow-lg"
+                      title="Xóa"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* OVERLAY ACTIONS - Dùng điều kiện JS để hiển thị thay vì CSS hover */}
-                <div
-                  className={`absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-4 transition-opacity duration-300 z-10 ${
-                    hoveredId === service.serviceId
-                      ? "opacity-100"
-                      : "opacity-0"
-                  }`}
-                >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openEditModal(service);
-                    }}
-                    className={`bg-yellow-500 hover:bg-yellow-600 text-white p-3 rounded-full shadow-lg transform transition-all duration-300 ${
-                      hoveredId === service.serviceId
-                        ? "translate-y-0"
-                        : "translate-y-4"
-                    }`}
-                    title="Chỉnh sửa"
-                  >
-                    <Edit className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(service.serviceId);
-                    }}
-                    className={`bg-red-500 hover:bg-red-600 text-white p-3 rounded-full shadow-lg transform transition-all duration-300 delay-75 ${
-                      hoveredId === service.serviceId
-                        ? "translate-y-0"
-                        : "translate-y-4"
-                    }`}
-                    title="Xóa"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Content Section */}
-              <div className="p-5 flex-1 flex flex-col">
-                <div className="flex justify-between items-start mb-2">
-                  <h3
-                    className="text-lg font-bold text-gray-800 line-clamp-1"
-                    title={service.name}
-                  >
+                <div className="p-6 flex-1 flex flex-col">
+                  <h3 className="text-xl font-bold text-slate-800 mb-2 line-clamp-1 group-hover:text-blue-600 transition-colors">
                     {service.name}
                   </h3>
-                  <span className="text-lg font-bold text-green-600 whitespace-nowrap ml-2">
-                    ${service.price}
-                  </span>
-                </div>
-                <p className="text-gray-500 text-sm line-clamp-2 mb-4 h-10">
-                  {service.description}
-                </p>
+                  <p className="text-slate-500 text-sm leading-relaxed line-clamp-3 mb-4 flex-1">
+                    {service.description}
+                  </p>
 
-                <div className="mt-auto pt-4 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400">
-                  <span>Updated: Today</span>
-                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
-                    Active
-                  </span>
+                  <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      Trạng thái
+                    </span>
+                    <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-bold border border-emerald-100">
+                      Hoạt động
+                    </span>
+                  </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-400">
+              <div className="bg-slate-100 p-6 rounded-full mb-4">
+                <Search className="h-10 w-10" />
+              </div>
+              <p className="text-lg font-medium">
+                Không tìm thấy dịch vụ nào phù hợp.
+              </p>
             </div>
-          ))
-        ) : (
-          <div className="col-span-full text-center py-10 text-gray-500">
-            Không tìm thấy dịch vụ nào.
-          </div>
-        )}
-      </div>
-
-      {/* 3. PAGINATION */}
-      {totalPages > 1 && (
-        <div className="mt-8 flex justify-center items-center gap-2">
-          <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            className="p-2 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <span className="px-4 py-2 text-gray-600 font-medium">
-            Trang {currentPage} / {totalPages}
-          </span>
-          <button
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            className="p-2 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+          )}
         </div>
       )}
 
-      {/* 4. MODAL */}
+      {!loading && totalPages > 1 && (
+        <div className="mt-10 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-slate-500">
+            Hiển thị trang{" "}
+            <span className="font-bold text-slate-800">{currentPage}</span> trên
+            tổng số{" "}
+            <span className="font-bold text-slate-800">{totalPages}</span> trang
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft className="h-5 w-5 text-slate-600" />
+            </button>
+            <div className="hidden sm:flex gap-1">
+              {[...Array(totalPages)].map((_, i) => {
+                const pageNum = i + 1;
+                if (
+                  pageNum === 1 ||
+                  pageNum === totalPages ||
+                  (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-10 h-10 rounded-xl font-bold transition-all ${
+                        currentPage === pageNum
+                          ? "bg-blue-600 text-white shadow-md"
+                          : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                } else if (
+                  pageNum === currentPage - 2 ||
+                  pageNum === currentPage + 2
+                ) {
+                  return (
+                    <span
+                      key={pageNum}
+                      className="w-10 h-10 flex items-center justify-center text-slate-400"
+                    >
+                      ...
+                    </span>
+                  );
+                }
+                return null;
+              })}
+            </div>
+            <button
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
+              disabled={currentPage === totalPages}
+              className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRight className="h-5 w-5 text-slate-600" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-800">
-                {editingService ? "Cập Nhật Dịch Vụ" : "Thêm Dịch Vụ Mới"}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center px-8 py-5 border-b border-slate-100 bg-slate-50/50">
+              <h2 className="text-2xl font-bold text-slate-800">
+                {editingService ? "Cập Nhật Dịch Vụ" : "Thêm Mới Dịch Vụ"}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mã Dịch Vụ
+
+            <form
+              onSubmit={handleSubmit}
+              className="p-8 space-y-6 overflow-y-auto"
+            >
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-blue-500" /> Hình Ảnh
                 </label>
-                <input
-                  type="text"
-                  name="serviceId"
-                  value={formData.serviceId}
-                  disabled
-                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tên Dịch Vụ
+                <label
+                  htmlFor="dropzone-file"
+                  className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-all overflow-hidden relative group"
+                >
+                  {previewImage ? (
+                    <>
+                      <img
+                        src={previewImage}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <p className="text-white font-medium">
+                          Nhấn để thay đổi
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6 text-slate-400">
+                      <div className="p-3 bg-white rounded-full shadow-sm mb-3">
+                        <UploadCloud className="w-8 h-8 text-blue-500" />
+                      </div>
+                      <p className="mb-1 text-sm font-semibold text-slate-600">
+                        Click để tải ảnh lên
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        PNG, JPG (Tối đa 5MB)
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    id="dropzone-file"
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                  />
                 </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Ví dụ: Pet Grooming"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                  required
-                />
               </div>
-              <div className="flex gap-4">
-                <div className="w-1/2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Giá ($)
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                    <Type className="h-4 w-4 text-blue-500" /> Tên Dịch Vụ
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="Ví dụ: Spa tắm rửa thú cưng"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-green-500" /> Giá Dịch
+                    Vụ (VND)
                   </label>
                   <input
                     type="number"
                     name="price"
                     value={formData.price}
                     onChange={handleInputChange}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    placeholder="0"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium"
                     required
                   />
                 </div>
-                <div className="w-1/2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Link Ảnh
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-purple-500" /> Mô Tả
                   </label>
-                  <input
-                    type="text"
-                    name="imageUrl"
-                    value={formData.imageUrl}
+                  <textarea
+                    name="description"
+                    value={formData.description}
                     onChange={handleInputChange}
-                    placeholder="https://..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                  />
+                    rows="3"
+                    placeholder="Mô tả chi tiết..."
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                  ></textarea>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mô Tả
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="3"
-                  placeholder="Mô tả chi tiết về dịch vụ..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                ></textarea>
-              </div>
-              <div className="flex gap-3 pt-4">
+
+              <div className="pt-4 flex gap-4">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={isSubmitting}
+                  className="flex-1 px-6 py-3.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-bold transition-all disabled:opacity-50"
                 >
-                  Hủy
+                  Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+                  disabled={isSubmitting}
+                  className="flex-1 px-6 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:from-blue-700 hover:to-indigo-700 font-bold transition-all flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {editingService ? "Lưu Thay Đổi" : "Tạo Mới"}
+                  {isSubmitting ? (
+                    <>
+                      <Loader className="animate-spin h-5 w-5" /> Đang xử lý...
+                    </>
+                  ) : (
+                    <>{editingService ? "Lưu Thay Đổi" : "Tạo Dịch Vụ"}</>
+                  )}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteExecute}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 };

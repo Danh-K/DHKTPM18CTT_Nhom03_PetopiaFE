@@ -10,8 +10,8 @@ import {
   FaChevronLeft,
   FaChevronRight,
 } from "react-icons/fa";
-import AddUserForm from "../components/AddUserForm";
-import EditUserForm from "../components/EditUserForm";
+import AddUserForm from "./AddUserForm";
+import EditUserForm from "./EditUserForm";
 
 const AllUsers = () => {
   const [showAddModal, setShowAddModal] = useState(false);

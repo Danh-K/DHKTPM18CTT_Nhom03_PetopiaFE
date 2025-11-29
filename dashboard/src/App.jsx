@@ -5,21 +5,18 @@ import Header from "./pages/Header";
 // import ChartSection from "./components/ChartSection";
 // import TopSection from "./components/TopSection";
 // import StatsSection from "./components/StatsSection";
-import Products from "./components/Products";
+// import Products from "./components/Products";
 import { useState } from "react";
-import MyInvoices from "./components/MyInvoices";
-import CreateInvoice from "./components/CreateInvoice";
-import Transactions from "./components/Transactions";
-import SingleTransaction from "./components/SingleTransaction";
-import AllUsers from "./components/AllUsers";
-import Profile from "./components/Profile";
-import RevenueStatistics from "./components/RevenueStatistics";
-import PetStatistics from "./components/PetStatistics";
+import Transactions from "./components/Payment_Order/Transactions";
+import AllUsers from "./components/Users/AllUsers";
+import Profile from "./components/Users/Profile";
+import RevenueStatistics from "./components/Statictis/RevenueStatistics";
+import PetStatistics from "./components/Statictis/PetStatistics";
 import Dashboard from "./components/Dashboard";
 import ArticleManager from "./components/ArticleManager";
 import PromotionManagement from "./components/promotions/PromotionManagement";
 import PetsManagement from "./components/PetManagement/PetsManagement";
-import PetServiceManagement from "./components/Products";
+// import PetServiceManagement from "./components/Products";
 import ServiceVice from "./components/PetManagement/ServicesManagement";
 import ReviewsManagement from "./components/PetManagement/ReviewsManagement";
 import VaccinationManagement from "./components/PetManagement/VaccinationManagement";
@@ -64,14 +61,14 @@ function App() {
       case "articles":
         return <ArticleManager />;
 
-      case "invoices":
-        return (
-          <MyInvoices
-            onCreateInvoice={() => setCurrentPage("create-invoice")}
-          />
-        );
-      case "create-invoice":
-        return <CreateInvoice onBack={() => setCurrentPage("invoices")} />;
+      // case "invoices":
+      //   return (
+      //     <MyInvoices
+      //       onCreateInvoice={() => setCurrentPage("create-invoice")}
+      //     />
+      //   );
+      // case "create-invoice":
+      //   return <CreateInvoice onBack={() => setCurrentPage("invoices")} />;
       case "transactions":
         return (
           <Transactions

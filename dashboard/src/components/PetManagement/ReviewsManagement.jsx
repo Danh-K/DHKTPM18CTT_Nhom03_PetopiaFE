@@ -195,7 +195,7 @@ const DeleteModal = ({ title, message, onClose, onConfirm }) => (
   </motion.div>
 );
 
-// --- REPLY FORM ---
+// --- REPLY FORM (CÓ NÚT GỬI / CẬP NHẬT) ---
 const ReplyForm = ({
   initialText = "",
   onSend,
@@ -203,6 +203,7 @@ const ReplyForm = ({
   isUpdate = false,
 }) => {
   const [text, setText] = useState(initialText);
+
   return (
     <div className="mt-3 animate-fadeIn bg-blue-50 p-3 rounded-xl border border-blue-200 shadow-sm">
       <textarea
@@ -237,7 +238,7 @@ const ReplyForm = ({
   );
 };
 
-// --- REVIEW MODAL ---
+// --- REVIEW MODAL (MAIN CONTENT) ---
 const ReviewModal = ({
   pet,
   fetchReviews,
@@ -248,7 +249,7 @@ const ReviewModal = ({
 }) => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editingReplyId, setEditingReplyId] = useState(null);
+  const [editingReplyId, setEditingReplyId] = useState(null); // ID review đang được chỉnh sửa reply
 
   const [deleteConfirm, setDeleteConfirm] = useState({
     isOpen: false,
@@ -278,6 +279,7 @@ const ReviewModal = ({
     const success = await onReply(reviewId, text);
     if (success) {
       setEditingReplyId(null);
+      // Cập nhật UI local ngay lập tức
       setReviews((prev) =>
         prev.map((r) =>
           r.reviewId === reviewId
@@ -436,7 +438,7 @@ const ReviewModal = ({
 
                         {/* Khu vực Phản hồi */}
                         <div className="mt-4">
-                          {/* TH1: Đang sửa */}
+                          {/* TH1: Đang ở chế độ Sửa */}
                           {isEditing ? (
                             <ReplyForm
                               initialText={review.reply || ""}
@@ -447,8 +449,8 @@ const ReviewModal = ({
                               }
                             />
                           ) : review.reply ? (
-                            // TH2: Đã trả lời -> Hiển thị box Admin Reply
-                            <div className="mt-4 ml-4 p-4 bg-slate-50 border border-slate-200 rounded-xl relative">
+                            // TH2: Đã trả lời -> Hiển thị box reply Admin
+                            <div className="mt-4 ml-4 p-4 bg-slate-50 border border-slate-200 rounded-xl relative group">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
@@ -491,7 +493,7 @@ const ReviewModal = ({
                               </p>
                             </div>
                           ) : (
-                            // TH3: Chưa trả lời
+                            // TH3: Chưa trả lời -> Nút Reply
                             <button
                               onClick={() => setEditingReplyId(review.reviewId)}
                               className="mt-3 flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 border border-blue-100"
@@ -515,6 +517,7 @@ const ReviewModal = ({
         </motion.div>
       </motion.div>
 
+      {/* Delete Confirm Modal */}
       <AnimatePresence>
         {deleteConfirm.isOpen && (
           <DeleteModal

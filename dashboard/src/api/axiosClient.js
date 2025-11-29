@@ -5,7 +5,7 @@ import axios from "axios";
 // Lưu ý: Token có hạn sử dụng (thường là 24h hoặc 7 ngày tùy backend config).
 // Khi hết hạn, bạn cần login lại trên Postman để lấy token mới thay vào đây.
 const HARD_CODED_TOKEN =
-  "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiQURNSU4iLCJ1c2VySWQiOiJVMDAzIiwic3ViIjoiYWRtaW5fcGV0c2hvcCIsImlhdCI6MTc2NDIzNzk4NCwiZXhwIjoxNzY0MzI0Mzg0fQ.9ZHaWG3skT1QYjVfFRmwKcXZ9odO7w0-zdUFiWYsOU4";
+  "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiQURNSU4iLCJ1c2VySWQiOiJVMDAzIiwic3ViIjoiYWRtaW5fcGV0c2hvcCIsImlhdCI6MTc2NDQxODQ0MywiZXhwIjoxNzY0NTA0ODQzfQ.F53y26L7GqPNB8cfBjZoCnq9rVJ6QKAgES-EpIRCO6Y";
 
 const axiosClient = axios.create({
   baseURL: "http://localhost:8080", // Port backend Spring Boot

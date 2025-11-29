@@ -17,11 +17,14 @@ const petApi = {
     return axiosClient.get(`/admin/pets/${id}`);
   },
 
-  // Tạo mới / Update
-  createOrUpdate: (data) => {
-    return axiosClient.post("/admin/pets", data);
+  createOrUpdate: (formData) => {
+    return axiosClient.post("/admin/pets", formData, {
+      headers: {
+        // Bắt buộc phải có header này để Backend nhận diện Multipart
+        "Content-Type": "multipart/form-data",
+      },
+    });
   },
-
   // Các hàm khác giữ nguyên...
   inactive: (id) => {
     return axiosClient.put(`/admin/pets/${id}/inactive`);
