@@ -56,10 +56,9 @@ export default function DeliveryList({ darkMode = false, onViewDetail }) {
         {deliveries.map((delivery) => (
           <div
             key={delivery.deliveryId}
-            onClick={() => onViewDetail(delivery.deliveryId)}
             className="cursor-pointer transition-all hover:scale-105 hover:shadow-2xl rounded-lg overflow-hidden"
           >
-            <DeliveryCard delivery={delivery} darkMode={darkMode} />
+            <DeliveryCard delivery={delivery} darkMode={darkMode} onViewDetail={onViewDetail} />
           </div>
         ))}
       </div>
