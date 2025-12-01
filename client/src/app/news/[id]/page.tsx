@@ -85,7 +85,7 @@ export default function ArticleDetailPage() {
 
   return (
     <main className="min-h-screen bg-white">
-      <ToastContainer />
+      {ToastContainer}
       {/* Back Button */}
       <div
         className="mx-auto py-6"

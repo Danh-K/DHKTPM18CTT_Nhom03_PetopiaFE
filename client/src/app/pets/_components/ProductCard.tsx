@@ -102,7 +102,7 @@ export default function ProductCard({ product, onAddToCart, onBuyNow }: ProductC
 
   return (
     <>
-      <ToastContainer />
+      {ToastContainer}
       <div 
         onClick={handleCardClick}
         className="group rounded-2xl bg-[#fff0f0] p-4 shadow-lg hover:shadow-xl hover:bg-[#FF6B6B] transition-all duration-300 relative cursor-pointer"

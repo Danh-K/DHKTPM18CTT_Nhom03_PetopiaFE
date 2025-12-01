@@ -7,7 +7,7 @@ import axiosInstance from '@/lib/utils/axios'
 import useSWR from 'swr'
 import { Loading } from '@/app/components/loading'
 import type { Order } from '@/types/Order'
-import { CheckCircle, Copy, ArrowLeft } from 'lucide-react'
+import { CheckCircle, Copy, ArrowLeft, Clock, AlertCircle } from 'lucide-react'
 import { useToast } from '@/hook/useToast'
 
 const fetcher = async (url: string) => {
@@ -21,7 +21,8 @@ export default function PaymentPage() {
   const orderId = params.orderId as string
   const [copied, setCopied] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
-  const { success, ToastContainer } = useToast()
+  const [timeLeft, setTimeLeft] = useState<number | null>(null) // Thời gian còn lại (giây)
+  const { success, error: showError, ToastContainer } = useToast()
 
   // Fetch order detail
   const { data: orderData, error, isLoading } = useSWR<{ data: Order }>(
@@ -34,12 +35,50 @@ export default function PaymentPage() {
 
   const order = orderData?.data
 
+  // Tính toán và đếm ngược thời gian thanh toán (10 phút)
+  useEffect(() => {
+    if (!order?.createdAt) return
+
+    const calculateTimeLeft = () => {
+      const createdAt = new Date(order.createdAt).getTime()
+      const now = new Date().getTime()
+      const elapsed = Math.floor((now - createdAt) / 1000) // Thời gian đã trôi qua (giây)
+      const totalTime = 10 * 60 // 10 phút = 600 giây
+      const remaining = Math.max(0, totalTime - elapsed)
+      return remaining
+    }
+
+    // Tính thời gian còn lại ngay lập tức
+    setTimeLeft(calculateTimeLeft())
+
+    // Cập nhật mỗi giây
+    const interval = setInterval(() => {
+      const remaining = calculateTimeLeft()
+      setTimeLeft(remaining)
+
+      // Nếu hết thời gian, hiển thị thông báo
+      if (remaining === 0) {
+        showError('Hết thời gian thanh toán', 'Thời gian thanh toán đã hết. Vui lòng tạo đơn hàng mới.')
+        clearInterval(interval)
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [order?.createdAt, showError])
+
   // Redirect nếu đã thanh toán thành công
   useEffect(() => {
     if (order?.paymentStatus === 'PAID') {
       router.push(`/orders`)
     }
   }, [order, router])
+
+  // Format thời gian còn lại (MM:SS)
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
 
   const handleCopyContent = () => {
     if (order?.transactionId) {
@@ -110,10 +149,50 @@ export default function PaymentPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <ToastContainer />
+      {ToastContainer}
       
       {/* Main Content */}
       <div className="max-w-5xl mx-auto p-6">
+        {/* Countdown Timer */}
+        {timeLeft !== null && (
+          <div className={`mb-6 rounded-lg border-2 p-4 ${
+            timeLeft < 120 
+              ? 'bg-red-50 border-red-300' 
+              : timeLeft < 300 
+                ? 'bg-orange-50 border-orange-300' 
+                : 'bg-blue-50 border-blue-300'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {timeLeft < 120 ? (
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                ) : (
+                  <Clock className="h-6 w-6 text-blue-600" />
+                )}
+                <div>
+                  <div className="text-sm font-medium text-gray-700">
+                    {timeLeft === 0 ? 'Hết thời gian thanh toán' : 'Thời gian còn lại để thanh toán'}
+                  </div>
+                  {timeLeft > 0 && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      Vui lòng hoàn tất thanh toán trong thời gian này
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className={`text-3xl font-bold font-mono ${
+                timeLeft < 120 
+                  ? 'text-red-600' 
+                  : timeLeft < 300 
+                    ? 'text-orange-600' 
+                    : 'text-blue-600'
+              }`}>
+                {timeLeft > 0 ? formatTime(timeLeft) : '00:00'}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Instruction */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 flex gap-3">
           <div className="text-2xl">💡</div>

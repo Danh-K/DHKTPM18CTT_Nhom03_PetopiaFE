@@ -247,7 +247,7 @@ export default function PetDetailPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <ToastContainer />
+      {ToastContainer}
       {/* Back Button */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <button
