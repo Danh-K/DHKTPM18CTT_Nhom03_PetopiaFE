@@ -315,7 +315,9 @@ export default function OrderDetailPage() {
   }
 
   const shippingFee = order.shippingFee ?? 0;
-  const discount = order.discountAmount ?? 0;
+  const voucherDiscount = order.voucherDiscountAmount ?? 0;
+  const promotionDiscount = order.promotionDiscountAmount ?? 0;
+  const discount = order.discountAmount ?? voucherDiscount + promotionDiscount;
   const paymentMethodText = order.paymentMethod
     ? paymentMethodLabel[order.paymentMethod]
     : "Chưa cập nhật";
@@ -649,12 +651,22 @@ export default function OrderDetailPage() {
                 {formatCurrency(shippingFee)}
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="font-semibold">Giảm giá:</span>
-              <span className="text-right font-semibold text-emerald-600">
-                -{formatCurrency(discount)}
-              </span>
-            </div>
+            {promotionDiscount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">Giảm giá khuyến mãi:</span>
+                <span className="text-right font-semibold text-emerald-600">
+                  -{formatCurrency(promotionDiscount)}
+                </span>
+              </div>
+            )}
+            {voucherDiscount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">Giảm giá voucher:</span>
+                <span className="text-right font-semibold text-emerald-600">
+                  -{formatCurrency(voucherDiscount)}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-slate-200 pt-4 text-base font-semibold text-slate-900">
               <span>Tổng cộng:</span>
               <span>{formatCurrency(order.totalAmount)}</span>
