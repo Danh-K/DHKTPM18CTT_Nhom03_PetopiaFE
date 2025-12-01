@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, ReactElement } from 'react';
 import Notification, { NotificationType } from '@/components/ui/toast';
 
 interface ToastItem {
@@ -50,7 +50,7 @@ export function useToast() {
   const loading = (title: string, message?: string) =>
     addToast('loading', title, message);
 
-  const ToastContainer = () => (
+  const ToastContainer: ReactElement = (
     <div className="fixed top-4 right-4 z-50 space-y-2">
       {notifications.map(toast => (
         <Notification
@@ -77,6 +77,8 @@ export function useToast() {
     ToastContainer,
   };
 }
+
+
 
 
 

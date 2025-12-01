@@ -36,9 +36,15 @@ export interface Order {
   totalAmount: number;
   shippingFee?: number | null;
   discountAmount?: number | null;
+  voucherDiscountAmount?: number | null;
+  promotionDiscountAmount?: number | null;
   status: OrderStatus;
   paymentStatus: OrderPaymentStatus;
   paymentMethod?: PaymentMethod | null;
+  // Thông tin ngân hàng hiển thị ở màn hình thanh toán QR
+  bankName?: string | null;
+  accountName?: string | null;
+  accountNo?: string | null;
   note?: string | null;
   createdAt: string;
   
