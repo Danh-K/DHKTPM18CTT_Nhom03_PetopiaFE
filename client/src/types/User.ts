@@ -17,7 +17,8 @@ export interface User {
   loyaltyPoints: number;      
   isActive: boolean;          
   createdAt: string;          
-  updatedAt: string;          
+  updatedAt: string;  
+  avatar: string;        
 }
 
 

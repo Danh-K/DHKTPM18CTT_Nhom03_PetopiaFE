@@ -8,7 +8,7 @@ export const useArticles = () => {
   });
 };
 
-export const useArticle = (id: number) => {
+export const useArticleById = (id: string) => {
   return useQuery({
     queryKey: ["articles", id],
     queryFn: () => ArticleService.getById(id),

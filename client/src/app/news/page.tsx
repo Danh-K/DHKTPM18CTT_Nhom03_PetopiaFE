@@ -1,8 +1,10 @@
 "use client";
 
-import { trpc } from "../../lib/utils/trpc";
+
+import { Loading } from "@/app/components/loading";
+import { useArticles } from "@/hook/useArticles";
+import { Article } from "@/types/Article";
 import Link from "next/link";
-import { Loading } from "../components/loading";
 
 interface BlogCardProps {
   date: string;
@@ -10,22 +12,39 @@ interface BlogCardProps {
   title: string;
   description: string;
   image: string;
-  articleId: string;
+  articleId: string; 
 }
 
 export default function NewsPage() {
-  const { data: articles, isLoading, error } = trpc.article.getAll.useQuery();
+  
+  const { data: articles, isLoading, error } = useArticles();
+
+  console.log("Articles data:", articles);
+  
+ const newsList: Article[] = articles || [];
+
 
   if (isLoading) return <Loading />;
-  if (error)
+  
+  if (error) {
     return (
       <div className="py-10 text-center text-red-500">
         Lỗi: {error.message}
       </div>
     );
+  }
+
+  if (!newsList || newsList.length === 0) {
+    return (
+      <div className="py-24 text-center text-gray-500">
+        Chưa có tin tức nào.
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
+      
       <div className="relative py-24">
         <div className="absolute inset-0">
           <img
@@ -42,20 +61,27 @@ export default function NewsPage() {
         </div>
       </div>
 
+      
       <main className="min-h-screen bg-[#f5f5f5] p-8">
         <div className="mx-auto max-w-[1400px]">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-            {(articles || []).map((article) => (
+            
+           {Array.isArray(newsList) ? (
+            newsList.map((article) => (
               <BlogCard
                 key={article.articleId}
-                date={new Date(article.createdAt).getDate().toString()}
-                month={`Th${new Date(article.createdAt).getMonth() + 1}`}
+                articleId={article.articleId}
+                date={article.createdAt ? new Date(article.createdAt).getDate().toString() : "01"}
+                month={article.createdAt ? `Th${new Date(article.createdAt).getMonth() + 1}` : "Th1"}
                 title={article.title}
                 description={article.content}
                 image={article.imageUrl || "/assets/imgs/imgPet/animal-8165466_1280.jpg"}
-                articleId={article.articleId || ""}
               />
-            ))}
+            ))
+          ) : (
+            <p>Không có bài viết</p>
+          )}
+
           </div>
         </div>
       </main>
@@ -75,7 +101,7 @@ function BlogCard({
     <div className="group relative">
       <Link href={`/news/${articleId}`}>
         <article className="relative flex min-h-[420px] flex-col overflow-hidden rounded-[32px] bg-[#f5e6d3] p-4 transition-all duration-300 hover:shadow-xl">
-          {/* Background layer */}
+          
           <div
             className="absolute inset-0 rounded-[32px] bg-[#f5e6d3]"
             style={{
@@ -84,7 +110,7 @@ function BlogCard({
             }}
           />
 
-          {/* Hover layer */}
+          
           <div
             className="absolute inset-0 translate-x-full translate-y-full rounded-[32px] bg-[#ff7b7b] transition-all duration-500 ease-out group-hover:translate-x-0 group-hover:translate-y-0"
             style={{
@@ -94,25 +120,24 @@ function BlogCard({
             }}
           />
 
-          {/* Content */}
+          
           <div className="relative z-10 flex h-full flex-col">
-            {/* Image Container */}
+            
             <div className="relative mb-4 overflow-hidden rounded-[24px]">
-              {/* 🔴 DÙNG img cho image (ảnh ngoài) */}
               <img
-                src={image || "/assets/imgs/imgPet/animal-8165466_1280.jpg"}
+                src={image}
                 alt={title}
                 className="h-[180px] w-full object-cover"
               />
 
-              {/* Date Badge */}
+              
               <div className="absolute left-4 top-4 flex flex-col items-center justify-center rounded-xl bg-[#ff6b6b] px-3 py-2 text-white shadow-lg transition-all duration-300 group-hover:bg-white group-hover:text-[#2d2d2d]">
                 <span className="text-xl font-bold leading-none">{date}</span>
                 <span className="text-sm font-medium leading-none">{month}</span>
               </div>
             </div>
 
-            {/* Text content */}
+            
             <div className="flex flex-1 flex-col px-2 pb-2">
               <h3 className="mb-2 line-clamp-2 font-sans text-lg font-bold leading-tight text-[#2d2d2d] transition-colors duration-300 group-hover:text-white">
                 {title}
@@ -125,7 +150,7 @@ function BlogCard({
         </article>
       </Link>
 
-      {/* Nút đọc thêm */}
+      
       <button
         className="absolute -bottom-2 -right-2 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#ff6b6b] text-white shadow-lg transition-all duration-300 hover:scale-110 group-hover:bg-[#1a3a52]"
         aria-label="Read more"

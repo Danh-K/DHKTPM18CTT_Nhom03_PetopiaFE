@@ -1,27 +1,16 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
-} from "@/components/ui/avatar";
-import { ChevronDown } from "lucide-react";
-import UserBox from "@/app/components/user/UserBox";
-
-import { 
-  Search, 
-  ShoppingCart, 
-  Menu,
-  Heart
-} from "lucide-react";
-import React from "react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { ChevronDown, Search, ShoppingCart, Menu, Heart } from "lucide-react";
+import UserBox from "@/app/components/user/UserBox"; 
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "@/store/useCartStore";
 import { useFavorite } from "@/store/useFavoriteStore";
-
+import { useAuthStore } from "@/store/useAuthStore"; 
 
 const leftLinks = [
   { label: "TRANG CHỦ", href: "/" },
@@ -39,27 +28,28 @@ export default function Header() {
   const pathname = usePathname();
   const { totalItems } = useCart();
   const { totalItems: totalFavorites } = useFavorite();
+  
+  
+  const { user } = useAuthStore();
+  
+  const [openUserBox, setOpenUserBox] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Giả lập trạng thái đăng nhập
-  const [user] = React.useState<null | { name: string; avatar?: string }>(null);
-  const [openUserBox, setOpenUserBox] = React.useState(false);
-
-  // Đóng dropdown khi click ngoài
-  React.useEffect(() => {
-    if (!openUserBox) return;
-    const handler = (e: MouseEvent) => {
-      if (!(e.target instanceof HTMLElement)) return;
-      if (!e.target.closest("#user-avatar-dropdown")) setOpenUserBox(false);
+  
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenUserBox(false);
+      }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [openUserBox]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
-    <header className="w-full bg-[#7B4F35] flex items-center justify-between px-4 lg:px-8 py-4 backdrop-blur-sm transition-all duration-300">
-      {/* Left: Logo + All Navigation */}
+    <header className="w-full bg-[#7B4F35] flex items-center justify-between px-4 lg:px-8 py-4 backdrop-blur-sm transition-all duration-300 sticky top-0 z-50 shadow-md">
+      {/* Left: Logo + Links */}
       <div className="flex items-center gap-4 lg:gap-8">
-        {/* Logo */}
         <Link href="/" className="flex items-center group cursor-pointer">
           <Image
             src="/assets/imgs/logo.png"
@@ -70,7 +60,6 @@ export default function Header() {
           />
         </Link>
 
-        {/* All Navigation Items */}
         <div className="hidden lg:flex items-center gap-6 lg:gap-8">
           {leftLinks.map((link) => (
             <Link
@@ -85,7 +74,7 @@ export default function Header() {
                 alt="Paw icon"
                 width={20}
                 height={20}
-                className="w-5 h-5 filter brightness-0 invert transition-all duration-300 group-hover:brightness-0 group-hover:saturate-100 group-hover:invert-[53%] group-hover:sepia-100 group-hover:saturate-[4000%] group-hover:hue-rotate-[340deg] group-hover:brightness-105 group-hover:contrast-105"
+                className="w-5 h-5 filter brightness-0 invert transition-all duration-300 group-hover:brightness-0 group-hover:sepia-100 group-hover:saturate-[4000%] group-hover:hue-rotate-[340deg]"
               />
               {link.label}
             </Link>
@@ -104,7 +93,7 @@ export default function Header() {
                 alt="Paw icon"
                 width={20}
                 height={20}
-                className="w-5 h-5 filter brightness-0 invert transition-all duration-300 group-hover:brightness-0 group-hover:saturate-100 group-hover:invert-[53%] group-hover:sepia-100 group-hover:saturate-[4000%] group-hover:hue-rotate-[340deg] group-hover:brightness-105 group-hover:contrast-105"
+                className="w-5 h-5 filter brightness-0 invert transition-all duration-300 group-hover:brightness-0 group-hover:sepia-100 group-hover:saturate-[4000%] group-hover:hue-rotate-[340deg]"
               />
               {link.label}
             </Link>
@@ -119,22 +108,22 @@ export default function Header() {
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group cursor-pointer"
+            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group"
           >
             <Search size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
           </Button>
         </Link>
 
-        {/* Heart/Wishlist */}
-        <Link href="/favorites" className="relative cursor-pointer">
+        {/* Wishlist */}
+        <Link href="/favorites" className="relative">
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group cursor-pointer"
+            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group"
           >
             <Heart size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
             {totalFavorites > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse">
                 {totalFavorites}
               </span>
             )}
@@ -142,54 +131,66 @@ export default function Header() {
         </Link>
 
         {/* Cart */}
-        <Link href="/carts" className="relative cursor-pointer">
+        <Link href="/carts" className="relative">
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group cursor-pointer"
+            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group"
           >
             <ShoppingCart size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
             {totalItems > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-bounce">
                 {totalItems}
               </span>
             )}
           </Button>
         </Link>
 
-        {/* User dropdown */}
-        <div id="user-avatar-dropdown" className="relative flex items-center">
+        {/* User Avatar Dropdown */}
+        <div ref={dropdownRef} className="relative flex items-center">
           <button
-            className="flex items-center gap-1 focus:outline-none cursor-pointer"
+            className="flex items-center gap-2 focus:outline-none cursor-pointer group"
             onClick={() => setOpenUserBox((v) => !v)}
-            aria-label="Tài khoản"
             type="button"
           >
-            <Avatar className="transition-transform duration-300 hover:scale-110 ring-2 ring-white/30 hover:ring-white/50">
-              {user && user.avatar ? (
-                <AvatarImage src={user.avatar} alt={user.name} />
-              ) : (
-                <AvatarImage src="/avatar.jpg" alt="Avatar" />
-              )}
+            <Avatar className="transition-transform duration-300 group-hover:scale-110 ring-2 ring-white/30 group-hover:ring-white/50">
+              <AvatarImage 
+                src={user?.avatar || "https://drive.google.com/uc?id=117JvrU7k1kskdkc-NMydONhI_flRtie7"} 
+                alt={user?.username || "Guest"} 
+              />
               <AvatarFallback className="bg-[#F5D7B7] text-[#7B4F35] font-bold">
-                {user ? user.name.charAt(0).toUpperCase() : <span className="text-xl">👤</span>}
+                {user?.username  ? user.username.charAt(0).toUpperCase() : "G"}
               </AvatarFallback>
             </Avatar>
-            <ChevronDown size={20} className="text-[#fff] ml-1" />
+            
+            {/* Hiển thị tên User (chỉ trên màn hình lớn) */}
+            {user && (
+                <div className="hidden md:flex flex-col items-start">
+                    <span className="text-white text-sm font-bold max-w-[100px] truncate">
+                        {user.fullName || user.username}
+                    </span>
+                </div>
+            )}
+            
+            <ChevronDown 
+              size={20} 
+              className={`text-white ml-1 transition-transform duration-200 ${openUserBox ? 'rotate-180' : ''}`} 
+            />
           </button>
+
+          {/* Dropdown Content */}
           {openUserBox && (
-            <div className="absolute right-0 w-80 max-w-xs"
-            style={{ marginTop: '400px' }}>
-              <UserBox />
+            <div className="absolute top-full right-0 mt-4 w-80 z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+              <UserBox onClose={() => setOpenUserBox(false)} />
             </div>
           )}
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile menu toggle */}
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden text-white hover:bg-white/20 transition-all duration-300 rounded-xl cursor-pointer"
+          className="lg:hidden text-white hover:bg-white/20 transition-all duration-300 rounded-xl"
         >
           <Menu size={24} />
         </Button>

@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
+        protocol: "https",
+        hostname: "**", // Cho phép tất cả các domain HTTPS
+      },
+      {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
         pathname: '/**',

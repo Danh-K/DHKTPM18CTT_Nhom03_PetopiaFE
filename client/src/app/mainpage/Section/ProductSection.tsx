@@ -58,7 +58,7 @@ export default function ProductSection() {
                 className="absolute top-6 left-18 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
-                  addItem({ pet: product as Pet, quantity: 1, img: getThumbnail(product.petId) });
+                  addItem({ pet: product as Pet, quantity: 1, img: product.mainImageUrl });
                   openMiniCart();
                 }}
               >
@@ -70,7 +70,7 @@ export default function ProductSection() {
               
               <div className="relative mb-4 overflow-hidden rounded-xl bg-[#F5E6D3]">
                 <Image
-                  src={getThumbnail(product.petId)}
+                  src={product.mainImageUrl}
                   alt={product.name}
                   width={300}
                   height={256}

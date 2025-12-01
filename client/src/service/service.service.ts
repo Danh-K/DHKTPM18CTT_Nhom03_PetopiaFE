@@ -1,9 +1,9 @@
+import axiosInstance from "@/lib/utils/axios";
 import { Service } from "@/types/Service";
-import axios from "axios";
 
 export const ShopServiceAPI = { 
   getAll: async (): Promise<Service[]> => {
-    const response = await axios.get("/services");
-    return response.data;
+    const response = await axiosInstance.get("/services");
+    return response.data.content;
   },
 };
