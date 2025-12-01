@@ -9,21 +9,29 @@ const axiosInstance = axios.create({
   },
 })
 
-
 axiosInstance.interceptors.request.use(
   (config) => {
+    const publicEndpoints = ['/auth/login', '/auth/register'];
     
-    const token = useAuthStore.getState().accessToken
+    
+    const isPublicEndpoint = publicEndpoints.some(endpoint => 
+      config.url?.includes(endpoint)
+    );
 
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`
+    
+    if (!isPublicEndpoint) {
+      const token = useAuthStore.getState().accessToken;
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
-    return config
+    
+    return config;
   },
-  (error) => Promise.reject(error)
-)
-
-
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
