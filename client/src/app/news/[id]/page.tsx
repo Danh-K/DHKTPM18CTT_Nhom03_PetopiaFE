@@ -70,10 +70,18 @@ export default function ArticleDetailPage() {
 
   return (
     <main className="min-h-screen bg-white">
-      <ToastContainer />
 
-      
-      <div className="mx-auto max-w-5xl py-6">
+      {ToastContainer}
+      {/* Back Button */}
+      <div
+        className="mx-auto py-6"
+        style={{
+          maxWidth: "calc(100vw - 264px)",
+          paddingLeft: "132px",
+          paddingRight: "132px",
+        }}
+      >
+
         <Link
           href="/news"
           className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"

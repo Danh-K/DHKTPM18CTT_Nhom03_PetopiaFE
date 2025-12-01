@@ -402,6 +402,7 @@ const CartPage = () => {
         paymentMethod: string;
         items: { petId: string; quantity: number }[];
         voucherIds?: string[]; // Thêm danh sách voucher IDs
+        promotionCode?: string | null;
         addressId?: string;
         newProvince?: string;
         newDistrict?: string;
@@ -417,7 +418,9 @@ const CartPage = () => {
           quantity: item.quantity
         })),
         // Gửi voucher ID (nếu có)
-        voucherIds: appliedVoucher ? [appliedVoucher.voucherId] : undefined
+        voucherIds: appliedVoucher ? [appliedVoucher.voucherId] : undefined,
+        // Gửi promotion code (nếu có)
+        promotionCode: selectedPromotion
       }
 
       // Xử lý địa chỉ
@@ -526,7 +529,7 @@ const CartPage = () => {
 
   return (
     <>
-      <ToastContainer />
+      {ToastContainer}
       <div className="min-h-screen bg-white">
         {/* Cart Title */}
         <div className="relative py-24">

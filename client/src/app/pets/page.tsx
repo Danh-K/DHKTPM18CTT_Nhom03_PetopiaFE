@@ -149,11 +149,11 @@ export default function PetsPage() {
     // Sort mapping - Rating sẽ được sort ở client side
     switch (sortBy) {
       case "price-low":
-        request.sortBy = "price";
+        request.sortBy = "finalPrice";
         request.sortDirection = "asc";
         break;
       case "price-high":
-        request.sortBy = "price";
+        request.sortBy = "finalPrice";
         request.sortDirection = "desc";
         break;
       case "rating":
