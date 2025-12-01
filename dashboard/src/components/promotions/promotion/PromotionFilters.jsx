@@ -49,7 +49,7 @@ export default function PromotionFilters({
         >
           <option value="all">Danh mục</option>
           {categories.map((c) => (
-            <option key={c.id || "null"} value={c.id || "null"}>
+            <option key={c.categoryId || "null"} value={c.categoryId || "null"}>
               {c.name}
             </option>
           ))}
@@ -102,7 +102,7 @@ export default function PromotionFilters({
             {/* Danh mục */}
             {categoryFilter !== "all" && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 font-medium text-xs">
-                Danh mục: {categories.find(c => c.id === categoryFilter)?.name || categoryFilter}
+                Danh mục: {categories.find(c => c.categoryId === categoryFilter)?.name || categoryFilter}
               </span>
             )}
 

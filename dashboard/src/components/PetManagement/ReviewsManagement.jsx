@@ -1,415 +1,718 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 import {
-  FaStar,
-  FaHeart,
-  FaThumbtack,
-  FaTrash,
-  FaReply,
-  FaBell, // Thêm icon chuông cho thông báo mới
-} from "react-icons/fa";
-import { HiX } from "react-icons/hi";
+  Star,
+  Sun,
+  MessageSquare,
+  Search,
+  Trash2,
+  FilePenLine,
+  Reply,
+  X,
+  CheckCircle,
+  AlertCircle,
+  ThumbsUp,
+  MessageCircle,
+  Send,
+} from "lucide-react";
 
-// --- DỮ LIỆU GIẢ (Giữ nguyên logic cũ nhưng chỉnh lại ngày tháng để dễ test hiển thị 'Mới') ---
-const generateReviews = (petId) => {
-  const reviews = [];
-  const names = [
-    "Nguyễn An",
-    "Trần Bình",
-    "Lê Cường",
-    "Phạm Dung",
-    "Hoàng Minh",
-  ];
-  const comments = [
-    "Rất đáng yêu!",
-    "Dịch vụ tốt",
-    "Sẽ quay lại",
-    "Giá hợp lý",
-    "Nhân viên nhiệt tình",
-  ];
+import { useReviewManagement } from "../../hooks/useReviewManagement";
 
-  for (let i = 0; i < Math.floor(Math.random() * 5) + 1; i++) {
-    // Random ngày từ hôm nay trở về trước 10 ngày để dễ thấy badge "Mới"
-    const randomDaysAgo = Math.random() * 10;
-
-    reviews.push({
-      id: `R${petId}-${i}`,
-      petId,
-      customerName: names[i % names.length],
-      rating: Math.floor(Math.random() * 2) + 4,
-      comment: comments[i % comments.length],
-      date: new Date(Date.now() - randomDaysAgo * 86400000),
-      isPinned: i === 0 && Math.random() > 0.7,
-      adminReply:
-        i % 3 === 0 ? { text: "Cảm ơn bạn!", date: new Date() } : null,
-      liked: Math.random() > 0.7,
-      likes: Math.floor(Math.random() * 100),
-    });
-  }
-  return reviews;
+// --- CONFIG ---
+const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
+const modalVariants = {
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 300, damping: 25 },
+  },
+  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } },
 };
 
-const allPets = Array.from({ length: 25 }, (_, i) => ({
-  id: i + 1,
-  name: `Pet #${i + 1}`,
-  images: ["https://via.placeholder.com/200"],
-  reviews: generateReviews(i + 1),
-}));
+const transformGoogleDriveUrl = (url) => {
+  if (!url) return "";
+  if (url.includes("drive.google.com")) {
+    const idMatch = url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (idMatch && idMatch[1])
+      return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+  }
+  return url;
+};
 
-// Flatten reviews cho state quản lý chung
-const initialReviews = allPets.flatMap((p) =>
-  p.reviews.map((r) => ({ ...r, petName: p.name }))
+const formatDate = (dateString) => {
+  if (!dateString) return "";
+  return new Date(dateString).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+// --- SUB-COMPONENTS ---
+
+const StatsCard = ({ title, value, icon: Icon, gradient }) => {
+  return (
+    <div className="relative overflow-hidden bg-white p-5 rounded-xl shadow-sm border border-gray-100 group hover:shadow-md transition-all">
+      <div
+        className={`absolute top-0 right-0 w-24 h-24 -mr-5 -mt-5 rounded-full opacity-10 bg-gradient-to-br ${gradient}`}
+      ></div>
+      <div className="relative flex items-center gap-4">
+        <div
+          className={`p-3 rounded-lg bg-gradient-to-br ${gradient} text-white shadow-md group-hover:scale-110 transition-transform`}
+        >
+          <Icon size={24} strokeWidth={2.5} />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+            {title}
+          </p>
+          <p className="text-3xl font-extrabold text-gray-800">{value}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const StarRating = ({ rating, size = 4 }) => {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[...Array(5)].map((_, i) => (
+        <Star
+          key={i}
+          className={`w-${size} h-${size} ${
+            i < Math.round(rating)
+              ? "text-yellow-400 fill-yellow-400"
+              : "text-gray-300"
+          }`}
+        />
+      ))}
+    </div>
+  );
+};
+
+// --- PET CARD ---
+const PetReviewCard = ({ pet, onPetClick }) => {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
+      onClick={() => onPetClick(pet)}
+      className="bg-white rounded-xl border border-gray-200 overflow-hidden cursor-pointer group"
+    >
+      <div className="relative h-48 bg-gray-100 overflow-hidden">
+        {pet.imageUrl ? (
+          <img
+            src={transformGoogleDriveUrl(pet.imageUrl)}
+            alt={pet.name}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            referrerPolicy="no-referrer"
+            onError={(e) =>
+              (e.target.src = "https://placehold.co/300?text=No+Image")
+            }
+          />
+        ) : (
+          <div className="w-full h-full bg-blue-50 flex items-center justify-center text-blue-300 font-bold text-5xl">
+            {pet.name.charAt(0)}
+          </div>
+        )}
+
+        <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm text-gray-800">
+          <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />{" "}
+          {pet.avgRating}
+        </div>
+
+        {pet.unrepliedCount > 0 && (
+          <div className="absolute bottom-2 left-2">
+            <span className="relative inline-flex">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
+                <AlertCircle size={10} /> {pet.unrepliedCount} cần trả lời
+              </span>
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="p-4">
+        <h3 className="font-bold text-lg text-gray-800 truncate mb-1">
+          {pet.name}
+        </h3>
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+            {pet.categoryName || "Thú cưng"}
+          </span>
+          <span className="text-xs text-gray-400 flex items-center gap-1">
+            <MessageCircle size={12} /> {pet.reviewCount}
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// --- DELETE MODAL ---
+const DeleteModal = ({ title, message, onClose, onConfirm }) => (
+  <motion.div
+    className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4"
+    variants={backdropVariants}
+    initial="hidden"
+    animate="visible"
+    exit="hidden"
+  >
+    <motion.div
+      className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full text-center"
+      variants={modalVariants}
+    >
+      <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 shadow-sm">
+        <Trash2 size={28} />
+      </div>
+      <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
+      <p className="text-sm text-gray-500 mb-6 leading-relaxed">{message}</p>
+      <div className="flex gap-3 justify-center">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+        >
+          Hủy bỏ
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium shadow-md transition-transform active:scale-95"
+        >
+          Xóa ngay
+        </button>
+      </div>
+    </motion.div>
+  </motion.div>
 );
 
-export default function ReviewsManagement() {
-  const [reviews, setReviews] = useState(initialReviews);
-  const [selectedPet, setSelectedPet] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [replyText, setReplyText] = useState("");
-  const [editingReplyId, setEditingReplyId] = useState(null);
-  const [search, setSearch] = useState("");
+// --- REPLY FORM (CÓ NÚT GỬI / CẬP NHẬT) ---
+const ReplyForm = ({
+  initialText = "",
+  onSend,
+  onCancel,
+  isUpdate = false,
+}) => {
+  const [text, setText] = useState(initialText);
 
-  // Helper: Lấy reviews của 1 pet cụ thể từ state tổng
-  const getPetReviews = (petId) => reviews.filter((r) => r.petId === petId);
+  return (
+    <div className="mt-3 animate-fadeIn bg-blue-50 p-3 rounded-xl border border-blue-200 shadow-sm">
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Nhập nội dung phản hồi..."
+        className="w-full p-3 border border-blue-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm min-h-[80px]"
+        autoFocus
+      ></textarea>
+      <div className="flex gap-2 mt-2 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-3 py-1.5 bg-white text-gray-600 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-50"
+        >
+          Hủy
+        </button>
+        <button
+          onClick={() => {
+            if (text.trim()) onSend(text);
+          }}
+          className={`px-4 py-1.5 text-white rounded-lg text-xs font-medium shadow-sm flex items-center gap-1 transition-colors ${
+            isUpdate
+              ? "bg-indigo-600 hover:bg-indigo-700"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
+        >
+          {isUpdate ? <FilePenLine size={14} /> : <Send size={14} />}
+          {isUpdate ? "Cập nhật" : "Gửi ngay"}
+        </button>
+      </div>
+    </div>
+  );
+};
 
-  // Helper: Lấy ngày đánh giá mới nhất của 1 pet
-  const getLatestReviewDate = (petId) => {
-    const petReviews = getPetReviews(petId);
-    if (petReviews.length === 0) return 0;
-    // Sort giảm dần theo thời gian để lấy cái đầu tiên
-    const sorted = [...petReviews].sort((a, b) => b.date - a.date);
-    return sorted[0].date;
-  };
+// --- REVIEW MODAL (MAIN CONTENT) ---
+const ReviewModal = ({
+  pet,
+  fetchReviews,
+  onReply,
+  onDeleteReply,
+  onDeleteReview,
+  onClose,
+}) => {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingReplyId, setEditingReplyId] = useState(null); // ID review đang được chỉnh sửa reply
 
-  // Helper: Kiểm tra xem đánh giá gần nhất có phải "Mới" không (trong vòng 3 ngày)
-  const isRecent = (date) => {
-    if (!date) return false;
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 3; // Quy định: <= 3 ngày là mới
-  };
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    isOpen: false,
+    type: null,
+    id: null,
+  });
 
-  // Xử lý lọc và SẮP XẾP
-  const sortedAndFilteredPets = useMemo(() => {
-    // 1. Lọc theo từ khóa tìm kiếm
-    let result = allPets.filter(
-      (pet) =>
-        pet.name.toLowerCase().includes(search.toLowerCase()) &&
-        getPetReviews(pet.id).length > 0
+  // Load data
+  const loadReviews = async () => {
+    setLoading(true);
+    const data = await fetchReviews(pet.id);
+    setReviews(
+      data.sort((a, b) => {
+        if (!a.reply && b.reply) return -1;
+        if (a.reply && !b.reply) return 1;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      })
     );
+    setLoading(false);
+  };
 
-    // 2. Sắp xếp: Pet nào có review mới nhất thì lên đầu
-    result.sort((a, b) => {
-      const dateA = getLatestReviewDate(a.id);
-      const dateB = getLatestReviewDate(b.id);
-      return dateB - dateA; // Giảm dần (Mới nhất -> Cũ nhất)
+  useEffect(() => {
+    loadReviews();
+  }, [pet]);
+
+  const handleSendReply = async (reviewId, text) => {
+    const success = await onReply(reviewId, text);
+    if (success) {
+      setEditingReplyId(null);
+      // Cập nhật UI local ngay lập tức
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.reviewId === reviewId
+            ? { ...r, reply: text, replyDate: new Date().toISOString() }
+            : r
+        )
+      );
+    }
+  };
+
+  const requestDelete = (type, id) => {
+    setDeleteConfirm({
+      isOpen: true,
+      type,
+      id,
+      title: type === "reply" ? "Xóa câu trả lời?" : "Xóa đánh giá?",
+      message:
+        type === "reply"
+          ? "Câu trả lời này sẽ bị xóa. Bình luận của khách vẫn giữ nguyên."
+          : "Toàn bộ đánh giá này sẽ bị xóa vĩnh viễn.",
     });
-
-    return result;
-  }, [search, reviews]); // Chạy lại khi search hoặc data reviews thay đổi
-
-  // --- Các hàm xử lý hành động (giữ nguyên) ---
-  const handleLike = (id) => {
-    setReviews((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              liked: !r.liked,
-              likes: r.liked ? r.likes - 1 : r.likes + 1,
-            }
-          : r
-      )
-    );
   };
 
-  const handlePin = (id) => {
-    setReviews((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, isPinned: !r.isPinned } : r))
-    );
-  };
-
-  const handleReply = (id) => {
-    if (!replyText.trim()) return;
-    setReviews((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, adminReply: { text: replyText, date: new Date() } }
-          : r
-      )
-    );
-    setReplyText("");
-    setEditingReplyId(null);
+  const confirmDelete = async () => {
+    const { type, id } = deleteConfirm;
+    let success = false;
+    if (type === "reply") {
+      success = await onDeleteReply(id);
+      if (success)
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.reviewId === id ? { ...r, reply: null, replyDate: null } : r
+          )
+        );
+    } else {
+      success = await onDeleteReview(id);
+      if (success) setReviews((prev) => prev.filter((r) => r.reviewId !== id));
+    }
+    if (success) setDeleteConfirm({ isOpen: false, type: null, id: null });
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <>
+      <motion.div
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        variants={backdropVariants}
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
+      >
+        <motion.div
+          className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+          variants={modalVariants}
+        >
+          {/* Header */}
+          <div className="flex-shrink-0 p-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex justify-between items-center shadow-md z-10">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm border border-white/30">
+                {pet.imageUrl ? (
+                  <img
+                    src={transformGoogleDriveUrl(pet.imageUrl)}
+                    className="w-full h-full object-cover rounded-xl"
+                  />
+                ) : (
+                  <span className="font-bold text-white text-xl">
+                    {pet.name.charAt(0)}
+                  </span>
+                )}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">{pet.name}</h2>
+                <p className="text-sm text-white/80 flex items-center gap-1">
+                  <Star size={14} className="text-yellow-300 fill-yellow-300" />{" "}
+                  {pet.avgRating} • {reviews.length} đánh giá
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-full transition-colors text-white/90 hover:text-white"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 p-6 space-y-6 overflow-y-auto bg-gray-100">
+            {loading ? (
+              <div className="text-center py-10 text-gray-400">
+                Đang tải bình luận...
+              </div>
+            ) : reviews.length > 0 ? (
+              reviews.map((review) => {
+                const isEditing = editingReplyId === review.reviewId;
+                return (
+                  <div
+                    key={review.reviewId}
+                    className={`bg-white p-6 rounded-2xl shadow-sm border transition-all ${
+                      !review.reply
+                        ? "border-l-4 border-l-red-400"
+                        : "border-gray-100"
+                    }`}
+                  >
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center font-bold text-gray-500 text-sm uppercase overflow-hidden border border-white shadow-sm">
+                          {review.userAvatar ? (
+                            <img
+                              src={transformGoogleDriveUrl(review.userAvatar)}
+                              className="w-full h-full object-cover"
+                              onError={(e) =>
+                                (e.target.src =
+                                  "https://placehold.co/50?text=U")
+                              }
+                            />
+                          ) : (
+                            (review.userFullName || "U").charAt(0)
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-bold text-gray-900 text-sm">
+                              {review.userFullName || "Khách hàng"}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <StarRating rating={review.rating} size={3} />
+                              <span className="text-xs text-gray-400">
+                                • {formatDate(review.createdAt)}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Nút xóa review gốc */}
+                          <button
+                            onClick={() =>
+                              requestDelete("review", review.reviewId)
+                            }
+                            className="text-gray-300 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                            title="Xóa đánh giá"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+
+                        <p className="text-gray-700 text-sm mt-3 leading-relaxed">
+                          {review.comment}
+                        </p>
+                        {review.reviewImageUrl && (
+                          <img
+                            src={transformGoogleDriveUrl(review.reviewImageUrl)}
+                            alt="Review"
+                            className="mt-3 w-24 h-24 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90"
+                          />
+                        )}
+
+                        {/* Khu vực Phản hồi */}
+                        <div className="mt-4">
+                          {/* TH1: Đang ở chế độ Sửa */}
+                          {isEditing ? (
+                            <ReplyForm
+                              initialText={review.reply || ""}
+                              isUpdate={true}
+                              onCancel={() => setEditingReplyId(null)}
+                              onSend={(text) =>
+                                handleSendReply(review.reviewId, text)
+                              }
+                            />
+                          ) : review.reply ? (
+                            // TH2: Đã trả lời -> Hiển thị box reply Admin
+                            <div className="mt-4 ml-4 p-4 bg-slate-50 border border-slate-200 rounded-xl relative group">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
+                                    AD
+                                  </div>
+                                  <span className="font-bold text-blue-800 text-sm">
+                                    Quản trị viên
+                                  </span>
+                                  {review.replyDate && (
+                                    <span className="text-xs text-gray-400">
+                                      • {formatDate(review.replyDate)}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* --- NÚT CẬP NHẬT & XÓA (LÀM LẠI DỄ NHÌN HƠN) --- */}
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() =>
+                                      setEditingReplyId(review.reviewId)
+                                    }
+                                    className="flex items-center gap-1 px-2 py-1 bg-white border border-indigo-200 text-indigo-600 rounded shadow-sm hover:bg-indigo-50 text-xs font-medium transition-all"
+                                    title="Sửa câu trả lời"
+                                  >
+                                    <FilePenLine size={12} /> Sửa
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      requestDelete("reply", review.reviewId)
+                                    }
+                                    className="flex items-center gap-1 px-2 py-1 bg-white border border-red-200 text-red-600 rounded shadow-sm hover:bg-red-50 text-xs font-medium transition-all"
+                                    title="Xóa câu trả lời"
+                                  >
+                                    <Trash2 size={12} /> Xóa
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed pl-8">
+                                {review.reply}
+                              </p>
+                            </div>
+                          ) : (
+                            // TH3: Chưa trả lời -> Nút Reply
+                            <button
+                              onClick={() => setEditingReplyId(review.reviewId)}
+                              className="mt-3 flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 border border-blue-100"
+                            >
+                              <Reply size={14} /> Trả lời khách hàng
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-20 text-gray-400 flex flex-col items-center">
+                <MessageSquare size={48} className="opacity-20 mb-2" />
+                <p>Chưa có đánh giá nào.</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </motion.div>
+
+      {/* Delete Confirm Modal */}
+      <AnimatePresence>
+        {deleteConfirm.isOpen && (
+          <DeleteModal
+            title={deleteConfirm.title}
+            message={deleteConfirm.message}
+            onClose={() =>
+              setDeleteConfirm({ ...deleteConfirm, isOpen: false })
+            }
+            onConfirm={confirmDelete}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+// --- MAIN COMPONENT ---
+export default function ReviewManagement() {
+  const {
+    pets,
+    stats,
+    loading,
+    fetchPetReviews,
+    replyReview,
+    deleteAdminReply,
+    deleteReview,
+  } = useReviewManagement();
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterRating, setFilterRating] = useState("all"); // Thêm state filter rating
+  const [selectedPet, setSelectedPet] = useState(null);
+
+  const filteredPets = useMemo(() => {
+    let res = pets.filter((p) =>
+      p.name.toLowerCase().includes(search.toLowerCase())
+    );
+
+    // Lọc trạng thái trả lời
+    if (filterStatus === "unreplied")
+      res = res.filter((p) => p.unrepliedCount > 0);
+    else if (filterStatus === "replied")
+      res = res.filter((p) => p.unrepliedCount === 0 && p.reviewCount > 0);
+
+    // Lọc theo sao (Rating) - Lọc theo Avg Rating của Pet (làm tròn)
+    if (filterRating !== "all") {
+      const rating = parseInt(filterRating);
+      res = res.filter((p) => Math.round(p.avgRating) === rating);
+    }
+
+    return res;
+  }, [pets, search, filterStatus, filterRating]);
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <ToastContainer position="top-right" autoClose={2000} />
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-          <h1 className="text-2xl font-bold text-gray-800">Quản Lý Đánh Giá</h1>
-          <input
-            placeholder="Tìm tên thú cưng..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full md:w-64 p-2 border rounded bg-white shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none"
+        <div className="mb-8">
+          <h1 className="text-3xl font-extrabold text-gray-900 mb-2">
+            Trung Tâm Đánh Giá
+          </h1>
+          <p className="text-gray-500">
+            Theo dõi và phản hồi ý kiến khách hàng.
+          </p>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <StatsCard
+            title="Tổng Đánh Giá"
+            value={stats.totalReviews}
+            icon={MessageSquare}
+            gradient="from-blue-400 to-blue-600"
+          />
+          <StatsCard
+            title="Điểm Trung Bình"
+            value={stats.averageRating}
+            icon={Star}
+            gradient="from-yellow-400 to-orange-500"
+          />
+          <StatsCard
+            title="Cần Trả Lời"
+            value={stats.unrepliedCount}
+            icon={AlertCircle}
+            gradient="from-red-400 to-pink-600"
+          />
+          <StatsCard
+            title="Đã Phản Hồi"
+            value={stats.repliedCount}
+            icon={ThumbsUp}
+            gradient="from-green-400 to-emerald-600"
           />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {sortedAndFilteredPets.map((pet) => {
-            const petReviews = getPetReviews(pet.id);
-            const latestDate = getLatestReviewDate(pet.id);
-            const hasNewReview = isRecent(latestDate);
-
-            // Tính điểm trung bình
-            const avg =
-              petReviews.length > 0
-                ? (
-                    petReviews.reduce((a, r) => a + r.rating, 0) /
-                    petReviews.length
-                  ).toFixed(1)
-                : 0;
-
-            return (
-              <div
-                key={pet.id}
-                onClick={() => {
-                  setSelectedPet(pet);
-                  setShowModal(true);
-                }}
-                className="bg-white rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer relative group overflow-hidden"
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row gap-4 justify-between items-center sticky top-4 z-20 backdrop-blur-lg bg-white/90">
+          <div className="relative w-full md:w-80 group">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 group-focus-within:text-blue-500 transition-colors">
+              <Search size={20} />
+            </span>
+            <input
+              type="text"
+              placeholder="Tìm kiếm thú cưng..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-gray-50 focus:bg-white"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto bg-gray-50 p-1 rounded-xl border border-gray-200">
+            {/* Filter Status */}
+            <div className="flex">
+              <button
+                onClick={() => setFilterStatus("all")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterStatus === "all"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
               >
-                {/* Badge thông báo mới */}
-                {hasNewReview && (
-                  <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 flex items-center gap-1 shadow-sm animate-pulse">
-                    <FaBell /> Mới
-                  </div>
+                Tất cả
+              </button>
+              <button
+                onClick={() => setFilterStatus("unreplied")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                  filterStatus === "unreplied"
+                    ? "bg-white text-red-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Cần trả lời{" "}
+                {stats.unrepliedCount > 0 && (
+                  <span className="bg-red-100 text-red-600 px-1.5 rounded-full text-[10px]">
+                    {stats.unrepliedCount}
+                  </span>
                 )}
+              </button>
+              <button
+                onClick={() => setFilterStatus("replied")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterStatus === "replied"
+                    ? "bg-white text-green-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Đã trả lời
+              </button>
+            </div>
 
-                <div className="p-4">
-                  <div className="relative">
-                    <img
-                      src={pet.images[0]}
-                      alt={pet.name}
-                      className="w-full h-32 object-cover rounded mb-3 group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
+            {/* Filter Rating Dropdown */}
+            <div className="h-8 w-px bg-gray-300 mx-1"></div>
 
-                  <h3 className="font-bold text-gray-800 text-sm mb-1 truncate">
-                    {pet.name}
-                  </h3>
-
-                  <div className="flex justify-between items-end">
-                    <div className="flex items-center gap-1 text-yellow-500 text-xs font-medium">
-                      <FaStar className="fill-current" />
-                      <span>{avg}</span>
-                      <span className="text-gray-400 font-normal">
-                        ({petReviews.length})
-                      </span>
-                    </div>
-                    {/* Hiển thị ngày mới nhất nhỏ ở góc */}
-                    <span className="text-[10px] text-gray-400">
-                      {latestDate ? latestDate.toLocaleDateString("vi-VN") : ""}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+            <select
+              value={filterRating}
+              onChange={(e) => setFilterRating(e.target.value)}
+              className="bg-transparent text-sm font-medium text-gray-600 outline-none px-2 cursor-pointer"
+            >
+              <option value="all">⭐ Tất cả sao</option>
+              <option value="5">5 sao (Tuyệt vời)</option>
+              <option value="4">4 sao (Tốt)</option>
+              <option value="3">3 sao (Bình thường)</option>
+              <option value="2">2 sao (Tệ)</option>
+              <option value="1">1 sao (Rất tệ)</option>
+            </select>
+          </div>
         </div>
 
-        {/* --- Review Modal (Phần này giữ nguyên logic hiển thị chi tiết) --- */}
-        {showModal && selectedPet && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl animate-fade-in">
-              <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800">
-                    Đánh giá: {selectedPet.name}
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Tổng {getPetReviews(selectedPet.id).length} đánh giá
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <HiX className="text-2xl text-gray-600" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Sắp xếp trong modal: Ghim lên đầu, sau đó đến mới nhất */}
-                {getPetReviews(selectedPet.id)
-                  .sort((a, b) => {
-                    if (a.isPinned && !b.isPinned) return -1;
-                    if (!a.isPinned && b.isPinned) return 1;
-                    return b.date - a.date;
-                  })
-                  .map((review) => (
-                    <div
-                      key={review.id}
-                      className={`p-4 rounded-lg border ${
-                        review.isPinned
-                          ? "bg-yellow-50 border-yellow-300 ring-1 ring-yellow-200"
-                          : "bg-gray-50 border-gray-200"
-                      }`}
-                    >
-                      {/* Header của review */}
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-bold text-gray-800 flex items-center gap-2">
-                            {review.customerName}{" "}
-                            {review.isPinned && (
-                              <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <FaThumbtack className="text-xs" /> Đã ghim
-                              </span>
-                            )}
-                            {isRecent(review.date) && (
-                              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">
-                                Mới
-                              </span>
-                            )}
-                          </p>
-                          <div className="flex items-center gap-2 text-sm mt-1">
-                            <div className="flex text-yellow-400">
-                              {[...Array(5)].map((_, i) => (
-                                <FaStar
-                                  key={i}
-                                  className={
-                                    i < review.rating
-                                      ? "fill-current"
-                                      : "text-gray-300"
-                                  }
-                                />
-                              ))}
-                            </div>
-                            <span className="text-xs text-gray-400 border-l pl-2 ml-1">
-                              {review.date.toLocaleDateString("vi-VN")} -{" "}
-                              {review.date.toLocaleTimeString("vi-VN", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Actions Buttons */}
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleLike(review.id)}
-                            className={`flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
-                              review.liked
-                                ? "bg-red-100 text-red-600"
-                                : "bg-white border hover:bg-gray-50 text-gray-600"
-                            }`}
-                          >
-                            <FaHeart
-                              className={review.liked ? "fill-current" : ""}
-                            />
-                            {review.likes}
-                          </button>
-                          <button
-                            onClick={() => handlePin(review.id)}
-                            title={
-                              review.isPinned ? "Bỏ ghim" : "Ghim đánh giá"
-                            }
-                            className={`p-1.5 rounded transition-colors ${
-                              review.isPinned
-                                ? "bg-yellow-500 text-white"
-                                : "bg-white border hover:bg-gray-50 text-gray-400"
-                            }`}
-                          >
-                            <FaThumbtack />
-                          </button>
-                          <button
-                            onClick={() =>
-                              setReviews((prev) =>
-                                prev.filter((r) => r.id !== review.id)
-                              )
-                            }
-                            title="Xóa"
-                            className="p-1.5 rounded bg-white border hover:bg-red-50 hover:text-red-600 text-gray-400 transition-colors"
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Nội dung comment */}
-                      <p className="text-gray-700 text-sm leading-relaxed">
-                        {review.comment}
-                      </p>
-
-                      {/* Admin Reply Section */}
-                      {review.adminReply ? (
-                        <div className="mt-3 p-3 bg-teal-50 rounded border border-teal-100 relative">
-                          <div className="absolute -top-2 left-4 w-3 h-3 bg-teal-50 border-t border-l border-teal-100 transform rotate-45"></div>
-                          <div className="flex justify-between items-center mb-1">
-                            <p className="font-bold text-teal-700 text-xs">
-                              Phản hồi từ Cửa hàng
-                            </p>
-                            <span className="text-[10px] text-teal-500">
-                              {review.adminReply.date.toLocaleDateString(
-                                "vi-VN"
-                              )}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-700">
-                            {review.adminReply.text}
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          {editingReplyId !== review.id && (
-                            <button
-                              onClick={() => setEditingReplyId(review.id)}
-                              className="mt-2 text-teal-600 text-xs font-medium hover:underline flex items-center gap-1"
-                            >
-                              <FaReply /> Trả lời đánh giá này
-                            </button>
-                          )}
-                        </>
-                      )}
-
-                      {/* Form trả lời */}
-                      {editingReplyId === review.id && (
-                        <div className="mt-3 animate-fade-in-down">
-                          <textarea
-                            value={replyText}
-                            onChange={(e) => setReplyText(e.target.value)}
-                            placeholder="Nhập nội dung trả lời..."
-                            className="w-full p-2 border rounded text-sm focus:ring-1 focus:ring-teal-500 outline-none"
-                            rows={3}
-                            autoFocus
-                          />
-                          <div className="flex justify-end gap-2 mt-2">
-                            <button
-                              onClick={() => {
-                                setEditingReplyId(null);
-                                setReplyText("");
-                              }}
-                              className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs font-medium"
-                            >
-                              Hủy
-                            </button>
-                            <button
-                              onClick={() => handleReply(review.id)}
-                              className="px-3 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded text-xs font-medium"
-                            >
-                              Gửi phản hồi
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </div>
+        {/* Grid */}
+        {loading ? (
+          <div className="text-center py-20 text-gray-400 font-medium">
+            Đang đồng bộ dữ liệu...
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredPets.map((pet) => (
+              <PetReviewCard
+                key={pet.id}
+                pet={pet}
+                onPetClick={setSelectedPet}
+              />
+            ))}
           </div>
         )}
+
+        {/* Modal */}
+        <AnimatePresence>
+          {selectedPet && (
+            <ReviewModal
+              pet={selectedPet}
+              fetchReviews={fetchPetReviews}
+              onReply={replyReview}
+              onDeleteReply={deleteAdminReply}
+              onDeleteReview={deleteReview}
+              onClose={() => setSelectedPet(null)}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
+
 export default function PromotionPagination({
   currentPage,
   totalPages,
@@ -22,9 +24,9 @@ export default function PromotionPagination({
           <button
             onClick={() => setCurrentPage(currentPage - 1)}
             disabled={currentPage === 1}
-            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            className="px-4 py-2 flex rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
           >
-            Trước
+             <HiChevronLeft className="w-5 h-5" /> Trước
           </button>
 
           <div className="flex gap-2">
@@ -46,9 +48,9 @@ export default function PromotionPagination({
           <button
             onClick={() => setCurrentPage(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            className="px-4 py-2 flex rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
           >
-            Tiếp
+            Tiếp <HiChevronRight className="w-5 h-5" />
           </button>
         </div>
       </div>

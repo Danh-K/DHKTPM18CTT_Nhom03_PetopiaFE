@@ -1,10 +1,11 @@
 "use client";
-import React, { useState } from "react";
-// Import thư viện animation
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ToastContainer, toast } from "react-toastify"; // Import toast
+import "react-toastify/dist/ReactToastify.css";
+
 import {
   HiPlus,
-  HiMail,
   HiPencil,
   HiTrash,
   HiChevronDown,
@@ -12,486 +13,768 @@ import {
   HiX,
   HiFilter,
   HiOutlineCube,
-  HiOutlineCheckCircle,
-  HiOutlineXCircle,
-  HiOutlineClock,
   HiSearch,
+  HiPhotograph,
+  HiInformationCircle,
+  HiEye,
+  HiOutlineExclamation,
+  HiUpload,
+  HiStar,
+  HiCheck,
 } from "react-icons/hi";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
-// Import dữ liệu giả (bao gồm cả fakeUsers)
-import { allPets, categories, fakeUsers } from "../../data/fakeData";
+import {
+  FaChevronLeft,
+  FaChevronRight,
+  FaStethoscope,
+  FaSyringe,
+  FaWeight,
+  FaRulerVertical,
+  FaPaw,
+  FaPalette,
+} from "react-icons/fa";
 
-// ===================================================================
-// Định nghĩa hiệu ứng cho Modal
-// ===================================================================
-const backdropVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-};
+import { usePetManagement } from "../../hooks/usePetManagement";
 
+// --- HELPERS ---
+const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
 const modalVariants = {
-  hidden: { opacity: 0, scale: 0.9, y: 50 },
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
   visible: {
     opacity: 1,
     scale: 1,
     y: 0,
     transition: { type: "spring", stiffness: 300, damping: 30 },
   },
-  exit: { opacity: 0, scale: 0.9, y: 50, transition: { duration: 0.2 } },
+  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } },
 };
 
-// ===================================================================
-// Component Form Thú Cưng (Dùng chung cho Thêm & Sửa)
-// ===================================================================
-const PetForm = ({ initialData, onDataChange }) => {
+const transformGoogleDriveUrl = (url) => {
+  if (!url || typeof url !== "string") return "";
+  if (url.includes("drive.google.com")) {
+    const idMatch = url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (idMatch && idMatch[1])
+      return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+  }
+  return url;
+};
+
+const getPetThumbnail = (images) => {
+  if (!images || images.length === 0)
+    return "https://placehold.co/150x150?text=No+Image";
+  const imgObj = images.find((i) => i.is_thumbnail) || images[0];
+  return (
+    transformGoogleDriveUrl(imgObj?.image_url) ||
+    "https://placehold.co/150x150?text=No+Image"
+  );
+};
+
+const formatCurrency = (val) =>
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
+    val
+  );
+
+// --- FORM COMPONENT (CÓ VALIDATION UI) ---
+const PetForm = ({ initialData, onDataChange, categories, errors = {} }) => {
+  const fileInputRef = useRef(null);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     onDataChange((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Xử lý chọn file từ máy tính
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      const newImages = files.map((file) => ({
+        image_id: null,
+        image_url: URL.createObjectURL(file),
+        file: file,
+        is_thumbnail: false,
+        is_existing: false,
+      }));
+
+      if (
+        (!initialData.images || initialData.images.length === 0) &&
+        newImages.length > 0
+      ) {
+        newImages[0].is_thumbnail = true;
+      }
+
+      onDataChange((prev) => ({
+        ...prev,
+        images: [...(prev.images || []), ...newImages],
+      }));
+    }
+  };
+
+  const handleSetThumbnail = (index) => {
+    const newImages = initialData.images.map((img, i) => ({
+      ...img,
+      is_thumbnail: i === index,
+    }));
+    onDataChange((prev) => ({ ...prev, images: newImages }));
+  };
+
+  const handleRemoveImage = (index) => {
+    const newImages = initialData.images.filter((_, i) => i !== index);
+    if (newImages.length > 0 && !newImages.some((img) => img.is_thumbnail)) {
+      newImages[0].is_thumbnail = true;
+    }
+    onDataChange((prev) => ({ ...prev, images: newImages }));
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {/* Cột 1: Thông tin cơ bản */}
-      <div className="md:col-span-2 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Tên thú cưng
-          </label>
-          <input
-            type="text"
-            name="name"
-            value={initialData.name}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Mô tả
-          </label>
-          <textarea
-            name="description"
-            value={initialData.description}
-            onChange={handleChange}
-            rows={4}
-            className="mt-1 p-2 w-full border rounded-md"
-          ></textarea>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-8 text-sm">
+      {/* Cột Trái */}
+      <div className="md:col-span-8 space-y-6">
+        <div className="grid grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Phân loại (Category)
+            <label className="block font-bold text-gray-700 mb-2">
+              Tên thú cưng <span className="text-red-500">*</span>
+            </label>
+            <input
+              required
+              type="text"
+              name="name"
+              value={initialData.name || ""}
+              onChange={handleChange}
+              className={`w-full p-3 border ${
+                errors.name ? "border-red-500 bg-red-50" : "border-gray-300"
+              } rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition-colors`}
+              placeholder="Nhập tên thú cưng..."
+            />
+            {errors.name && (
+              <p className="text-xs text-red-500 mt-1">{errors.name}</p>
+            )}
+          </div>
+          <div>
+            <label className="block font-bold text-gray-700 mb-2">
+              Phân loại <span className="text-red-500">*</span>
             </label>
             <select
               name="category_id"
-              value={initialData.category_id}
+              value={initialData.category_id || ""}
               onChange={handleChange}
-              className="mt-1 p-2 w-full border rounded-md"
+              className={`w-full p-3 border ${
+                errors.category_id
+                  ? "border-red-500 bg-red-50"
+                  : "border-gray-300"
+              } rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm cursor-pointer`}
             >
+              <option value="">-- Chọn loại --</option>
               {categories.map((c) => (
                 <option key={c.category_id} value={c.category_id}>
                   {c.name}
                 </option>
               ))}
             </select>
+            {errors.category_id && (
+              <p className="text-xs text-red-500 mt-1">{errors.category_id}</p>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-bold text-gray-700 mb-2">
+            Mô tả chi tiết
+          </label>
+          <textarea
+            name="description"
+            value={initialData.description || ""}
+            onChange={handleChange}
+            rows={4}
+            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none shadow-sm"
+            placeholder="Mô tả về tính cách, nguồn gốc, đặc điểm..."
+          ></textarea>
+        </div>
+
+        <div className="grid grid-cols-3 gap-6">
+          <div>
+            <label className="block font-bold text-gray-700 mb-2">
+              Giá bán (VNĐ) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="price"
+              value={initialData.price || 0}
+              onChange={handleChange}
+              className={`w-full p-3 border ${
+                errors.price ? "border-red-500 bg-red-50" : "border-gray-300"
+              } rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`}
+            />
+            {errors.price && (
+              <p className="text-xs text-red-500 mt-1">{errors.price}</p>
+            )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Trạng thái
+            <label className="block font-bold text-gray-700 mb-2">
+              Giá giảm (VNĐ)
+            </label>
+            <input
+              type="number"
+              name="discount_price"
+              value={initialData.discount_price || 0}
+              onChange={handleChange}
+              className={`w-full p-3 border ${
+                errors.discount_price
+                  ? "border-red-500 bg-red-50"
+                  : "border-gray-300"
+              } rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`}
+            />
+            {errors.discount_price && (
+              <p className="text-xs text-red-500 mt-1">
+                {errors.discount_price}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block font-bold text-gray-700 mb-2">
+              Tồn kho <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="stock_quantity"
+              value={initialData.stock_quantity || 0}
+              onChange={handleChange}
+              className={`w-full p-3 border ${
+                errors.stock_quantity
+                  ? "border-red-500 bg-red-50"
+                  : "border-gray-300"
+              } rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`}
+            />
+            {errors.stock_quantity && (
+              <p className="text-xs text-red-500 mt-1">
+                {errors.stock_quantity}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* QUẢN LÝ ẢNH */}
+        <div className="bg-slate-50 p-6 rounded-2xl border-2 border-dashed border-slate-300">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col">
+              <label className="block text-lg font-bold text-gray-800 flex items-center gap-2">
+                <HiPhotograph className="text-blue-600" /> Thư viện ảnh
+              </label>
+              <span className="text-xs text-gray-500 mt-1">
+                Định dạng: JPG, PNG. Tối đa 5MB/ảnh.
+              </span>
+            </div>
+            <div>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current.click()}
+                className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold flex items-center gap-2 shadow-lg transition-transform active:scale-95"
+              >
+                <HiUpload className="text-lg" /> Tải ảnh lên
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+            {initialData.images?.map((img, idx) => (
+              <div
+                key={idx}
+                className={`relative group aspect-square bg-white rounded-2xl overflow-hidden shadow-md transition-all duration-300 ${
+                  img.is_thumbnail
+                    ? "ring-4 ring-blue-500 ring-offset-2"
+                    : "hover:shadow-xl"
+                }`}
+              >
+                <img
+                  src={transformGoogleDriveUrl(img.image_url)}
+                  alt="Pet Preview"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  onError={(e) =>
+                    (e.target.src = "https://placehold.co/300?text=Error")
+                  }
+                />
+
+                {/* Always-visible small action buttons (top-left = set thumbnail, top-right = delete) */}
+                <div className="absolute top-3 left-3 z-20">
+                  <button
+                    type="button"
+                    onClick={() => handleSetThumbnail(idx)}
+                    title={
+                      img.is_thumbnail ? "Đã là ảnh chính" : "Đặt làm ảnh chính"
+                    }
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow transition-colors ${
+                      img.is_thumbnail
+                        ? "bg-yellow-400 text-white cursor-default"
+                        : "bg-white text-gray-700 hover:bg-yellow-400 hover:text-white"
+                    }`}
+                  >
+                    <HiStar size={14} />
+                  </button>
+                </div>
+
+                <div className="absolute top-3 right-3 z-20">
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    title="Xóa ảnh"
+                    className="w-8 h-8 rounded-full flex items-center justify-center bg-white text-red-600 hover:bg-red-600 hover:text-white shadow transition-colors"
+                  >
+                    <HiTrash size={14} />
+                  </button>
+                </div>
+
+                {/* Overlay Actions (Hover Effect) - giữ để desktop có trải nghiệm lớn hơn */}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-center items-center gap-3 backdrop-blur-[2px]">
+                  <button
+                    type="button"
+                    onClick={() => handleSetThumbnail(idx)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs shadow-lg transform transition-transform hover:scale-105 ${
+                      img.is_thumbnail
+                        ? "bg-yellow-400 text-white cursor-default"
+                        : "bg-white text-gray-700 hover:bg-yellow-400 hover:text-white"
+                    }`}
+                  >
+                    <HiStar
+                      size={16}
+                      fill={img.is_thumbnail ? "currentColor" : "none"}
+                    />{" "}
+                    {img.is_thumbnail ? "Đã chọn" : "Đặt làm chính"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white text-red-600 rounded-full font-bold text-xs shadow-lg hover:bg-red-600 hover:text-white transform transition-transform hover:scale-105"
+                  >
+                    <HiTrash size={16} /> Xóa ảnh
+                  </button>
+                </div>
+
+                {/* Badges - đẩy badge MAIN sang phải 10 để tránh chồng với nút nhỏ */}
+                {img.is_thumbnail && (
+                  <div className="absolute top-3 left-10 bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1 z-10">
+                    <HiCheck size={12} /> MAIN
+                  </div>
+                )}
+                {img.file && (
+                  <div className="absolute top-3 right-3 bg-green-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-md z-10">
+                    NEW
+                  </div>
+                )}
+              </div>
+            ))}
+            {(!initialData.images || initialData.images.length === 0) && (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-400 bg-white border-2 border-dashed border-gray-200 rounded-2xl">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                  <HiPhotograph size={32} className="opacity-40" />
+                </div>
+                <span className="text-sm font-medium">Chưa có ảnh nào.</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Cột Phải */}
+      <div className="md:col-span-4 space-y-6">
+        <div className="bg-white p-5 border rounded-xl shadow-sm">
+          <label className="block font-bold text-gray-700 mb-3">
+            Trạng thái hiển thị
+          </label>
+          <select
+            name="status"
+            value={initialData.status || "DRAFT"}
+            onChange={handleChange}
+            className="w-full p-3 border rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500 font-medium text-gray-700 cursor-pointer"
+          >
+            <option value="AVAILABLE">✅ Sẵn sàng bán</option>
+            <option value="SOLD">❌ Đã bán hết</option>
+            <option value="DRAFT">🔒 Bản nháp (Ẩn)</option>
+          </select>
+        </div>
+
+        <div className="bg-white p-5 border rounded-xl shadow-sm space-y-4">
+          <h4 className="font-bold text-gray-800 border-b pb-3 text-sm uppercase tracking-wider">
+            Đặc điểm vật lý
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-gray-500 font-bold block mb-1.5">
+                Tuổi (tháng)
+              </label>
+              <input
+                type="number"
+                name="age"
+                value={initialData.age || 0}
+                onChange={handleChange}
+                className={`w-full p-2.5 border ${
+                  errors.age ? "border-red-500" : "border-gray-300"
+                } rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none`}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 font-bold block mb-1.5">
+                Giới tính
+              </label>
+              <select
+                name="gender"
+                value={initialData.gender || "MALE"}
+                onChange={handleChange}
+                className="w-full p-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+              >
+                <option value="MALE">Đực</option>
+                <option value="FEMALE">Cái</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 font-bold block mb-1.5">
+                Nặng (kg)
+              </label>
+              <input
+                type="number"
+                name="weight"
+                value={initialData.weight || 0}
+                onChange={handleChange}
+                className={`w-full p-2.5 border ${
+                  errors.weight ? "border-red-500" : "border-gray-300"
+                } rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none`}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 font-bold block mb-1.5">
+                Cao (cm)
+              </label>
+              <input
+                type="number"
+                name="height"
+                value={initialData.height || 0}
+                onChange={handleChange}
+                className={`w-full p-2.5 border ${
+                  errors.height ? "border-red-500" : "border-gray-300"
+                } rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none`}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 font-bold block mb-1.5">
+              Màu lông
+            </label>
+            <input
+              type="text"
+              name="color"
+              value={initialData.color || ""}
+              onChange={handleChange}
+              className="w-full p-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 font-bold block mb-1.5">
+              Loại lông
             </label>
             <select
-              name="status"
-              value={initialData.status}
+              name="fur_type"
+              value={initialData.fur_type || "SHORT"}
               onChange={handleChange}
-              className="mt-1 p-2 w-full border rounded-md"
+              className="w-full p-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
             >
-              <option value="AVAILABLE">Sẵn sàng (Available)</option>
-              <option value="SOLD">Đã bán (Sold)</option>
-              <option value="DRAFT">Nháp (Draft)</option>
+              <option value="SHORT">Ngắn</option>
+              <option value="LONG">Dài</option>
+              <option value="CURLY">Xoăn</option>
+              <option value="NONE">Không lông</option>
+              <option value="OTHER">Khác</option>
             </select>
           </div>
         </div>
-      </div>
 
-      {/* Cột 2: Chi tiết & Giá */}
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Giá (VNĐ)
-          </label>
-          <input
-            type="number"
-            name="price"
-            value={initialData.price}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Giá giảm giá (VNĐ)
-          </label>
-          <input
-            type="number"
-            name="discount_price"
-            value={initialData.discount_price || ""}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Số lượng tồn kho
-          </label>
-          <input
-            type="number"
-            name="stock_quantity"
-            value={initialData.stock_quantity}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          />
-        </div>
-      </div>
-
-      {/* Hàng 2: Chi tiết vật lý & Sức khỏe */}
-      <div className="md:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Tuổi
-          </label>
-          <input
-            type="number"
-            name="age"
-            value={initialData.age}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Giới tính
-          </label>
-          <select
-            name="gender"
-            value={initialData.gender}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          >
-            <option value="MALE">Đực</option>
-            <option value="FEMALE">Cái</option>
-            <option value="UNKNOWN">Chưa rõ</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Màu sắc
-          </label>
-          <input
-            type="text"
-            name="color"
-            value={initialData.color}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Loại lông
-          </label>
-          <select
-            name="fur_type"
-            value={initialData.fur_type}
-            onChange={handleChange}
-            className="mt-1 p-2 w-full border rounded-md"
-          >
-            <option value="SHORT">Ngắn</option>
-            <option value="LONG">Dài</option>
-            <option value="CURLY">Xoăn</option>
-            <option value="NONE">Không lông</option>
-            <option value="OTHER">Khác</option>
-          </select>
+        <div className="bg-blue-50 p-5 border border-blue-100 rounded-xl">
+          <h4 className="font-bold text-blue-800 mb-4 text-sm uppercase flex items-center gap-2">
+            <FaStethoscope /> Sức khỏe & Vaccine
+          </h4>
+          <div className="space-y-4">
+            <div>
+              <label className="text-[11px] text-blue-600 uppercase font-bold mb-1.5 block">
+                Tình trạng sức khỏe
+              </label>
+              <input
+                type="text"
+                name="health_status"
+                value={initialData.health_status || ""}
+                onChange={handleChange}
+                className="w-full p-2.5 border border-blue-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-blue-600 uppercase font-bold mb-1.5 block">
+                Lịch sử tiêm chủng
+              </label>
+              <textarea
+                name="vaccination_history"
+                value={initialData.vaccination_history || ""}
+                onChange={handleChange}
+                rows={3}
+                className="w-full p-2.5 border border-blue-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none resize-none"
+              ></textarea>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-// ===================================================================
-// Component Modal Thêm Thú Cưng (AddPetModal)
-// ===================================================================
-const AddPetModal = ({ onClose }) => {
+// --- MODALS ---
+
+const AddPetModal = ({ onClose, categories, onSave }) => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     category_id: categories[0]?.category_id || "",
     age: 1,
-    gender: "UNKNOWN",
+    gender: "MALE",
     price: 0,
-    discount_price: null,
+    discount_price: 0,
     stock_quantity: 1,
     status: "DRAFT",
     weight: 1,
     height: 20,
-    color: "Trắng",
+    color: "",
     fur_type: "SHORT",
     health_status: "Tốt",
+    vaccination_history: "",
+    images: [],
   });
+  const [errors, setErrors] = useState({});
 
-  const handleSave = () => {
-    console.log("Adding new pet:", formData);
-    onClose(); // Đóng modal sau khi lưu
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.name.trim())
+      newErrors.name = "Tên thú cưng không được để trống";
+    if (!formData.category_id)
+      newErrors.category_id = "Vui lòng chọn phân loại";
+    if (formData.price < 0) newErrors.price = "Giá không được âm";
+    if (formData.discount_price < 0)
+      newErrors.discount_price = "Giá giảm không được âm";
+    if (formData.discount_price >= formData.price && formData.price > 0)
+      newErrors.discount_price = "Giá giảm phải nhỏ hơn giá gốc";
+    if (formData.stock_quantity < 0)
+      newErrors.stock_quantity = "Tồn kho không được âm";
+    if (formData.age < 0) newErrors.age = "Tuổi không được âm";
+    if (formData.weight < 0) newErrors.weight = "Cân nặng không được âm";
+    if (formData.height < 0) newErrors.height = "Chiều cao không được âm";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validate()) {
+      toast.error("Vui lòng kiểm tra lại thông tin nhập liệu");
+      return;
+    }
+    const success = await onSave(formData);
+    if (success) onClose();
   };
 
   return (
     <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
       exit="hidden"
     >
       <motion.div
-        className="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col"
         variants={modalVariants}
       >
-        <div className="flex justify-between items-center border-b pb-3 mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Thêm thú cưng mới</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-800"
-          >
-            <HiX size={24} />
-          </button>
-        </div>
-
-        {/* Form chung */}
-        <PetForm initialData={formData} onDataChange={setFormData} />
-
-        {/* Nút bấm */}
-        <div className="flex justify-end items-center mt-6 pt-4 border-t">
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-            >
-              Hủy
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Thêm thú cưng
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// ===================================================================
-// Component Modal Chỉnh Sửa Thú Cưng (EditPetModal)
-// ===================================================================
-const EditPetModal = ({ pet, onClose }) => {
-  // Hooks must be called unconditionally
-  const [formData, setFormData] = React.useState(
-    pet || {
-      name: "",
-      description: "",
-      category_id: categories[0]?.category_id || "",
-      age: 1,
-      gender: "UNKNOWN",
-      price: 0,
-      discount_price: null,
-      stock_quantity: 1,
-      status: "DRAFT",
-      weight: 1,
-      height: 20,
-      color: "Trắng",
-      fur_type: "SHORT",
-      health_status: "Tốt",
-    }
-  );
-
-  React.useEffect(() => {
-    setFormData(pet || {});
-  }, [pet]);
-
-  if (!pet) return null;
-
-  const handleSave = () => {
-    console.log("Saving pet:", formData);
-    onClose();
-  };
-
-  const handleDelete = () => {
-    if (window.confirm(`Bạn có chắc muốn xóa thú cưng ${pet.name}?`)) {
-      console.log("Deleting pet:", pet.pet_id);
-      onClose();
-    }
-  };
-
-  return (
-    <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      variants={backdropVariants}
-      initial="hidden"
-      animate="visible"
-      exit="hidden"
-    >
-      <motion.div
-        className="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-        variants={modalVariants}
-      >
-        <div className="flex justify-between items-center border-b pb-3 mb-4">
-          <h2 className="text-xl font-bold text-gray-800">
-            Chỉnh sửa thú cưng: {formData.name}
+        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
+          <h2 className="text-xl font-extrabold text-gray-800">
+            Thêm Thú Cưng Mới
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-800"
+            className="p-2 hover:bg-gray-200 rounded-full transition-colors"
           >
-            <HiX size={24} />
+            <HiX size={28} className="text-gray-500" />
           </button>
         </div>
-
-        {/* Form chung */}
-        <PetForm initialData={formData} onDataChange={setFormData} />
-
-        {/* Nút bấm */}
-        <div className="flex justify-between items-center mt-6 pt-4 border-t">
+        <div className="p-8 flex-1 overflow-y-auto bg-gray-50/30">
+          <PetForm
+            initialData={formData}
+            onDataChange={setFormData}
+            categories={categories}
+            errors={errors}
+          />
+        </div>
+        <div className="flex justify-end gap-4 p-6 border-t border-gray-100 bg-white z-10">
           <button
-            onClick={handleDelete}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            onClick={onClose}
+            className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all"
           >
-            <HiTrash /> Xóa
+            Hủy bỏ
           </button>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-            >
-              Hủy
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Lưu thay đổi
-            </button>
-          </div>
+          <button
+            onClick={handleSave}
+            className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all transform active:scale-95"
+          >
+            Lưu Thú Cưng
+          </button>
         </div>
       </motion.div>
     </motion.div>
   );
 };
 
-// ===================================================================
-// Component Modal Bộ Lọc (FilterModal)
-// ===================================================================
-const FilterModal = ({ onClose, filters, onApply }) => {
-  const [localFilters, setLocalFilters] = useState(filters);
+const EditPetModal = ({ pet, onClose, categories, onSave }) => {
+  const [formData, setFormData] = useState(pet);
+  const [errors, setErrors] = useState({});
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setLocalFilters((prev) => ({ ...prev, [name]: value }));
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.name.trim())
+      newErrors.name = "Tên thú cưng không được để trống";
+    if (formData.price < 0) newErrors.price = "Giá không được âm";
+    if (formData.stock_quantity < 0)
+      newErrors.stock_quantity = "Tồn kho không được âm";
+    // ... Thêm validate khác nếu cần
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const handleApply = () => {
-    onApply(localFilters);
-    onClose();
-  };
-
-  const handleClear = () => {
-    const clearedFilters = { category_id: "", status: "", price: "" };
-    setLocalFilters(clearedFilters);
-    onApply(clearedFilters);
-    onClose();
+  const handleSave = async () => {
+    if (!validate()) return;
+    const success = await onSave(formData);
+    if (success) onClose();
   };
 
   return (
     <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
       exit="hidden"
     >
       <motion.div
-        className="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full"
+        className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col"
+        variants={modalVariants}
+      >
+        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
+          <h2 className="text-xl font-extrabold text-gray-800">
+            Cập Nhật: <span className="text-blue-600">{formData.name}</span>
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+          >
+            <HiX size={28} className="text-gray-500" />
+          </button>
+        </div>
+        <div className="p-8 flex-1 overflow-y-auto bg-gray-50/30">
+          <PetForm
+            initialData={formData}
+            onDataChange={setFormData}
+            categories={categories}
+            errors={errors}
+          />
+        </div>
+        <div className="flex justify-end gap-4 p-6 border-t border-gray-100 bg-white z-10">
+          <button
+            onClick={onClose}
+            className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all"
+          >
+            Hủy bỏ
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all transform active:scale-95"
+          >
+            Lưu Thay Đổi
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// --- GIỮ NGUYÊN CÁC COMPONENT CÒN LẠI NHƯ FILTER, DELETE MODAL VÀ MAIN ---
+// (Copy phần FilterModal, DeleteConfirmationModal, PetsManagement từ code cũ...)
+// Code dưới đây là phần còn lại để hoàn thiện file
+
+const FilterModal = ({ onClose, filters, onApply, categories }) => {
+  const [localFilters, setLocalFilters] = useState(filters);
+  const handleChange = (e) =>
+    setLocalFilters({ ...localFilters, [e.target.name]: e.target.value });
+
+  return (
+    <motion.div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      variants={backdropVariants}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
+    >
+      <motion.div
+        className="bg-white p-5 rounded-lg shadow-xl max-w-md w-full"
         variants={modalVariants}
       >
         <div className="flex justify-between items-center border-b pb-3 mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Bộ lọc thú cưng</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-800"
-          >
+          <h2 className="text-lg font-bold">Bộ lọc nâng cao</h2>
+          <button onClick={onClose}>
             <HiX size={24} />
           </button>
         </div>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Phân loại
-            </label>
-            <select
-              name="category_id"
-              value={localFilters.category_id}
-              onChange={handleChange}
-              className="mt-1 p-2 w-full border rounded-md"
-            >
-              <option value="">Tất cả phân loại</option>
-              {categories.map((c) => (
-                <option key={c.category_id} value={c.category_id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Trạng thái
-            </label>
-            <select
-              name="status"
-              value={localFilters.status}
-              onChange={handleChange}
-              className="mt-1 p-2 w-full border rounded-md"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="AVAILABLE">Sẵn sàng</option>
-              <option value="SOLD">Đã bán</option>
-              <option value="DRAFT">Nháp</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Khoảng giá
-            </label>
+            <label className="block text-sm font-medium mb-1">Khoảng giá</label>
             <select
               name="price"
               value={localFilters.price}
               onChange={handleChange}
-              className="mt-1 p-2 w-full border rounded-md"
+              className="w-full p-2 border rounded-md"
             >
-              <option value="">Tất cả giá</option>
-              <option value="under-5m">Dưới 5,000,000đ</option>
-              <option value="5m-10m">5,000,000đ - 10,000,000đ</option>
-              <option value="over-10m">Trên 10,000,000đ</option>
+              <option value="">Tất cả mức giá</option>
+              <option value="under-5m">Dưới 5 triệu</option>
+              <option value="5m-10m">5 - 10 triệu</option>
+              <option value="over-10m">Trên 10 triệu</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Trạng thái</label>
+            <select
+              name="status"
+              value={localFilters.status}
+              onChange={handleChange}
+              className="w-full p-2 border rounded-md"
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="AVAILABLE">Sẵn sàng bán</option>
+              <option value="SOLD">Đã bán</option>
+              <option value="DRAFT">Nháp</option>
             </select>
           </div>
         </div>
-        <div className="flex justify-between mt-6 pt-4 border-t">
+        <div className="flex justify-end mt-6 pt-4 border-t gap-3">
           <button
-            onClick={handleClear}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            onClick={() => {
+              onApply({ ...filters, status: "", price: "" });
+              onClose();
+            }}
+            className="px-4 py-2 bg-gray-100 rounded text-sm"
           >
-            Xóa bộ lọc
+            Mặc định
           </button>
           <button
-            onClick={handleApply}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            onClick={() => {
+              onApply(localFilters);
+              onClose();
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded text-sm"
           >
             Áp dụng
           </button>
@@ -501,58 +784,46 @@ const FilterModal = ({ onClose, filters, onApply }) => {
   );
 };
 
-// ===================================================================
-// Component Modal Email (EmailModal) - NÂNG CẤP
-// ===================================================================
-const EmailModal = ({ onClose, petsToSend, allUsers }) => {
-  const [emailContent, setEmailContent] = useState("");
-
-  const petNames = petsToSend.map((p) => p.name).join(", ");
-  const userCount = allUsers.length;
-
-  const handleConfirmEmail = () => {
-    if (!emailContent.trim()) return alert("Nhập nội dung email!");
-    alert(`Đã gửi email về "${petNames}" tới ${userCount} khách hàng!`);
-    onClose();
-    setEmailContent("");
-  };
-
+const DeleteConfirmationModal = ({ petName, onClose, onConfirm }) => {
   return (
     <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4"
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
       exit="hidden"
     >
       <motion.div
-        className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full"
+        className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full border-l-4 border-red-500"
         variants={modalVariants}
       >
-        <h3 className="text-lg font-bold mb-2">Gửi email quảng bá</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Nội dung email sẽ được gửi tới <strong>{userCount} khách hàng</strong>{" "}
-          về {petsToSend.length} thú cưng.
-        </p>
-        <textarea
-          value={emailContent}
-          onChange={(e) => setEmailContent(e.target.value)}
-          className="w-full p-3 border rounded mb-4"
-          rows={5}
-          placeholder={`Nội dung quảng bá cho: ${petNames}...`}
-        ></textarea>
-        <div className="flex gap-2">
+        <div className="flex items-start gap-4">
+          <div className="bg-red-100 p-3 rounded-full text-red-600">
+            <HiOutlineExclamation size={24} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              Xác nhận xóa
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Bạn có chắc chắn muốn xóa vĩnh viễn thú cưng{" "}
+              <strong>"{petName}"</strong> không? <br />
+              Hành động này không thể hoàn tác.
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded"
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm"
           >
-            Hủy
+            Hủy bỏ
           </button>
           <button
-            onClick={handleConfirmEmail}
-            className="flex-1 px-4 py-2 bg-green-600 text-white rounded"
+            onClick={onConfirm}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm shadow-md"
           >
-            Gửi
+            Đồng ý xóa
           </button>
         </div>
       </motion.div>
@@ -560,11 +831,17 @@ const EmailModal = ({ onClose, petsToSend, allUsers }) => {
   );
 };
 
-// ===================================================================
-// Component Chính: Quản Lý Thú Cưng (PetsManagement)
-// ===================================================================
 export default function PetsManagement() {
-  const [selectedPetIds, setSelectedPetIds] = useState([]); // Đổi tên state
+  const {
+    pets,
+    categories,
+    loading,
+    totalPages,
+    totalElements,
+    fetchPets,
+    savePet,
+    deletePet,
+  } = usePetManagement();
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
@@ -576,429 +853,466 @@ export default function PetsManagement() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    petId: null,
+    petName: "",
+  });
   const [currentPet, setCurrentPet] = useState(null);
 
-  const perPage = 10;
+  useEffect(() => {
+    const timer = setTimeout(() => fetchPets(page, searchQuery, filters), 300);
+    return () => clearTimeout(timer);
+  }, [page, searchQuery, filters, fetchPets]);
 
-  // Lọc dữ liệu
-  const filteredPets = allPets.filter((p) => {
-    const priceVal = p.discount_price || p.price;
-    const priceFilter =
-      !filters.price ||
-      (filters.price === "under-5m" && priceVal < 5000000) ||
-      (filters.price === "5m-10m" &&
-        priceVal >= 5000000 &&
-        priceVal <= 10000000) ||
-      (filters.price === "over-10m" && priceVal > 10000000);
-    const searchFilter = p.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const categoryFilter =
-      !filters.category_id || p.category_id === filters.category_id;
-    const statusFilter = !filters.status || p.status === filters.status;
-    return searchFilter && categoryFilter && statusFilter && priceFilter;
-  });
-
-  const totalPages = Math.ceil(filteredPets.length / perPage);
-  const paginatedData = filteredPets.slice(
-    (page - 1) * perPage,
-    page * perPage
-  );
-
-  // Stats
-  const stats = [
-    {
-      title: "Tổng kho",
-      value: allPets.reduce((sum, p) => sum + p.stock_quantity, 0),
-      icon: HiOutlineCube,
-      color: "blue",
-    },
-    {
-      title: "Sẵn sàng bán",
-      value: allPets.filter((p) => p.status === "AVAILABLE").length,
-      icon: HiOutlineCheckCircle,
-      color: "green",
-    },
-    {
-      title: "Đã bán",
-      value: allPets.filter((p) => p.status === "SOLD").length,
-      icon: HiOutlineXCircle,
-      color: "red",
-    },
-    {
-      title: "Đang nháp",
-      value: allPets.filter((p) => p.status === "DRAFT").length,
-      icon: HiOutlineClock,
-      color: "yellow",
-    },
-  ];
-
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedPetIds(paginatedData.map((p) => p.pet_id));
-    } else {
-      setSelectedPetIds([]);
-    }
-  };
-
-  const toggleExpand = (id) => {
+  const toggleExpand = (id) =>
     setExpandedItems((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
   const handleOpenEditModal = (pet) => {
     setCurrentPet(pet);
     setIsEditModalOpen(true);
   };
-
-  const handleSendEmail = () => {
-    if (selectedPetIds.length === 0)
-      return alert("Bạn phải chọn ít nhất 1 thú cưng để gửi email quảng bá!");
-    setIsEmailModalOpen(true);
+  const handleOpenDeleteModal = (id, name) => {
+    setDeleteModal({ isOpen: true, petId: id, petName: name });
+  };
+  const handleConfirmDelete = async () => {
+    if (deleteModal.petId) {
+      const success = await deletePet(deleteModal.petId);
+      if (success) fetchPets(page, searchQuery, filters);
+      setDeleteModal({ isOpen: false, petId: null, petName: "" });
+    }
   };
 
-  const handleCloseEmail = () => {
-    setIsEmailModalOpen(false);
-    setSelectedPetIds([]); // Xóa chọn sau khi gửi
-  };
-
-  // Hàm helper
-  const StatusPill = ({ status }) => {
-    const styles = {
-      AVAILABLE: "bg-green-100 text-green-800",
-      SOLD: "bg-red-100 text-red-800",
-      DRAFT: "bg-yellow-100 text-yellow-800",
-    };
-    const text = { AVAILABLE: "Sẵn sàng", SOLD: "Đã bán", DRAFT: "Nháp" };
+  const renderRow = (item) => {
+    const isExpanded = expandedItems[item.pet_id];
     return (
-      <span
-        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-          styles[status] || "bg-gray-100 text-gray-800"
-        }`}
-      >
-        {text[status] || status}
-      </span>
+      <React.Fragment key={item.pet_id}>
+        <tr
+          className={`transition-colors border-b ${
+            isExpanded ? "bg-blue-50/50 border-blue-200" : "hover:bg-gray-50"
+          }`}
+        >
+          <td className="px-6 py-4 text-sm font-mono text-gray-500">
+            {item.pet_id}
+          </td>
+          <td className="px-6 py-4">
+            <div className="flex items-center gap-3">
+              <img
+                src={getPetThumbnail(item.images)}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="w-12 h-12 object-cover rounded-md border bg-white shadow-sm"
+                onError={(e) => (e.target.src = "https://placehold.co/50")}
+              />
+              <div>
+                <p
+                  className="text-sm font-bold text-gray-800 truncate max-w-[150px]"
+                  title={item.name}
+                >
+                  {item.name}
+                </p>
+                <span className="text-[10px] uppercase font-semibold bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                  {item.category_name}
+                </span>
+              </div>
+            </div>
+          </td>
+          <td className="px-6 py-4">
+            <span
+              className={`font-semibold ${
+                item.stock_quantity > 0 ? "text-gray-800" : "text-red-500"
+              }`}
+            >
+              {item.stock_quantity}
+            </span>
+          </td>
+          <td className="px-6 py-4">
+            <p className="text-sm font-bold text-blue-600">
+              {formatCurrency(item.price)}
+            </p>
+            {item.discount_price > 0 && (
+              <p className="text-xs text-gray-400 line-through">
+                {formatCurrency(item.price * 1.2)}
+              </p>
+            )}
+          </td>
+          <td className="px-6 py-4">
+            <span
+              className={`px-3 py-1 text-xs font-bold rounded-full ${
+                item.status === "AVAILABLE"
+                  ? "bg-green-100 text-green-700"
+                  : item.status === "SOLD"
+                  ? "bg-red-100 text-red-700"
+                  : "bg-yellow-100 text-yellow-700"
+              }`}
+            >
+              {item.status}
+            </span>
+          </td>
+          <td className="px-6 py-4 text-right">
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => toggleExpand(item.pet_id)}
+                className={`p-2 rounded border transition-all shadow-sm ${
+                  isExpanded
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+                }`}
+                title="Chi tiết"
+              >
+                {isExpanded ? <HiChevronUp size={16} /> : <HiEye size={16} />}
+              </button>
+              <button
+                onClick={() => handleOpenEditModal(item)}
+                className="p-2 bg-white border border-gray-200 text-blue-600 rounded hover:bg-blue-50 hover:border-blue-300 transition-all shadow-sm"
+                title="Sửa"
+              >
+                <HiPencil size={16} />
+              </button>
+              <button
+                onClick={() => handleOpenDeleteModal(item.pet_id, item.name)}
+                className="p-2 bg-white border border-gray-200 text-red-600 rounded hover:bg-red-50 hover:border-red-300 transition-all shadow-sm"
+                title="Xóa"
+              >
+                <HiTrash size={16} />
+              </button>
+            </div>
+          </td>
+        </tr>
+        {isExpanded && (
+          <tr className="bg-blue-50/50 border-b-2 border-blue-100">
+            <td colSpan="6" className="p-6 relative">
+              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500"></div>
+              <div className="flex flex-col gap-6">
+                <div className="flex items-center gap-2 text-blue-800 border-b border-blue-200 pb-2">
+                  <HiInformationCircle className="text-xl" />{" "}
+                  <h3 className="text-lg font-bold">
+                    Chi tiết thông tin đầy đủ
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                  <div className="md:col-span-4">
+                    <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                      <HiPhotograph /> Album ảnh ({item.images?.length})
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      {item.images?.length > 0 ? (
+                        item.images.map((img, idx) => (
+                          <div
+                            key={idx}
+                            className="relative group aspect-square overflow-hidden rounded-lg border border-gray-300 shadow-sm bg-white"
+                          >
+                            <img
+                              src={transformGoogleDriveUrl(img.image_url)}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                              referrerPolicy="no-referrer"
+                              onError={(e) =>
+                                (e.target.src = "https://placehold.co/150")
+                              }
+                            />
+                            {img.is_thumbnail && (
+                              <span className="absolute top-1 right-1 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-md">
+                                MAIN
+                              </span>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-400 italic border p-4 rounded bg-white text-center">
+                          Chưa có ảnh nào.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="md:col-span-8 space-y-6">
+                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                      <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">
+                        Đặc điểm vật lý
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-8 text-sm">
+                        <div>
+                          <span className="text-gray-500 block text-xs mb-0.5">
+                            Màu sắc
+                          </span>{" "}
+                          <span className="font-medium text-gray-800 flex items-center gap-1">
+                            <FaPalette className="text-gray-400" /> {item.color}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 block text-xs mb-0.5">
+                            Giới tính
+                          </span>{" "}
+                          <span className="font-medium text-gray-800 flex items-center gap-1">
+                            <FaPaw className="text-gray-400" />{" "}
+                            {item.gender === "MALE"
+                              ? "Đực"
+                              : item.gender === "FEMALE"
+                              ? "Cái"
+                              : "Chưa rõ"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 block text-xs mb-0.5">
+                            Tuổi
+                          </span>{" "}
+                          <span className="font-medium text-gray-800">
+                            {item.age} tháng
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 block text-xs mb-0.5">
+                            Cân nặng
+                          </span>{" "}
+                          <span className="font-medium text-gray-800 flex items-center gap-1">
+                            <FaWeight className="text-gray-400" /> {item.weight}{" "}
+                            kg
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 block text-xs mb-0.5">
+                            Chiều cao
+                          </span>{" "}
+                          <span className="font-medium text-gray-800 flex items-center gap-1">
+                            <FaRulerVertical className="text-gray-400" />{" "}
+                            {item.height} cm
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 block text-xs mb-0.5">
+                            Loại lông
+                          </span>{" "}
+                          <span className="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded border">
+                            {item.fur_type}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wide mb-3 flex items-center gap-2">
+                          <FaStethoscope /> Sức khỏe & Tiêm chủng
+                        </h4>
+                        <div className="space-y-3 text-sm">
+                          <div className="flex justify-between border-b border-blue-200 pb-2">
+                            <span className="text-gray-600">Tình trạng:</span>
+                            <span className="font-bold text-blue-900">
+                              {item.health_status || "---"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between pt-1">
+                            <span className="text-gray-600 flex items-center gap-1">
+                              <FaSyringe /> Vaccine:
+                            </span>
+                            <span className="font-medium text-gray-800 text-right max-w-[60%]">
+                              {item.vaccination_history || "Chưa có lịch sử"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col">
+                        <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">
+                          Mô tả chi tiết
+                        </h4>
+                        <p className="text-sm text-gray-700 leading-relaxed italic flex-1">
+                          "{item.description || "Không có mô tả chi tiết."}"
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        )}
+      </React.Fragment>
     );
   };
 
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(amount);
-
-  // Lấy danh sách pet đầy đủ cho modal email
-  const selectedPetsData = allPets.filter((p) =>
-    selectedPetIds.includes(p.pet_id)
-  );
-
   return (
-    <div className="min-h-screen bg-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-100 p-6">
+      <ToastContainer position="top-right" autoClose={2000} />
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">
+        <h1 className="text-2xl font-extrabold text-gray-800 mb-6">
           Quản Lý Thú Cưng
         </h1>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {stats.map((s, i) => (
-            <div
-              key={i}
-              className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex items-center gap-4"
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+            <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+              <HiOutlineCube size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                Tổng sản phẩm
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {totalElements}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex gap-2 w-full md:w-auto">
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-md transition-all active:scale-95"
             >
-              <div
-                className={`p-3 rounded-full bg-${s.color}-100 text-${s.color}-600`}
-              >
-                <s.icon size={24} />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">{s.title}</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {s.value.toLocaleString()}
+              <HiPlus className="text-lg" /> Thêm Mới
+            </button>
+          </div>
+          <div className="flex flex-1 gap-3 w-full md:w-auto justify-end">
+            <div className="relative w-full md:w-72">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                <HiSearch size={20} />
+              </span>
+              <input
+                type="text"
+                placeholder="Tìm tên thú cưng..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              />
+            </div>
+            <select
+              className="w-full md:w-48 border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+              value={filters.category_id}
+              onChange={(e) => {
+                setFilters({ ...filters, category_id: e.target.value });
+                setPage(1);
+              }}
+            >
+              <option value="">-- Tất cả loại --</option>
+              {categories.map((c) => (
+                <option key={c.category_id} value={c.category_id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setIsFilterModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white text-gray-700 border border-gray-300 font-medium rounded-lg hover:bg-gray-50 transition-all active:scale-95"
+            >
+              <HiFilter size={20} />{" "}
+              <span className="hidden sm:inline">Bộ lọc</span>
+            </button>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden relative min-h-[400px]">
+          {loading && (
+            <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center backdrop-blur-sm">
+              <div className="flex flex-col items-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
+                <p className="mt-2 text-sm font-medium text-blue-600">
+                  Đang tải...
                 </p>
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* ====== LAYOUT ĐÃ SỬA ====== */}
-        {/* Hàng 1: Tìm kiếm & Lọc (Căn phải) - ĐÃ HOÁN ĐỔI */}
-        <div className="flex justify-end items-center mb-4 gap-2">
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <HiSearch className="h-5 w-5 text-gray-400" />
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm theo tên thú cưng..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full md:w-64 pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <button
-            onClick={() => setIsFilterModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border rounded-lg hover:bg-gray-50 shadow-sm"
-          >
-            <HiFilter />
-            <span className="hidden md:inline">Bộ lọc</span>
-          </button>
-        </div>
-
-        {/* Hàng 2: Nút chức năng (Căn trái) - ĐÃ HOÁN ĐỔI */}
-        <div className="flex justify-start items-center mb-4 gap-2">
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm"
-          >
-            <HiPlus /> Thêm Mới
-          </button>
-          <button
-            onClick={handleSendEmail}
-            disabled={selectedPetIds.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 shadow-sm"
-          >
-            <HiMail /> Gửi Email ({selectedPetIds.length})
-          </button>
-        </div>
-        {/* ====== KẾT THÚC LAYOUT ĐÃ SỬA ====== */}
-
-        {/* Table */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          )}
           <table className="w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50/50">
               <tr>
-                <th className="px-6 py-3 text-left">
-                  <input type="checkbox" onChange={handleSelectAll} />
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-24">
+                  ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thú cưng
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Thông tin
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                   Tồn kho
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Giá
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Giá bán
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                   Trạng thái
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thao Tác
+                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Hành động
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {paginatedData.map((item) => (
-                <React.Fragment key={item.pet_id}>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedPetIds.includes(item.pet_id)}
-                        onChange={() =>
-                          setSelectedPetIds((prev) =>
-                            prev.includes(item.pet_id)
-                              ? prev.filter((id) => id !== item.pet_id)
-                              : [...prev, item.pet_id]
-                          )
-                        }
-                      />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={
-                            item.images.find((img) => img.is_thumbnail)
-                              ?.image_url
-                          }
-                          alt={item.name}
-                          className="w-12 h-12 object-cover rounded-md border"
-                        />
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800">
-                            {item.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {item.category_name}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {item.stock_quantity}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      {item.discount_price ? (
-                        <div>
-                          <p className="font-semibold text-red-600">
-                            {formatCurrency(item.discount_price)}
-                          </p>
-                          <p className="line-through text-gray-500 text-xs">
-                            {formatCurrency(item.price)}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="font-semibold text-gray-700">
-                          {formatCurrency(item.price)}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusPill status={item.status} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        {/* ====== NÚT ĐÃ SỬA HOVER ====== */}
-                        <button
-                          onClick={() => handleOpenEditModal(item)}
-                          className="p-1.5 rounded-md text-blue-600 hover:bg-blue-100 hover:text-blue-800"
-                          title="Sửa"
-                        >
-                          <HiPencil size={20} />
-                        </button>
-                        <button
-                          onClick={() => toggleExpand(item.pet_id)}
-                          className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                          title="Xem chi tiết"
-                        >
-                          {expandedItems[item.pet_id] ? (
-                            <HiChevronUp size={20} />
-                          ) : (
-                            <HiChevronDown size={20} />
-                          )}
-                        </button>
-                        {/* ====== KẾT THÚC SỬA HOVER ====== */}
-                      </div>
-                    </td>
-                  </tr>
-
-                  {/* Hàng mở rộng chi tiết - (Style viền xanh) */}
-                  {expandedItems[item.pet_id] && (
-                    <tr>
-                      <td
-                        colSpan="6"
-                        className="p-4 bg-blue-50 border-l-4 border-blue-500"
-                      >
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="md:col-span-1">
-                            <p className="text-sm font-semibold mb-2">
-                              Hình ảnh
-                            </p>
-                            <div className="grid grid-cols-3 gap-2">
-                              {item.images.map((img) => (
-                                <img
-                                  key={img.image_id}
-                                  src={img.image_url}
-                                  alt="Pet"
-                                  className="w-full h-24 object-cover rounded-md border shadow-sm"
-                                />
-                              ))}
-                            </div>
-                          </div>
-                          <div className="md:col-span-2">
-                            <p className="text-sm font-semibold mb-2">
-                              Chi tiết thú cưng
-                            </p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-                              <p>
-                                <strong className="text-gray-600">
-                                  Màu sắc:
-                                </strong>{" "}
-                                {item.color}
-                              </p>
-                              <p>
-                                <strong className="text-gray-600">
-                                  Giới tính:
-                                </strong>{" "}
-                                {item.gender}
-                              </p>
-                              <p>
-                                <strong className="text-gray-600">Tuổi:</strong>{" "}
-                                {item.age}
-                              </p>
-                              <p>
-                                <strong className="text-gray-600">
-                                  Cân nặng:
-                                </strong>{" "}
-                                {item.weight} kg
-                              </p>
-                              <p>
-                                <strong className="text-gray-600">
-                                  Chiều cao:
-                                </strong>{" "}
-                                {item.height} cm
-                              </p>
-                              <p>
-                                <strong className="text-gray-600">Lông:</strong>{" "}
-                                {item.fur_type}
-                              </p>
-                            </div>
-                            <p className="mt-2 text-sm">
-                              <strong className="text-gray-600">Mô tả:</strong>{" "}
-                              {item.description}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
+              {pets.length > 0 ? (
+                pets.map((item) => renderRow(item))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="text-center py-16">
+                    <div className="flex flex-col items-center text-gray-400">
+                      <HiOutlineCube size={40} strokeWidth={1} />
+                      <p className="mt-2 text-sm">
+                        Không tìm thấy thú cưng nào.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-
-        {/* Pagination */}
-        <div className="flex justify-center items-center gap-4 mt-4">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="p-2 rounded border disabled:opacity-50"
-          >
-            <FaChevronLeft />
-          </button>
-          <span>
-            Trang {page} / {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="p-2 rounded border disabled:opacity-50"
-          >
-            <FaChevronRight />
-          </button>
-        </div>
-
-        {/* Khu vực render Modal (với AnimatePresence) */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-4 mt-8">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-3 border rounded-lg hover:bg-white disabled:opacity-50 bg-white shadow-sm transition-all"
+            >
+              <FaChevronLeft />
+            </button>
+            <span className="text-sm font-bold text-gray-700 bg-white px-4 py-2 rounded-lg border shadow-sm">
+              Trang {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-3 border rounded-lg hover:bg-white disabled:opacity-50 bg-white shadow-sm transition-all"
+            >
+              <FaChevronRight />
+            </button>
+          </div>
+        )}
         <AnimatePresence>
           {isAddModalOpen && (
-            <AddPetModal onClose={() => setIsAddModalOpen(false)} />
+            <AddPetModal
+              onClose={() => setIsAddModalOpen(false)}
+              categories={categories}
+              onSave={async (data) => {
+                const success = await savePet(data);
+                if (success) fetchPets(1, searchQuery, filters);
+                return success;
+              }}
+            />
           )}
-
           {isEditModalOpen && currentPet && (
             <EditPetModal
               pet={currentPet}
               onClose={() => setIsEditModalOpen(false)}
+              categories={categories}
+              onSave={async (data) => {
+                const success = await savePet(data);
+                if (success) fetchPets(page, searchQuery, filters);
+                return success;
+              }}
             />
           )}
-
           {isFilterModalOpen && (
             <FilterModal
               onClose={() => setIsFilterModalOpen(false)}
               filters={filters}
-              onApply={(newFilters) => {
-                setFilters(newFilters);
+              onApply={(f) => {
+                setFilters(f);
                 setPage(1);
               }}
+              categories={categories}
             />
           )}
-
-          {isEmailModalOpen && (
-            <EmailModal
-              onClose={handleCloseEmail}
-              petsToSend={selectedPetsData} // Truyền dữ liệu pet đã chọn
-              allUsers={fakeUsers} // Truyền danh sách user
+          {deleteModal.isOpen && (
+            <DeleteConfirmationModal
+              petName={deleteModal.petName}
+              onClose={() =>
+                setDeleteModal({ isOpen: false, petId: null, petName: "" })
+              }
+              onConfirm={handleConfirmDelete}
             />
           )}
         </AnimatePresence>

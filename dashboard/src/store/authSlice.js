@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { login } from "../api/authService";
-
+import { login } from "../api/axiosClient";
 
 export const loginUser = createAsyncThunk(
   "auth/login",
@@ -9,12 +8,16 @@ export const loginUser = createAsyncThunk(
       const { user, token } = await login(identifier, password);
 
       if (!user?.role || user.role.toUpperCase() !== "ADMIN") {
-        return rejectWithValue("Bạn không có quyền truy cập trang quản trị. Chỉ dành cho Admin.");
+        return rejectWithValue(
+          "Bạn không có quyền truy cập trang quản trị. Chỉ dành cho Admin."
+        );
       }
 
       return { user, token };
     } catch (err) {
-      return rejectWithValue(err.message || "Tên đăng nhập hoặc mật khẩu không đúng");
+      return rejectWithValue(
+        err.message || "Tên đăng nhập hoặc mật khẩu không đúng"
+      );
     }
   }
 );
@@ -46,6 +49,12 @@ const authSlice = createSlice({
       localStorage.removeItem("user");
       localStorage.removeItem("token");
     },
+    setLoginSuccess: (state, action) => {
+      state.user = action.payload.user;
+      state.token = action.payload.token;
+      localStorage.setItem("user", JSON.stringify(action.payload.user));
+      localStorage.setItem("token", action.payload.token);
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -55,10 +64,11 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-        localStorage.setItem("user", JSON.stringify(action.payload.user));
-        localStorage.setItem("token", action.payload.token);
+        // state.user = action.payload.user;
+        // state.token = action.payload.token;
+        // localStorage.setItem("user", JSON.stringify(action.payload.user));
+        // localStorage.setItem("token", action.payload.token);
+        state.tempLoginData = action.payload;
       })
       .addCase(loginUser.rejected, (state) => {
         state.loading = false;
@@ -67,5 +77,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, setLoginSuccess } = authSlice.actions;
 export default authSlice.reducer;

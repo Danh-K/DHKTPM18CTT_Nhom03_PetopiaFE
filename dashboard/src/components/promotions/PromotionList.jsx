@@ -18,25 +18,17 @@ import PromotionFilters from "./promotion/PromotionFilters";
 import PromotionCard from "./promotion/PromotionCard";
 import PromotionPagination from "./promotion/PromotionPagination";
 import ImageLightbox from "./ImageLightbox";
-
-const categories = [
-  { id: null, name: "Tất cả danh mục" },
-  { id: "C001", name: "Chó" },
-  { id: "C002", name: "Mèo" },
-  { id: "C003", name: "Poodle" },
-  { id: "C004", name: "Golden Retriever" },
-  { id: "C005", name: "Husky" },
-  { id: "C006", name: "Mèo Ba Tư" },
-  { id: "C007", name: "Mèo Anh Lông Ngắn" },
-  { id: "C008", name: "Mèo Xiêm" },
-  { id: "C009", name: "Chihuahua" },
-  { id: "C010", name: "Mèo Ragdoll" },
-];
+import { fetchCategories } from "../../store/categorySlice";
 
 const ITEMS_PER_PAGE = 9;
 
 export default function PromotionList({ darkMode }) {
   const dispatch = useDispatch();
+
+    useEffect(() => {
+      dispatch(fetchCategories());
+    }, [dispatch]);
+
   const {
     list: serverPromotions = [],
     totalElements = 0,
@@ -46,6 +38,7 @@ export default function PromotionList({ darkMode }) {
     isSearching = false,
     selected: selectedPromotion,
   } = useSelector((state) => state.promotion);
+  const { list: categories, loading: catLoading = false } = useSelector((state) => state.category);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -59,6 +52,11 @@ export default function PromotionList({ darkMode }) {
 
   const [inactiveId, setInactiveId] = useState(null);
   const [inactiveCode, setInactiveCode] = useState("");
+
+  const categoryFilterOptions = [
+    { categoryId: "all", name: "Tất cả danh mục" },
+    ...(categories || []),
+  ];
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -98,8 +96,7 @@ export default function PromotionList({ darkMode }) {
     discountType: p.promotionType?.toLowerCase() || "discount",
     discountValue: p.discountValue || null,
     categoryId: p.categoryId || null,
-    categoryName:
-      categories.find((c) => c.id === p.categoryId)?.name || "Tất cả danh mục",
+    categoryName: categories.find((c) => c.categoryId === p.categoryId)?.name || "Tất cả danh mục",
     startDate: p.startDate,
     endDate: p.endDate,
     status: p.status === "INACTIVE" ? "inactive" : "active",
@@ -205,8 +202,8 @@ export default function PromotionList({ darkMode }) {
           setStatusFilter={setStatusFilter}
           typeFilter={typeFilter}
           setTypeFilter={setTypeFilter}
-          categories={categories}
-          isSearching={loading}
+          categories={categoryFilterOptions}
+          isSearching={catLoading}
         />
 
         {/* Danh sách khuyến mãi */}

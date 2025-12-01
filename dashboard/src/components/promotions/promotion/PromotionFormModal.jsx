@@ -2,24 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { HiX, HiUpload, HiCalendar } from "react-icons/hi";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { addPromotion, updatePromotion } from "../../../store/promotionSlice";
 import { uploadToCloudinary } from "../../../api/cloudinaryService";
 import toast from "react-hot-toast";
+import { fetchCategories } from "../../../store/categorySlice";
 
-const categories = [
-  { id: null, name: "Tất cả danh mục" },
-  { id: "C001", name: "Chó" },
-  { id: "C002", name: "Mèo" },
-  { id: "C003", name: "Poodle" },
-  { id: "C004", name: "Golden Retriever" },
-  { id: "C005", name: "Husky" },
-  { id: "C006", name: "Mèo Ba Tư" },
-  { id: "C007", name: "Mèo Anh Lông Ngắn" },
-  { id: "C008", name: "Mèo Xiêm" },
-  { id: "C009", name: "Chihuahua" },
-  { id: "C010", name: "Mèo Ragdoll" },
-];
 
 export default function PromotionFormModal({ darkMode, onClose, promotion = null}) {
   const dispatch = useDispatch();
@@ -31,6 +19,8 @@ export default function PromotionFormModal({ darkMode, onClose, promotion = null
 
   const today = new Date().toISOString().split("T")[0];
   const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+  const { list: categories, loading: catLoading } = useSelector((state) => state.category);
 
   const [formData, setFormData] = useState({
     promotionId: promotion?.id || null,
@@ -46,6 +36,15 @@ export default function PromotionFormModal({ darkMode, onClose, promotion = null
     imageUrl: promotion?.imageUrl || null,
     status: promotion?.status || "ACTIVE",
   });
+
+  useEffect(() => {
+    dispatch(fetchCategories());
+  }, [dispatch]);
+
+  const categoryOptions = [
+    { categoryId: null, name: "Tất cả danh mục" },
+    ...categories,
+  ];
 
   useEffect(() => {
     if (promotion?.image) {
@@ -278,8 +277,8 @@ export default function PromotionFormModal({ darkMode, onClose, promotion = null
                     onChange={(e) => setFormData({ ...formData, categoryId: e.target.value || null })}
                     className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-gray-700" : "bg-white"} focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
                   >
-                    {categories.map((c) => (
-                      <option key={c.id || "all"} value={c.id || ""}>
+                    {categoryOptions.map((c, index) => (
+                      <option key={c.categoryId ?? index} value={c.categoryId || ""}>
                         {c.name}
                       </option>
                     ))}

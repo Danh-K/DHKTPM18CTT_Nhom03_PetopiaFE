@@ -4,6 +4,8 @@ import forgotReducer from "./forgotPasswordSlice"
 import promotionReducer from "./promotionSlice"
 import deliveryReducer from "./deliverySlice"
 import voucherReducer from "./voucherSlice";
+import userReducer from "./userSlice"
+import categoryReducer from "./categorySlice";
 
 export const store = configureStore({
   reducer: {
@@ -12,5 +14,7 @@ export const store = configureStore({
     promotion: promotionReducer,
     delivery: deliveryReducer,
     voucher: voucherReducer,
+    user: userReducer,
+    category: categoryReducer,
   },
 })

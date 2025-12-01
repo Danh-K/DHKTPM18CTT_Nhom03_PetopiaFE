@@ -49,7 +49,7 @@ export default function VoucherList({ darkMode }) {
         dispatch(searchVouchers({
           keyword: searchTerm.trim() || null,
           status: statusFilter === "all" ? null : statusFilter,
-          type: typeFilter === "all" ? null : typeFilter,
+          discountType: typeFilter === "all" ? null : typeFilter === "percentage" ? "PERCENTAGE" : "FIXED_AMOUNT",
           page: 0,
           size: ITEMS_PER_PAGE,
         }));
@@ -84,7 +84,7 @@ export default function VoucherList({ darkMode }) {
         ...payload,
         keyword: searchTerm.trim() || null,
         status: statusFilter === "all" ? null : statusFilter,
-        type: typeFilter === "all" ? null : typeFilter,
+        discountType: typeFilter === "all" ? null : typeFilter === "percentage" ? "PERCENTAGE" : "FIXED_AMOUNT"
       }));
     } else {
       dispatch(fetchVouchers(payload));

@@ -124,7 +124,7 @@ function Sidebar({ darkMode, onItemClick }) {
 
             {openSections.ecommerce && (
               <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 dark:border-gray-700 pl-4">
-                <button
+                {/* <button
                   onClick={() => onItemClick && onItemClick("products")}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
                     darkMode
@@ -133,7 +133,7 @@ function Sidebar({ darkMode, onItemClick }) {
                   }`}
                 >
                   Products
-                </button>
+                </button> */}
                 <button
                   onClick={() => onItemClick && onItemClick("pets")}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
@@ -172,38 +172,9 @@ function Sidebar({ darkMode, onItemClick }) {
                       : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
                   }`}
                 >
-                  Services
+                  Dịch vụ
                 </button>
-                <button
-                  onClick={() => onItemClick && onItemClick("invoices")}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
-                    darkMode
-                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
-                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
-                  }`}
-                >
-                  Invoices
-                </button>
-                <button
-                  onClick={() => onItemClick && onItemClick("create-invoice")}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
-                    darkMode
-                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
-                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
-                  }`}
-                >
-                  Create Invoice
-                </button>
-                <button
-                  onClick={() => onItemClick && onItemClick("billings")}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
-                    darkMode
-                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
-                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
-                  }`}
-                >
-                  Billings
-                </button>
+                {/*  */}
                 <button
                   onClick={() => onItemClick && onItemClick("transactions")}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
@@ -241,65 +212,21 @@ function Sidebar({ darkMode, onItemClick }) {
             }`}
           >
             <HiTruck className="h-5 w-5" />
-            <span className="font-medium">Quản lý lịch sử giao hàng</span>
+            <span className="font-medium">Lịch sử giao hàng</span>
           </button>
 
           {/* Users Section */}
-          <div>
-            <button
-              onClick={() => toggleSection("users")}
-              className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-all ${
-                darkMode
-                  ? "hover:bg-gray-800 text-gray-300 hover:text-white"
-                  : "hover:bg-[#f5d7b7] text-gray-700 hover:text-[#7b4f35]"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <HiUser className="h-5 w-5" />
-                <span className="font-medium">Users</span>
-              </div>
-              {openSections.users ? (
-                <HiChevronDown className="h-4 w-4" />
-              ) : (
-                <HiChevronRight className="h-4 w-4" />
-              )}
-            </button>
-
-            {openSections.users && (
-              <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 dark:border-gray-700 pl-4">
-                <button
-                  onClick={() => onItemClick && onItemClick("users")}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
-                    darkMode
-                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
-                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
-                  }`}
-                >
-                  All Users
-                </button>
-                <button
-                  onClick={() => onItemClick && onItemClick("user-settings")}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
-                    darkMode
-                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
-                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
-                  }`}
-                >
-                  Settings
-                </button>
-                <button
-                  onClick={() => onItemClick && onItemClick("user-profiles")}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
-                    darkMode
-                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
-                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
-                  }`}
-                >
-                  Profiles
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => onItemClick && onItemClick("users")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              darkMode
+                ? "hover:bg-gray-800 text-gray-300 hover:text-white"
+                : "hover:bg-[#f5d7b7] text-gray-700 hover:text-[#7b4f35]"
+            }`}
+          >
+            <HiUser className="h-5 w-5" />
+            <span className="font-medium">Người dùng</span>
+          </button>
 
 
 
