@@ -6,7 +6,6 @@ export const BookingService = {
   
   create: async (data: BookingRequest): Promise<Booking> => {
     const response = await axiosInstance.post("/bookings", data);
-    
     return response.data.data; 
   },
 
