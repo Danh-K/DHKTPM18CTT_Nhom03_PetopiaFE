@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useMemo } from "react";
+import React, { forwardRef, useMemo, useState } from "react";
 import Image from "next/image";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -64,7 +64,7 @@ const BookingSection = forwardRef<HTMLElement>((props, ref) => {
       selectedServices: [{ serviceId: "", quantity: 1, price: 0 }],
     },
   });
-
+  const [totalPrice, setTotalPrice] = useState(0);
   
   const { fields, append, remove } = useFieldArray({
     control,
@@ -73,11 +73,13 @@ const BookingSection = forwardRef<HTMLElement>((props, ref) => {
 
   
   const watchedServices = watch("selectedServices");
-  const totalPrice = useMemo(() => {
-    return watchedServices.reduce((total, item) => {
-      return total + (item.price || 0) * (item.quantity || 1);
+const handleCalculateTotal = () => {
+    const currentServices = watchedServices;
+    const total = currentServices.reduce((acc, item) => {
+        return acc + (item.price || 0) * (item.quantity || 1);
     }, 0);
-  }, [watchedServices]);
+    setTotalPrice(total);
+};
 
   if (isLoading) return <Loading />;
   if (isError) return <div className="text-center py-10 text-red-500">Lỗi: {error.message}</div>;
@@ -239,6 +241,15 @@ const BookingSection = forwardRef<HTMLElement>((props, ref) => {
              
              
              <div className="mt-4 text-right border-t border-gray-200 pt-3">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleCalculateTotal  }
+                  className="mr-10 text-[#8B4513] border-[#8B4513] hover:bg-[#8B4513] hover:text-white"
+                >
+                  Xác nhận dịch vụ
+                </Button>
                 <span className="text-gray-600 mr-2">Tạm tính:</span>
                 <span className="text-xl font-bold text-[#8B4513]">
                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalPrice)}
