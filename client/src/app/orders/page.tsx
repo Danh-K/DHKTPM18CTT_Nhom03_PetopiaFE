@@ -105,7 +105,6 @@ export default function OrdersPage() {
   const [reviewStatusByOrder, setReviewStatusByOrder] = useState<
     Record<string, "reviewed" | "not_reviewed">
   >({});
-  const [isLoadingReviewStatus, setIsLoadingReviewStatus] = useState(false);
 
   const { isAuthenticated, user } = useAuthStore();
   const userId = user?.userId;
@@ -122,13 +121,13 @@ export default function OrdersPage() {
     { revalidateOnFocus: false }
   );
 
-  const orders = data?.content ?? [];
+  const orders = useMemo(() => data?.content ?? [], [data?.content]);
   const totalElements = data?.totalElements ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
 
   const handleRetry = () => mutate();
 
-  // Helper: kiểm tra 1 đơn hàng đã có review nào của user cho các pet trong đơn hay chưa
+  // Helper: kiểm tra 1 đơn hàng đã có review cho TẤT CẢ các pet trong đơn hay chưa
   const hasReviewForOrder = async (
     order: Order,
     userId: string
@@ -142,6 +141,7 @@ export default function OrdersPage() {
 
     const orderTime = new Date(order.createdAt).getTime();
 
+    // Kiểm tra TẤT CẢ các pet phải có review
     for (const petId of petIds) {
       try {
         const resp = await axiosInstance.get<
@@ -155,17 +155,24 @@ export default function OrdersPage() {
             return reviewTime >= orderTime;
           });
 
-          if (found) return true;
+          // Nếu một pet không có review thì return false ngay
+          if (!found) return false;
+        } else {
+          // Không có dữ liệu review cho pet này -> chưa bình luận
+          return false;
         }
       } catch (err) {
         console.error(
           `[Orders] Lỗi khi kiểm tra review cho petId ${petId} trong order ${order.orderId}:`,
           err
         );
+        // Nếu có lỗi khi kiểm tra, coi như chưa bình luận
+        return false;
       }
     }
 
-    return false;
+    // Tất cả các pet đều có review -> đã bình luận
+    return true;
   };
 
   // Load trạng thái review cho từng đơn trên trang hiện tại
@@ -175,7 +182,6 @@ export default function OrdersPage() {
     let cancelled = false;
 
     const loadReviewStatus = async () => {
-      setIsLoadingReviewStatus(true);
       const statusMap: Record<string, "reviewed" | "not_reviewed"> = {};
 
       for (const order of orders) {
@@ -195,7 +201,6 @@ export default function OrdersPage() {
 
       if (!cancelled) {
         setReviewStatusByOrder(statusMap);
-        setIsLoadingReviewStatus(false);
       }
     };
 

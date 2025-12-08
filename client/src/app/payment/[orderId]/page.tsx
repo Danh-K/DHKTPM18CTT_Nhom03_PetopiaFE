@@ -177,7 +177,7 @@ export default function PaymentPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {ToastContainer}
+      <ToastContainer />
       
       {/* Main Content */}
       <div className="max-w-5xl mx-auto p-6">

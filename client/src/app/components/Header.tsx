@@ -116,7 +116,7 @@ export default function Header() {
           >
             <Heart size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
             {totalFavorites > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse border-2 border-[#7B4F35]">
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold animate-bounce border-2 border-[#7B4F35]">
                 {totalFavorites}
               </span>
             )}
