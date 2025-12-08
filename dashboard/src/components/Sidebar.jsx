@@ -52,6 +52,19 @@ function Sidebar({ darkMode, onItemClick }) {
             <span className="font-medium">Dashboard</span>
           </button>
 
+          {/* Performance Statistics - Standalone */}
+          <button
+            onClick={() => onItemClick && onItemClick("performance-statistics")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              darkMode
+                ? "hover:bg-gray-800 text-gray-300 hover:text-white"
+                : "hover:bg-[#f5d7b7] text-gray-700 hover:text-[#7b4f35]"
+            }`}
+          >
+            <HiChartBar className="h-5 w-5" />
+            <span className="font-medium">Performance Statistics</span>
+          </button>
+
           {/* Statistics Section */}
           <div>
             <button
