@@ -7,3 +7,9 @@ export const useShopServices = () => {
     queryFn: ShopServiceAPI.getAll,
   });
 };
+export const useServiceDetail = (id: string) => {
+  return useQuery({
+    queryKey: ["service-detail", id],
+    queryFn: () => ShopServiceAPI.getById(id),
+  });
+}

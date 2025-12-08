@@ -20,9 +20,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import axiosInstance from "@/lib/utils/axios";
 import { Loading } from "@/app/components/loading";
+import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/hook/useToast";
 import type { Order, OrderItem, OrderStatus, PaymentMethod } from "@/types/Order";
 import type { Delivery } from "@/types/Delivery";
+import type { Review, PageResponse } from "@/types/Review";
 
 interface ApiResponse<T> {
   status: number;
@@ -194,15 +196,82 @@ export default function OrderDetailPage() {
     }
   );
 
+  const { user } = useAuthStore();
+  const userId = user?.userId;
   const { success, error: showError, warning, ToastContainer } = useToast();
 
   const orderItems: OrderItem[] = useMemo(() => order?.orderItems ?? [], [order?.orderItems]);
-  
-  // Cho phép đánh giá tất cả sản phẩm trong đơn hàng (không kiểm tra đã đánh giá)
-  // Vì mỗi đơn hàng là một trải nghiệm mua hàng riêng biệt
+  const petIds = useMemo(() => 
+    orderItems.map(item => item.petId).filter(Boolean) as string[],
+    [orderItems]
+  );
+
+  // Fetch reviews của user cho các sản phẩm trong đơn hàng
+  // Chỉ lấy reviews được tạo SAU thời điểm đơn hàng được tạo
+  const fetchReviewsForOrder = async (petIds: string[], orderCreatedAt: string): Promise<Review[]> => {
+    if (!petIds.length || !userId || !orderCreatedAt) return [];
+    
+    try {
+      const allReviews: Review[] = [];
+      const orderTime = new Date(orderCreatedAt).getTime();
+      
+      // Gọi API cho từng petId để lấy reviews
+      for (const petId of petIds) {
+        try {
+          const response = await axiosInstance.get<ApiResponse<PageResponse<Review>>>(
+            `/reviews?petId=${petId}&size=100`
+          );
+          if (response.data.status === 200 && response.data.data?.content) {
+            // Lọc chỉ lấy reviews của user này và được tạo SAU thời điểm đơn hàng
+            const filteredReviews = response.data.data.content.filter(review => {
+              if (review.userId !== userId || review.petId !== petId) return false;
+              const reviewTime = new Date(review.createdAt).getTime();
+              return reviewTime >= orderTime; // Review được tạo sau hoặc cùng lúc với đơn hàng
+            });
+            allReviews.push(...filteredReviews);
+          }
+        } catch (error) {
+          console.error(`[Review] Lỗi khi fetch reviews cho petId ${petId}:`, error);
+        }
+      }
+      return allReviews;
+    } catch (error) {
+      console.error("[Review] Lỗi khi fetch reviews:", error);
+      return [];
+    }
+  };
+
+  const { data: orderReviews, mutate: mutateReviews } = useSWR<Review[]>(
+    order && petIds.length > 0 && userId && order.createdAt 
+      ? ["reviews-for-order", petIds, userId, order.createdAt] 
+      : null,
+    () => fetchReviewsForOrder(petIds, order!.createdAt),
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  // Lọc ra các petId đã được user đánh giá trong đơn hàng này
+  // (reviews được tạo sau thời điểm đơn hàng)
+  const reviewedPetIds = useMemo(() => {
+    if (!orderReviews || !userId || !order?.createdAt) return new Set<string>();
+    const orderTime = new Date(order.createdAt).getTime();
+    
+    return new Set(
+      orderReviews
+        .filter(review => {
+          if (review.userId !== userId || !review.petId) return false;
+          const reviewTime = new Date(review.createdAt).getTime();
+          return reviewTime >= orderTime; // Đảm bảo review được tạo sau đơn hàng
+        })
+        .map(review => review.petId as string)
+    );
+  }, [orderReviews, userId, order?.createdAt]);
+
+  // Lọc các sản phẩm chưa được đánh giá trong đơn hàng này
   const availableItems = useMemo(() => {
-    return orderItems;
-  }, [orderItems]);
+    return orderItems.filter(item => !reviewedPetIds.has(item.petId));
+  }, [orderItems, reviewedPetIds]);
 
   const subtotal = useMemo(() => {
     if (!order?.orderItems) return 0;
@@ -246,7 +315,9 @@ export default function OrderDetailPage() {
   }
 
   const shippingFee = order.shippingFee ?? 0;
-  const discount = order.discountAmount ?? 0;
+  const voucherDiscount = order.voucherDiscountAmount ?? 0;
+  const promotionDiscount = order.promotionDiscountAmount ?? 0;
+  const discount = order.discountAmount ?? voucherDiscount + promotionDiscount;
   const paymentMethodText = order.paymentMethod
     ? paymentMethodLabel[order.paymentMethod]
     : "Chưa cập nhật";
@@ -330,12 +401,15 @@ export default function OrderDetailPage() {
       });
 
       // Gửi request đến backend
+      // Xóa Content-Type để browser tự động set boundary cho FormData
       const response = await axiosInstance.post<ApiResponse<unknown>>(
         "/reviews",
         formData,
         {
-          headers: {
-            "Content-Type": "multipart/form-data",
+          transformRequest: (data, headers) => {
+            // Xóa Content-Type để browser tự động set với boundary
+            delete headers["Content-Type"];
+            return data;
           },
         }
       );
@@ -362,7 +436,8 @@ export default function OrderDetailPage() {
           fileInput.value = "";
         }
 
-        // Reset form sau khi đánh giá thành công
+        // Cập nhật lại danh sách reviews để ẩn sản phẩm đã đánh giá
+        mutateReviews();
 
         // Scroll lên đầu form để user thấy form đã được reset
         const reviewSection = document.querySelector('[data-review-section]');
@@ -576,12 +651,22 @@ export default function OrderDetailPage() {
                 {formatCurrency(shippingFee)}
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="font-semibold">Giảm giá:</span>
-              <span className="text-right font-semibold text-emerald-600">
-                -{formatCurrency(discount)}
-              </span>
-            </div>
+            {promotionDiscount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">Giảm giá khuyến mãi:</span>
+                <span className="text-right font-semibold text-emerald-600">
+                  -{formatCurrency(promotionDiscount)}
+                </span>
+              </div>
+            )}
+            {voucherDiscount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">Giảm giá voucher:</span>
+                <span className="text-right font-semibold text-emerald-600">
+                  -{formatCurrency(voucherDiscount)}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-slate-200 pt-4 text-base font-semibold text-slate-900">
               <span>Tổng cộng:</span>
               <span>{formatCurrency(order.totalAmount)}</span>
@@ -660,18 +745,29 @@ export default function OrderDetailPage() {
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Chọn sản phẩm để đánh giá <span className="text-red-500">*</span>
               </label>
-              <select
-                value={selectedPetId}
-                onChange={(e) => setSelectedPetId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
-              >
-                <option value="">-- Chọn sản phẩm --</option>
-                {availableItems.map((item) => (
-                  <option key={item.petId} value={item.petId}>
-                    {item.petName} (×{item.quantity})
-                  </option>
-                ))}
-              </select>
+              {availableItems.length === 0 ? (
+                <div className="rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  Bạn đã đánh giá tất cả sản phẩm trong đơn hàng này.
+                </div>
+              ) : (
+                <select
+                  value={selectedPetId}
+                  onChange={(e) => setSelectedPetId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                >
+                  <option value="">-- Chọn sản phẩm --</option>
+                  {availableItems.map((item) => (
+                    <option key={item.petId} value={item.petId}>
+                      {item.petName} (×{item.quantity})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {reviewedPetIds.size > 0 && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Đã đánh giá {reviewedPetIds.size}/{orderItems.length} sản phẩm trong đơn hàng này
+                </p>
+              )}
             </div>
 
             {/* Đánh giá sao */}

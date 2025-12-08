@@ -4,13 +4,21 @@ import ServiceSection from "./Section/ServiceSection"
 import BookingSection from "./Section/BookingSection"
 import ProductSection from "./Section/ProductSection"
 import AboutSection from "./Section/AboutSection"
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 export default function MainPage() {
     const bookingRef = useRef<HTMLDivElement>(null);
-
+    const searchParams = useSearchParams();
   const scrollToBooking = () => {
     bookingRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
+  useEffect(() => {
+    if (searchParams.get("action") === "booking") {
+      setTimeout(() => {
+        scrollToBooking();
+      }, 100);
+    }
+  }, [searchParams]);
   return (
     <main
       className="min-h-screen w-full relative overflow-hidden"

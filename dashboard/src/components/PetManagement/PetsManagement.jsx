@@ -410,12 +410,16 @@ const PetForm = ({ initialData, onDataChange, categories, errors = {} }) => {
               <input
                 type="number"
                 name="age"
-                value={initialData.age || 0}
+                value={initialData.age || ""}
                 onChange={handleChange}
                 className={`w-full p-2.5 border ${
-                  errors.age ? "border-red-500" : "border-gray-300"
+                  errors.age ? "border-red-500 bg-red-50" : "border-gray-300"
                 } rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none`}
               />
+              {/* Thêm đoạn này để hiện chữ lỗi */}
+              {errors.age && (
+                <p className="text-xs text-red-500 mt-1">{errors.age}</p>
+              )}
             </div>
             <div>
               <label className="text-xs text-gray-500 font-bold block mb-1.5">
@@ -438,12 +442,16 @@ const PetForm = ({ initialData, onDataChange, categories, errors = {} }) => {
               <input
                 type="number"
                 name="weight"
-                value={initialData.weight || 0}
+                value={initialData.weight || ""}
                 onChange={handleChange}
                 className={`w-full p-2.5 border ${
-                  errors.weight ? "border-red-500" : "border-gray-300"
+                  errors.weight ? "border-red-500 bg-red-50" : "border-gray-300"
                 } rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none`}
               />
+              {/* Thêm đoạn này để hiện chữ lỗi */}
+              {errors.weight && (
+                <p className="text-xs text-red-500 mt-1">{errors.weight}</p>
+              )}
             </div>
             <div>
               <label className="text-xs text-gray-500 font-bold block mb-1.5">
@@ -452,12 +460,16 @@ const PetForm = ({ initialData, onDataChange, categories, errors = {} }) => {
               <input
                 type="number"
                 name="height"
-                value={initialData.height || 0}
+                value={initialData.height || ""}
                 onChange={handleChange}
                 className={`w-full p-2.5 border ${
-                  errors.height ? "border-red-500" : "border-gray-300"
+                  errors.height ? "border-red-500 bg-red-50" : "border-gray-300"
                 } rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none`}
               />
+              {/* Thêm đoạn này để hiện chữ lỗi */}
+              {errors.height && (
+                <p className="text-xs text-red-500 mt-1">{errors.height}</p>
+              )}
             </div>
           </div>
           <div>
@@ -534,14 +546,14 @@ const AddPetModal = ({ onClose, categories, onSave }) => {
     name: "",
     description: "",
     category_id: categories[0]?.category_id || "",
-    age: 1,
+    age: "",
     gender: "MALE",
-    price: 0,
-    discount_price: 0,
-    stock_quantity: 1,
+    price: "",
+    discount_price: "",
+    stock_quantity: "",
     status: "DRAFT",
-    weight: 1,
-    height: 20,
+    weight: "",
+    height: "",
     color: "",
     fur_type: "SHORT",
     health_status: "Tốt",
@@ -552,22 +564,57 @@ const AddPetModal = ({ onClose, categories, onSave }) => {
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim())
-      newErrors.name = "Tên thú cưng không được để trống";
+
+    // 1. Tên (Khớp với @NotBlank)
+    if (!formData.name || !formData.name.trim())
+      newErrors.name = "Tên thú cưng không được để trống !!"; // Copy y chang message BE
+
+    // 2. Phân loại (Khớp với @NotBlank)
     if (!formData.category_id)
-      newErrors.category_id = "Vui lòng chọn phân loại";
-    if (formData.price < 0) newErrors.price = "Giá không được âm";
-    if (formData.discount_price < 0)
-      newErrors.discount_price = "Giá giảm không được âm";
-    if (formData.discount_price >= formData.price && formData.price > 0)
-      newErrors.discount_price = "Giá giảm phải nhỏ hơn giá gốc";
-    if (formData.stock_quantity < 0)
-      newErrors.stock_quantity = "Tồn kho không được âm";
-    if (formData.age < 0) newErrors.age = "Tuổi không được âm";
-    if (formData.weight < 0) newErrors.weight = "Cân nặng không được âm";
-    if (formData.height < 0) newErrors.height = "Chiều cao không được âm";
+      newErrors.category_id = "Vui lòng chọn phân loại thú cưng";
+
+    // 3. Giá (Khớp với @Min(1000) và @NotNull)
+    // Lưu ý: formData.price có thể là chuỗi "" nếu người dùng xóa hết
+    if (
+      formData.price === "" ||
+      formData.price === null ||
+      formData.price === undefined
+    ) {
+      newErrors.price = "Giá bán không được để trống";
+    } else if (Number(formData.price) < 1000) {
+      newErrors.price = "Giá bán phải ít nhất 1.000 VNĐ";
+    }
+
+    // 4. Tồn kho (Khớp với @Min(1) và @NotNull)
+    if (formData.stock_quantity === "" || formData.stock_quantity === null) {
+      newErrors.stock_quantity = "Số lượng tồn kho không được để trống";
+    } else if (Number(formData.stock_quantity) < 1) {
+      newErrors.stock_quantity = "Số lượng tồn kho phải ít nhất là 1";
+    }
+
+    // 5. Cân nặng (Khớp với @Positive và @NotNull)
+    if (formData.weight === "" || formData.weight === null) {
+      newErrors.weight = "Cân nặng không được để trống";
+    } else if (Number(formData.weight) <= 0) {
+      newErrors.weight = "Cân nặng phải lớn hơn 0";
+    }
+
+    // 6. Chiều cao (Khớp với @Positive và @NotNull)
+    if (formData.height === "" || formData.height === null) {
+      newErrors.height = "Chiều cao không được để trống";
+    } else if (Number(formData.height) <= 0) {
+      newErrors.height = "Chiều cao phải lớn hơn 0";
+    }
+
+    // 7. Tuổi (Khớp với @Min(1) và @NotNull)
+    if (formData.age === "" || formData.age === null) {
+      newErrors.age = "Tuổi không được để trống";
+    } else if (Number(formData.age) < 1) {
+      newErrors.age = "Tuổi phải ít nhất là 1 tháng";
+    }
 
     setErrors(newErrors);
+    // Nếu không có lỗi (length === 0) thì trả về true -> Cho phép gọi API
     return Object.keys(newErrors).length === 0;
   };
 
@@ -636,13 +683,57 @@ const EditPetModal = ({ pet, onClose, categories, onSave }) => {
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim())
-      newErrors.name = "Tên thú cưng không được để trống";
-    if (formData.price < 0) newErrors.price = "Giá không được âm";
-    if (formData.stock_quantity < 0)
-      newErrors.stock_quantity = "Tồn kho không được âm";
-    // ... Thêm validate khác nếu cần
+
+    // 1. Tên (Khớp với @NotBlank)
+    if (!formData.name || !formData.name.trim())
+      newErrors.name = "Tên thú cưng không được để trống !!"; // Copy y chang message BE
+
+    // 2. Phân loại (Khớp với @NotBlank)
+    if (!formData.category_id)
+      newErrors.category_id = "Vui lòng chọn phân loại thú cưng";
+
+    // 3. Giá (Khớp với @Min(1000) và @NotNull)
+    // Lưu ý: formData.price có thể là chuỗi "" nếu người dùng xóa hết
+    if (
+      formData.price === "" ||
+      formData.price === null ||
+      formData.price === undefined
+    ) {
+      newErrors.price = "Giá bán không được để trống";
+    } else if (Number(formData.price) < 1000) {
+      newErrors.price = "Giá bán phải ít nhất 1.000 VNĐ";
+    }
+
+    // 4. Tồn kho (Khớp với @Min(1) và @NotNull)
+    if (formData.stock_quantity === "" || formData.stock_quantity === null) {
+      newErrors.stock_quantity = "Số lượng tồn kho không được để trống";
+    } else if (Number(formData.stock_quantity) < 1) {
+      newErrors.stock_quantity = "Số lượng tồn kho phải ít nhất là 1";
+    }
+
+    // 5. Cân nặng (Khớp với @Positive và @NotNull)
+    if (formData.weight === "" || formData.weight === null) {
+      newErrors.weight = "Cân nặng không được để trống";
+    } else if (Number(formData.weight) <= 0) {
+      newErrors.weight = "Cân nặng phải lớn hơn 0";
+    }
+
+    // 6. Chiều cao (Khớp với @Positive và @NotNull)
+    if (formData.height === "" || formData.height === null) {
+      newErrors.height = "Chiều cao không được để trống";
+    } else if (Number(formData.height) <= 0) {
+      newErrors.height = "Chiều cao phải lớn hơn 0";
+    }
+
+    // 7. Tuổi (Khớp với @Min(1) và @NotNull)
+    if (formData.age === "" || formData.age === null) {
+      newErrors.age = "Tuổi không được để trống";
+    } else if (Number(formData.age) < 1) {
+      newErrors.age = "Tuổi phải ít nhất là 1 tháng";
+    }
+
     setErrors(newErrors);
+    // Nếu không có lỗi (length === 0) thì trả về true -> Cho phép gọi API
     return Object.keys(newErrors).length === 0;
   };
 

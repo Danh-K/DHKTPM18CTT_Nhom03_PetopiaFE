@@ -26,7 +26,9 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, onAddToCart, onBuyNow }: ProductCardProps) {
-  const rating = product.rating || 4 // Default rating
+  // Lấy số sao động giống trang chi tiết: dùng rating từ BE, nếu không có thì 0 sao
+  const ratingValue = typeof product.rating === 'number' ? product.rating : 0
+  const filledStars = Math.floor(ratingValue)
   const router = useRouter()
   const { addItem, removeItem, isFavorite } = useFavorite()
   const { isAuthenticated } = useAuthStore()
@@ -154,7 +156,7 @@ export default function ProductCard({ product, onAddToCart, onBuyNow }: ProductC
           <Star
             key={i}
             size={16}
-            className={i < rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300 group-hover:text-white"}
+            className={i < filledStars ? "fill-yellow-400 text-yellow-400" : "text-gray-300 group-hover:text-white"}
           />
         ))}
       </div>
@@ -185,3 +187,4 @@ export default function ProductCard({ product, onAddToCart, onBuyNow }: ProductC
     </>
   )
 }
+

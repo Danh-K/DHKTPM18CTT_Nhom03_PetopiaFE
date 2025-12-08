@@ -33,11 +33,11 @@ function Sidebar({ darkMode, onItemClick }) {
 
   return (
     <aside
-      className={`fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 shadow-xl transition-colors ${
+      className={`fixed top-20 left-0 h-[calc(100vh-4rem)] w-72 shadow-xl transition-colors ${
         darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-800"
       }`}
     >
-      <div className="h-full overflow-y-auto py-4 px-3">
+      <div className="h-full overflow-y-auto py-4 px-3" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
         <nav className="space-y-1">
           {/* Dashboard */}
           <button
@@ -77,7 +77,7 @@ function Sidebar({ darkMode, onItemClick }) {
             >
               <div className="flex items-center gap-3">
                 <HiChartBar className="h-5 w-5" />
-                <span className="font-medium">Statistics</span>
+                <span className="font-medium">Thống kê</span>
               </div>
               {openSections.statistics ? (
                 <HiChevronDown className="h-4 w-4" />
@@ -98,7 +98,7 @@ function Sidebar({ darkMode, onItemClick }) {
                       : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
                   }`}
                 >
-                  Revenue Statistics
+                  Thống kê doanh thu
                 </button>
                 <button
                   onClick={() => onItemClick && onItemClick("pet-statistics")}
@@ -108,7 +108,7 @@ function Sidebar({ darkMode, onItemClick }) {
                       : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
                   }`}
                 >
-                  Pet Statistics
+                  Thống kê thú cưng
                 </button>
               </div>
             )}
@@ -196,11 +196,24 @@ function Sidebar({ darkMode, onItemClick }) {
                       : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
                   }`}
                 >
-                  Transactions
+                  Đơn hàng
                 </button>
               </div>
             )}
           </div>
+
+          {/* Delivery Management - NEW */}
+          <button
+            onClick={() => onItemClick && onItemClick("delivery")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              darkMode
+                ? "hover:bg-gray-800 text-gray-300 hover:text-white"
+                : "hover:bg-[#f5d7b7] text-gray-700 hover:text-[#7b4f35]"
+            }`}
+          >
+            <HiTruck className="h-5 w-5" />
+            <span className="font-medium">Vận chuyển</span>
+          </button>
 
           {/* Promotions & Vouchers - NEW */}
           <button
@@ -213,19 +226,6 @@ function Sidebar({ darkMode, onItemClick }) {
           >
             <HiTicket className="h-5 w-5" />
             <span className="font-medium">Khuyến mãi</span>
-          </button>
-
-          {/* Delivery Management - NEW */}
-          <button
-            onClick={() => onItemClick && onItemClick("delivery")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-              darkMode
-                ? "hover:bg-gray-800 text-gray-300 hover:text-white"
-                : "hover:bg-[#f5d7b7] text-gray-700 hover:text-[#7b4f35]"
-            }`}
-          >
-            <HiTruck className="h-5 w-5" />
-            <span className="font-medium">Lịch sử giao hàng</span>
           </button>
 
           {/* Users Section */}
@@ -253,7 +253,7 @@ function Sidebar({ darkMode, onItemClick }) {
             }`}
           >
             <HiNewspaper className="h-5 w-5" />
-            <span className="font-medium">Articles</span>
+            <span className="font-medium">Bài viết</span>
           </button>
 
           {/* Settings */}
@@ -266,7 +266,7 @@ function Sidebar({ darkMode, onItemClick }) {
             }`}
           >
             <HiCog className="h-5 w-5" />
-            <span className="font-medium">Settings</span>
+            <span className="font-medium">Cài đặt</span>
           </button>
 
           {/* Pages */}

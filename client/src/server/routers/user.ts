@@ -18,6 +18,7 @@ export type User = {
   isActive: boolean;
   createdAt: string; // DATETIME -> ISO string
   updatedAt: string; // DATETIME -> ISO string
+  avatar: string;
 };
 
 // Dữ liệu mẫu - Thay thế bằng logic truy vấn CSDL của bạn
