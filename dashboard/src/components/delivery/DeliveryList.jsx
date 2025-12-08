@@ -50,13 +50,13 @@ export default function DeliveryList({ darkMode = false, onViewDetail }) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 m-3">
       {/* Grid 9 card */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {deliveries.map((delivery) => (
           <div
             key={delivery.deliveryId}
-            className="cursor-pointer transition-all hover:scale-105 hover:shadow-2xl rounded-lg overflow-hidden"
+            className="cursor-pointer transition-all hover:scale-105 rounded-lg overflow-hidden"
           >
             <DeliveryCard delivery={delivery} darkMode={darkMode} onViewDetail={onViewDetail} />
           </div>
