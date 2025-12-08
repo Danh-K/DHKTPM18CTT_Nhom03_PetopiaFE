@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Heart, Minus, Plus, Star, ArrowLeft } from "lucide-react"
+import { Heart, Minus, Plus, Star, ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useCart } from "@/store/useCartStore"
@@ -117,7 +117,10 @@ export default function PetDetailPage() {
     });
   }
   
-  if (isLoading) return <Loading />
+  if (isLoading) return (<div className="h-screen flex flex-col justify-center items-center bg-[#FDF5F0]">
+        <Loader2 className="animate-spin text-[#FF6B6B] w-12 h-12" />
+        <p className="mt-4 text-[#5A3E2B] font-bold animate-pulse">Đang tìm thông tin thú cưng...</p>
+    </div>)
   
   if (error) {
     return (

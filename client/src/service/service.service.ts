@@ -6,4 +6,8 @@ export const ShopServiceAPI = {
     const response = await axiosInstance.get("/services");
     return response.data.content;
   },
+  getById: async (id: string): Promise<Service> => {
+    const response = await axiosInstance.get(`/services/${id}`);
+    return response.data;
+  },
 };

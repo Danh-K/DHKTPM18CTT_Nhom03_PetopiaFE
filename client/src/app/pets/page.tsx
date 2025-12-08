@@ -5,7 +5,7 @@ import axiosInstance from "@/lib/utils/axios";
 import Image from "next/image";
 import { Loading } from "../components/loading";
 import { useCart } from "@/store/useCartStore";
-import { Search, ChevronDown } from "lucide-react";
+import { Search, ChevronDown, Loader2 } from "lucide-react";
 import CategoryFilter from "@/app/pets/_components/CategoryFilter";
 import PriceRangeFilter from "@/app/pets/_components/PriceRangeFilter";
 import ProductCard from "@/app/pets/_components/ProductCard";
@@ -265,7 +265,10 @@ export default function PetsPage() {
     setPage(0); // Reset về trang đầu
   };
 
-  if (isLoading) return <Loading />;
+  if (isLoading) return (<div className="h-screen flex flex-col justify-center items-center bg-[#FDF5F0]">
+          <Loader2 className="animate-spin text-[#FF6B6B] w-12 h-12" />
+          <p className="mt-4 text-[#5A3E2B] font-bold animate-pulse">Đang tìm thú cưng cho bạn...</p>
+      </div>)
   if (error) return <div className="text-center py-10 text-red-500">Lỗi: {error.message}</div>;
 
   // Lấy thumbnail cho từng pet

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
@@ -30,7 +30,10 @@ export default function ArticleDetailPage() {
 
   const [content, setContent] = useState("");
 
-  if (isLoading) return <Loading  />;
+  if (isLoading) return (<div className="h-screen flex flex-col justify-center items-center bg-[#FDF5F0]">
+        <Loader2 className="animate-spin text-[#FF6B6B] w-12 h-12" />
+        <p className="mt-4 text-[#5A3E2B] font-bold animate-pulse">Đang tìm thông tin của tin tức...</p>
+    </div>)
 
   if (error || !article) {
     return (
@@ -71,7 +74,7 @@ export default function ArticleDetailPage() {
   return (
     <main className="min-h-screen bg-white">
 
-      {ToastContainer}
+      {<ToastContainer />}
       {/* Back Button */}
       <div
         className="mx-auto py-6"
@@ -95,7 +98,7 @@ export default function ArticleDetailPage() {
       <div className="mx-auto max-w-4xl">
         <div className="relative mb-8 overflow-hidden rounded-3xl">
           <Image
-          src={article.imageUrl}
+          src={article.imageUrl || "/assets/imgs/imgPet/animal-8165466_1280.jpg"}
           alt={article.title}
           width={1000}       
           height={400}       
