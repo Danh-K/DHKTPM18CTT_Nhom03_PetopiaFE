@@ -72,6 +72,8 @@ export default function NewsPage() {
           <Image
             src="/assets/imgs/imgBackgroundTitle/bc-shop-listing.jpg"
             alt="News Background"
+            width={1920}
+            height={600}
             className="h-full w-full object-cover object-top"
           />
           <div className="absolute inset-0 bg-black/20" />
@@ -174,8 +176,10 @@ function BlogCard({
             
             <div className="relative mb-4 overflow-hidden rounded-[24px]">
               <Image
-                src={image }
+                src={image || '/assets/imgs/imgService/service1.png' }
                 alt={title}
+                width={400}
+                height={200}
                 className="h-[200px] w-full object-cover transition-transform duration-500 group-hover:scale-110"
               />
 
