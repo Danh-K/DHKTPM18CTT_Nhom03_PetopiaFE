@@ -18,7 +18,6 @@ import { Loading } from "@/app/components/loading";
 
 export default function ArticleDetailPage() {
   const params = useParams();
-  console.log(params?.id as string)
   const articleId = params?.id as string;
 
   const { success, error: showError, ToastContainer } = useToast();
