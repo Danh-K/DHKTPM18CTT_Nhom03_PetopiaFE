@@ -22,82 +22,146 @@ axiosClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 3. RESPONSE INTERCEPTOR
+// --- 2. RESPONSE INTERCEPTOR (XỬ LÝ REFRESH TOKEN) ---
 axiosClient.interceptors.response.use(
   (response) => {
-    // Trả về data trực tiếp.
-    // Các API thường -> trả về Object/Array
-    // Riêng API Login (do cấu hình bên dưới) -> trả về String
+    // Trả về data trực tiếp
     return response.data;
   },
-  (error) => {
-    console.error("Axios Error:", error);
-    if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      // window.location.href = "/login"; // Bỏ comment nếu muốn tự động đá về login
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Nếu lỗi là 401 và chưa từng retry (để tránh vòng lặp vô tận)
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true; // Đánh dấu đã retry
+
+      try {
+        const refreshToken = localStorage.getItem("refreshToken");
+
+        // Nếu không có refresh token thì logout luôn
+        if (!refreshToken) {
+          throw new Error("No refresh token available");
+        }
+
+        // Gọi API Refresh Token
+        // Lưu ý: Dùng instance axios mới hoặc fetch để tránh dính interceptor của chính nó
+        const res = await axios.post(
+          "http://localhost:8080/api/auth/refresh-token",
+          {
+            refreshToken: refreshToken,
+          }
+        );
+
+        if (res.status === 200) {
+          const { accessToken } = res.data; // Backend trả về accessToken mới
+
+          // 1. Lưu token mới vào localStorage
+          localStorage.setItem("token", accessToken);
+
+          // 2. Gán token mới vào header của request cũ
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+
+          // 3. Thực hiện lại request cũ với token mới
+          return axiosClient(originalRequest);
+        }
+      } catch (refreshError) {
+        // Nếu refresh cũng lỗi (hết hạn hoặc token đểu) -> Logout
+        console.error("Refresh token failed:", refreshError);
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+        window.location.href = "/login"; // Đá về trang login
+        return Promise.reject(refreshError);
+      }
     }
+
     return Promise.reject(error);
   }
 );
 
-// 4. Hàm Login (Cấu hình ĐẶC BIỆT chỉ dành riêng cho hàm này)
+// // 3. RESPONSE INTERCEPTOR
+// axiosClient.interceptors.response.use(
+//   (response) => {
+//     // Trả về data trực tiếp.
+//     // Các API thường -> trả về Object/Array
+//     // Riêng API Login (do cấu hình bên dưới) -> trả về String
+//     return response.data;
+//   },
+//   (error) => {
+//     console.error("Axios Error:", error);
+//     if (error.response?.status === 401) {
+//       localStorage.removeItem("token");
+//       localStorage.removeItem("user");
+//       // window.location.href = "/login"; // Bỏ comment nếu muốn tự động đá về login
+//     }
+//     return Promise.reject(error);
+//   }
+// );
 export const login = async (identifier, password) => {
   try {
-    // Chỉ riêng request này ta ép nó trả về TEXT để xử lý JSON lỗi bằng Regex
-    const res = await axiosClient.post(
+    // Chỉ riêng login ép response về TEXT để tự parse
+    const raw = await axiosClient.post(
       "/api/auth/login",
       { identifier, password },
       {
-        // Cấu hình cục bộ: Ghi đè cách xử lý chỉ cho request này
-        transformResponse: [(data) => data],
+        transformResponse: [(data) => data], // trả về string để tự xử lý
       }
     );
 
-    console.log("📌 Raw Login Response:", res);
+    console.log("📌 Raw Login Response:", raw);
 
-    let token = null;
+    let accessToken = null;
+    let refreshToken = null;
     let user = {};
 
-    // Logic Regex để gắp Token từ chuỗi lỗi
-    if (typeof res === "string") {
-      const tokenMatch = res.match(/"accessToken"\s*:\s*"([^"]+)"/);
-      if (tokenMatch && tokenMatch[1]) token = tokenMatch[1];
+    // Case 1: Backend trả về string -> dùng Regex
+    if (typeof raw === "string") {
+      const accessMatch = raw.match(/"accessToken"\s*:\s*"([^"]+)"/);
+      const refreshMatch = raw.match(/"refreshToken"\s*:\s*"([^"]+)"/);
 
-      const userIdMatch = res.match(/"userId"\s*:\s*"([^"]+)"/);
-      const roleMatch = res.match(/"role"\s*:\s*"([^"]+)"/);
-      const nameMatch = res.match(/"fullName"\s*:\s*"([^"]+)"/);
-      const emailMatch = res.match(/"email"\s*:\s*"([^"]+)"/);
-      const avatarMatch = res.match(/"avatar"\s*:\s*"([^"]+)"/);
+      accessToken = accessMatch ? accessMatch[1] : null;
+      refreshToken = refreshMatch ? refreshMatch[1] : null;
 
       user = {
-        userId: userIdMatch ? userIdMatch[1] : "",
-        role: roleMatch ? roleMatch[1] : "USER",
-        fullName: nameMatch ? nameMatch[1] : "User",
-        email: emailMatch ? emailMatch[1] : identifier,
-        avatar: avatarMatch ? avatarMatch[1] : "",
+        userId: raw.match(/"userId"\s*:\s*"([^"]+)"/)?.[1] || "",
+        role: raw.match(/"role"\s*:\s*"([^"]+)"/)?.[1] || "",
+        username: raw.match(/"username"\s*:\s*"([^"]+)"/)?.[1] || identifier,
+        email: raw.match(/"email"\s*:\s*"([^"]+)"/)?.[1] || "",
+        avatar: raw.match(/"avatar"\s*:\s*"([^"]+)"/)?.[1] || "",
       };
-    } else if (typeof res === "object") {
-      // Phòng hờ trường hợp backend trả về đúng
-      token = res.accessToken || res.token;
-      user = res.user || {};
     }
 
-    if (!token) throw new Error("Không thể trích xuất Token");
+    // Case 2: Backend trả về object JSON đúng chuẩn
+    else if (typeof raw === "object") {
+      accessToken = raw.accessToken;
+      refreshToken = raw.refreshToken;
+      user = raw.user || {};
+    }
 
-    return { token: token.trim(), user: user };
+    // Validate
+    if (!accessToken) {
+      throw new Error("Không thể lấy accessToken từ server");
+    }
+
+    return {
+      accessToken,
+      refreshToken,
+      user,
+    };
   } catch (error) {
     console.error("Login Error:", error);
-    if (error.response) {
-      // Parse lại lỗi từ server vì nó đang là string
+
+    let message = "Thông tin đăng nhập không đúng";
+
+    if (error.response?.data) {
       try {
-        const errData = JSON.parse(error.response.data);
-        throw new Error(errData.message || "Thông tin đăng nhập không đúng");
-      } catch (e) {
-        throw new Error("Thông tin đăng nhập không đúng");
+        message = JSON.parse(error.response.data).message;
+      } catch (_) {
+        message = error.response.data;
       }
     }
-    throw new Error(error.message);
+
+    throw new Error(message);
   }
 };
 
