@@ -1,7 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ChevronDown, Search, ShoppingCart, Menu, Heart } from "lucide-react";
 import UserBox from "@/app/components/user/UserBox"; 
 import React, { useEffect, useRef, useState } from "react";
@@ -29,13 +27,12 @@ export default function Header() {
   const { totalItems } = useCart();
   const { totalItems: totalFavorites } = useFavorite();
   
-  
   const { user } = useAuthStore();
   
   const [openUserBox, setOpenUserBox] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  
+  // Xử lý click outside để đóng dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -103,47 +100,41 @@ export default function Header() {
 
       {/* Right: Action Buttons */}
       <div className="flex items-center gap-3">
-        {/* Search */}
+        {/* Search Button */}
         <Link href="/pets">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group"
+          <button
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group"
           >
             <Search size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
-          </Button>
+          </button>
         </Link>
 
-        {/* Wishlist */}
+        {/* Wishlist Button */}
         <Link href="/favorites" className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group"
+          <button
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group"
           >
             <Heart size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
             {totalFavorites > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse">
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse border-2 border-[#7B4F35]">
                 {totalFavorites}
               </span>
             )}
-          </Button>
+          </button>
         </Link>
 
-        {/* Cart */}
+        {/* Cart Button */}
         <Link href="/carts" className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group"
+          <button
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group"
           >
             <ShoppingCart size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
             {totalItems > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-bounce">
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold animate-bounce border-2 border-[#7B4F35]">
                 {totalItems}
               </span>
             )}
-          </Button>
+          </button>
         </Link>
 
         {/* User Avatar Dropdown */}
@@ -153,15 +144,20 @@ export default function Header() {
             onClick={() => setOpenUserBox((v) => !v)}
             type="button"
           >
-            <Avatar className="transition-transform duration-300 group-hover:scale-110 ring-2 ring-white/30 group-hover:ring-white/50">
-              <AvatarImage 
-                src={user?.avatar || "https://drive.google.com/uc?id=117JvrU7k1kskdkc-NMydONhI_flRtie7"} 
-                alt={user?.username || "Guest"} 
-              />
-              <AvatarFallback className="bg-[#F5D7B7] text-[#7B4F35] font-bold">
-                {user?.username  ? user.username.charAt(0).toUpperCase() : "G"}
-              </AvatarFallback>
-            </Avatar>
+            {/* Custom Avatar Replacement */}
+            <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white/30 group-hover:border-white/50 transition-transform duration-300 group-hover:scale-110 shadow-sm">
+                {user?.avatar ? (
+                    <img 
+                        src={user.avatar} 
+                        alt="User Avatar" 
+                        className="w-full h-full object-cover"
+                    />
+                ) : (
+                    <div className="w-full h-full bg-[#F5D7B7] flex items-center justify-center text-[#7B4F35] font-bold">
+                        {user?.username ? user.username.charAt(0).toUpperCase() : "G"}
+                    </div>
+                )}
+            </div>
             
             {/* Hiển thị tên User (chỉ trên màn hình lớn) */}
             {user && (
@@ -181,19 +177,18 @@ export default function Header() {
           {/* Dropdown Content */}
           {openUserBox && (
             <div className="absolute top-full right-0 mt-4 w-80 z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+              {/* Lưu ý: Nếu UserBox bên trong cũng dùng shadcn card thì bạn có thể cần sửa nốt file đó, hoặc để nguyên nếu chỉ cần sửa Header */}
               <UserBox onClose={() => setOpenUserBox(false)} />
             </div>
           )}
         </div>
 
         {/* Mobile menu toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden text-white hover:bg-white/20 transition-all duration-300 rounded-xl"
+        <button
+          className="lg:hidden flex items-center justify-center w-10 h-10 text-white hover:bg-white/20 transition-all duration-300 rounded-xl"
         >
           <Menu size={24} />
-        </Button>
+        </button>
       </div>
     </header>
   );

@@ -3,11 +3,12 @@
 import { ShoppingCart, Star, Heart } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { useFavorite } from "@/store/useFavoriteStore"
 import { useAuthStore } from "@/store/useAuthStore"
-import { useToast } from "@/hook/useToast"
-import axiosInstance from "@/lib/utils/axios"
-import { useState } from "react"
+import { useCart } from "@/store/useCartStore" 
+import { toast } from "sonner" 
+
+
+import { useMyWishlist, useToggleWishlist } from "@/hook/useWishlist"
 
 interface Product {
   petId: string
@@ -26,107 +27,92 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, onAddToCart, onBuyNow }: ProductCardProps) {
-  // Lấy số sao động giống trang chi tiết: dùng rating từ BE, nếu không có thì 0 sao
+  const router = useRouter()
+  const { isAuthenticated } = useAuthStore()
+  
+  
+  const { data: wishlistItems } = useMyWishlist()
+  
+  
+  const { mutate: toggleWishlist } = useToggleWishlist()
+
+  
+  const isInWishlist = Array.isArray(wishlistItems) && wishlistItems.some((item: any) => item.petId === product.petId)
+
+  
   const ratingValue = typeof product.rating === 'number' ? product.rating : 0
   const filledStars = Math.floor(ratingValue)
-  const router = useRouter()
-  const { addItem, removeItem, isFavorite } = useFavorite()
-  const { isAuthenticated } = useAuthStore()
-  const { success, error, ToastContainer } = useToast()
-  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false)
-
-  const isInWishlist = isFavorite(product.petId)
 
   const handleCardClick = () => {
     router.push(`/pets/${product.petId}`)
   }
 
   const handleBuyNow = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent card click when clicking buy now
+    e.stopPropagation()
     if (onBuyNow) {
-      onBuyNow() // Add item to cart
-      router.push('/carts') // Redirect to cart page
+      onBuyNow()
+      router.push('/carts')
     } else {
-      // Fallback: redirect to detail page
       router.push(`/pets/${product.petId}`)
     }
   }
 
   const handleAddToCart = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent card click when clicking add to cart
+    e.stopPropagation()
     onAddToCart()
   }
 
-  const handleToggleWishlist = async (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent card click when clicking wishlist
+  
+  const handleToggleHeart = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
 
     if (!isAuthenticated) {
-      error('Chưa đăng nhập', 'Vui lòng đăng nhập để thêm vào yêu thích')
-      return
+        toast.error("Bạn cần đăng nhập để thực hiện chức năng này!")
+        return
     }
 
-    if (isTogglingWishlist) return
-
-    setIsTogglingWishlist(true)
-
-    try {
-      const response = await axiosInstance.post(`/wishlists/toggle/${product.petId}`)
-      
-      if (response.data.status === 200) {
-        const action = response.data.data // "Added" or "Removed"
-        
-        if (action === "Added") {
-          addItem({
-            pet: {
-              petId: product.petId,
-              name: product.name,
-              price: product.price,
-              discountPrice: product.discountPrice,
-              rating: product.rating,
-              mainImageUrl: product.image,
-            },
-            img: product.image,
-          })
-          success('Đã thêm vào yêu thích', `${product.name} đã được thêm vào danh sách yêu thích`)
-        } else {
-          removeItem(product.petId)
-          success('Đã xóa khỏi yêu thích', `${product.name} đã được xóa khỏi danh sách yêu thích`)
-        }
+    
+    toggleWishlist(product.petId, {
+      onSuccess: (data) => {
+         
+         if (data === "Added") {
+            toast.success("Đã thêm vào danh sách yêu thích ❤️")
+         } else {
+            toast.info("Đã xóa khỏi danh sách yêu thích 💔")
+         }
+      },
+      onError: (err: any) => {
+         
+         const msg = err?.response?.data?.message || "Có lỗi xảy ra"
+         toast.error(msg)
       }
-    } catch (err) {
-        console.error('Error toggling wishlist:', err)
-      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể thêm vào yêu thích'
-      error('Lỗi', errorMessage)
-    } finally {
-      setIsTogglingWishlist(false)
-    }
+    })
   }
 
   return (
-    <>
-      {ToastContainer}
+    <div 
+      onClick={handleCardClick}
+      className="group rounded-2xl bg-[#fff0f0] p-4 shadow-lg hover:shadow-xl hover:bg-[#FF6B6B] transition-all duration-300 relative cursor-pointer"
+    >
+     
       <div 
-        onClick={handleCardClick}
-        className="group rounded-2xl bg-[#fff0f0] p-4 shadow-lg hover:shadow-xl hover:bg-[#FF6B6B] transition-all duration-300 relative cursor-pointer"
+        className="absolute top-6 left-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 cursor-pointer"
+        onClick={handleToggleHeart}
       >
-        {/* Heart Icon - appears on hover */}
-        <div 
-          className="absolute top-6 left-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 cursor-pointer"
-          onClick={handleToggleWishlist}
-        >
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md hover:bg-[#102937] transition-colors duration-300 ${
-            isInWishlist ? 'bg-red-500' : 'bg-[#FF6B6B]'
-          }`}>
-            <Heart 
-              size={18} 
-              className={`text-white ${isInWishlist ? 'fill-white' : ''}`}
-            />
-          </div>
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md hover:bg-[#102937] transition-colors duration-300 ${
+          isInWishlist ? 'bg-red-500' : 'bg-[#FF6B6B]'
+        }`}>
+          <Heart 
+            size={18} 
+            className={`text-white transition-colors ${isInWishlist ? 'fill-white' : ''}`}
+          />
         </div>
+      </div>
 
-      {/* Shopping Cart Icon - appears on hover */}
+     
       <div 
-        className="absolute top-6 left-18 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 cursor-pointer"
+        className="absolute top-6 left-18 ml-12 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 cursor-pointer"
         onClick={handleAddToCart}
       >
         <div className="w-10 h-10 bg-[#FF6B6B] rounded-full flex items-center justify-center shadow-md hover:bg-[#102937] transition-colors duration-300">
@@ -134,7 +120,7 @@ export default function ProductCard({ product, onAddToCart, onBuyNow }: ProductC
         </div>
       </div>
 
-      {/* Image Container */}
+     
       <div className="relative mb-4 overflow-hidden rounded-xl bg-[#F5E6D3]">
         <Image
           src={product.image || "/assets/imgs/imgPet/animal-8165466_1280.jpg"}
@@ -150,7 +136,7 @@ export default function ProductCard({ product, onAddToCart, onBuyNow }: ProductC
         )}
       </div>
 
-      {/* Rating */}
+     
       <div className="mb-3 flex gap-1">
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
@@ -161,29 +147,36 @@ export default function ProductCard({ product, onAddToCart, onBuyNow }: ProductC
         ))}
       </div>
 
-      {/* Product Name */}
-      <h3 className="mb-2 font-bold text-[#2d2d2d] group-hover:text-white text-lg line-clamp-2 transition-colors duration-300">{product.name}</h3>
+     
+      <h3 className="mb-2 font-bold text-[#2d2d2d] group-hover:text-white text-lg line-clamp-2 transition-colors duration-300">
+        {product.name}
+      </h3>
 
-      {/* Price */}
+     
       <div className="mb-4 flex items-center gap-2">
         {product.discountPrice ? (
           <>
-            <span className="text-[#2d2d2d] group-hover:text-white font-bold text-xl transition-colors duration-300">{product.discountPrice.toLocaleString('vi-VN')}₫</span>
-            <span className="text-gray-400 group-hover:text-white line-through text-sm transition-colors duration-300">{product.price.toLocaleString('vi-VN')}₫</span>
+            <span className="text-[#2d2d2d] group-hover:text-white font-bold text-xl transition-colors duration-300">
+              {product.discountPrice.toLocaleString('vi-VN')}₫
+            </span>
+            <span className="text-gray-400 group-hover:text-white line-through text-sm transition-colors duration-300">
+              {product.price.toLocaleString('vi-VN')}₫
+            </span>
           </>
         ) : (
-          <span className="text-[#2d2d2d] group-hover:text-white font-bold text-xl transition-colors duration-300">{product.price.toLocaleString('vi-VN')}₫</span>
+          <span className="text-[#2d2d2d] group-hover:text-white font-bold text-xl transition-colors duration-300">
+            {product.price.toLocaleString('vi-VN')}₫
+          </span>
         )}
       </div>
 
-      {/* Buy Now Button */}
+     
       <button 
         onClick={handleBuyNow}
         className="w-full bg-[#FF6B6B] group-hover:bg-[#102937] text-white py-3 px-4 rounded-lg transition-colors duration-300 font-semibold cursor-pointer hover:cursor-pointer"
       >
         Mua ngay
       </button>
-      </div>
-    </>
+    </div>
   )
 }

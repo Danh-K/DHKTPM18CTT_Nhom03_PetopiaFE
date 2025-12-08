@@ -30,6 +30,7 @@ export interface AuthState {
   
   setAuth: (user: User, accessToken: string) => void
   logout: () => void
+  setUser: (user: User) => void;
 }
 export interface AuthResponse {
   username: string;           

@@ -37,3 +37,20 @@ export type PetDetail = {
   rating?: number | null;
   reviewCount?: number | null;
 };
+// src/types/Wishlist.ts
+
+export enum PetStatus {
+  AVAILABLE = "AVAILABLE", 
+  SOLD = "SOLD",
+  RESERVED = "RESERVED"
+}
+
+export interface WishlistResponse {
+  wishlistId: string;
+  addedAt: string; 
+  petId: string;
+  petName: string;
+  petPrice: number;
+  petImage: string;
+  petStatus: PetStatus;
+}
