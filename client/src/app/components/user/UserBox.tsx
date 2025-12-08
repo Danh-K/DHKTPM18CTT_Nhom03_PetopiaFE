@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
-  Heart, 
   Package, 
   LogOut, 
   User as UserIcon,
@@ -117,21 +116,6 @@ export default function UserBox({ onClose }: { onClose?: () => void }) {
               </Link>
             </li>
 
-           
-            <li>
-              <Link 
-                href="/wishlist" 
-                className="flex items-center gap-3 px-5 py-3 hover:bg-[#FFF0F5] text-gray-600 hover:text-[#FF6B6B] transition-colors font-medium group" 
-                onClick={onClose}
-              >
-                <div className="w-8 h-8 rounded-full bg-gray-50 group-hover:bg-white flex items-center justify-center transition-colors">
-                    <Heart size={18} />
-                </div>
-                Thú cưng yêu thích
-              </Link>
-            </li>
-
-           
             <li>
               <Link 
                 href="/orders" 
