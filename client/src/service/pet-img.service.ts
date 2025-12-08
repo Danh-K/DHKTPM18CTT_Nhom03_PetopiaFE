@@ -6,11 +6,11 @@ export const PetImgService = {
   getByPetId: async (petId: number): Promise<PetImg[]> => {
     
     const response = await axios.get(`/pets/${petId}/images`);
-    return response.data;
+    return response.data.content;
   },
   getAll: async (): Promise<PetImg[]> => {
     const response = await axios.get(`/pet-images`);
-    return response.data;
+    return response.data.content;
   }
   ,
 
@@ -18,7 +18,7 @@ export const PetImgService = {
   add: async (petId: number, data: PetImgRequest): Promise<PetImg> => {
     
     const response = await axios.post(`/pets/${petId}/images`, data);
-    return response.data;
+    return response.data.content;
   },
 
   

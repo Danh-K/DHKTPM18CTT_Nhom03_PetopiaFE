@@ -4,11 +4,11 @@ import { Pet } from "@/types/Pet";
 export const PetService = {
   getAll: async (): Promise<Pet[]> => {
     const response = await axios.get("/pets"); 
-    return response.data;
+    return response.data.content;
   },
 
   getPetById: async (id: number): Promise<Pet> => {
     const response = await axios.get(`/pets/${id}`);
-    return response.data;
+    return response.data.content;
   },
 };

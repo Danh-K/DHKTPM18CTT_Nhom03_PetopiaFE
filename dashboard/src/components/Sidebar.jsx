@@ -124,7 +124,7 @@ function Sidebar({ darkMode, onItemClick }) {
 
             {openSections.ecommerce && (
               <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 dark:border-gray-700 pl-4">
-                <button
+                {/* <button
                   onClick={() => onItemClick && onItemClick("products")}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
                     darkMode
@@ -133,7 +133,7 @@ function Sidebar({ darkMode, onItemClick }) {
                   }`}
                 >
                   Products
-                </button>
+                </button> */}
                 <button
                   onClick={() => onItemClick && onItemClick("pets")}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
@@ -172,38 +172,9 @@ function Sidebar({ darkMode, onItemClick }) {
                       : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
                   }`}
                 >
-                  Services
+                  Dịch vụ
                 </button>
-                <button
-                  onClick={() => onItemClick && onItemClick("invoices")}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
-                    darkMode
-                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
-                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
-                  }`}
-                >
-                  Invoices
-                </button>
-                <button
-                  onClick={() => onItemClick && onItemClick("create-invoice")}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
-                    darkMode
-                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
-                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
-                  }`}
-                >
-                  Create Invoice
-                </button>
-                <button
-                  onClick={() => onItemClick && onItemClick("billings")}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
-                    darkMode
-                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
-                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
-                  }`}
-                >
-                  Billings
-                </button>
+                {/*  */}
                 <button
                   onClick={() => onItemClick && onItemClick("transactions")}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${

@@ -17,7 +17,8 @@ export interface User {
   loyaltyPoints: number;      
   isActive: boolean;          
   createdAt: string;          
-  updatedAt: string;          
+  updatedAt: string;  
+  avatar: string;        
 }
 
 
@@ -29,6 +30,7 @@ export interface AuthState {
   
   setAuth: (user: User, accessToken: string) => void
   logout: () => void
+  setUser: (user: User) => void;
 }
 export interface AuthResponse {
   username: string;           

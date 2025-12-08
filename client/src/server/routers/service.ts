@@ -5,7 +5,7 @@ export type Service = {
   name: string; // NOT NULL
   description: string; // NOT NULL
   price: number; // NOT NULL
-  imgUrl?: string; // URL hình ảnh dịch vụ
+  imageUrl?: string; // URL hình ảnh dịch vụ
   createdAt: string; // DATETIME -> ISO string
   updatedAt: string; // DATETIME -> ISO string
 };
@@ -19,7 +19,7 @@ export const serviceRouter = router({
         name: "Spa thú cưng",
         description: "Dịch vụ tắm, cắt tỉa lông, vệ sinh cho thú cưng.",
         price: 200000,
-        imgUrl: "/assets/imgs/imgService/service1.jpg", // Gán ảnh spa
+        imageUrl: "/assets/imgs/imgService/service1.jpg", // Gán ảnh spa
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -28,7 +28,7 @@ export const serviceRouter = router({
         name: "Khám bệnh tổng quát",
         description: "Khám tổng quát, tư vấn sức khỏe cho thú cưng.",
         price: 150000,
-        imgUrl: "/assets/imgs/imgService/service2.jpg", // Gán ảnh khám bệnh
+        imageUrl: "/assets/imgs/imgService/service2.jpg", // Gán ảnh khám bệnh
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -37,7 +37,7 @@ export const serviceRouter = router({
         name: "Khách sạn thú cưng",
         description: "Lưu trú, chăm sóc thú cưng khi chủ vắng nhà.",
         price: 300000,
-        imgUrl: "/assets/imgs/imgService/service4.jpeg", // Gán ảnh khách sạn thú cưng
+        imageUrl: "/assets/imgs/imgService/service4.jpeg", // Gán ảnh khách sạn thú cưng
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -46,7 +46,7 @@ export const serviceRouter = router({
         name: "Cắt móng & vệ sinh tai",
         description: "Dịch vụ cắt móng, vệ sinh tai an toàn cho thú cưng.",
         price: 80000,
-        imgUrl: "/assets/imgs/imgService/service3.png", // Gán ảnh cắt móng, vệ sinh tai
+        imageUrl: "/assets/imgs/imgService/service3.png", // Gán ảnh cắt móng, vệ sinh tai
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -55,7 +55,7 @@ export const serviceRouter = router({
         name: "Nhuộm màu lông",
         description: "Dịch vụ nhuộm màu lông cho thú cưng.",
         price: 500000,
-        imgUrl: "/assets/imgs/imgService/service.jpeg", // Gán ảnh huấn luyện
+        imageUrl: "/assets/imgs/imgService/service.jpeg", // Gán ảnh huấn luyện
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
