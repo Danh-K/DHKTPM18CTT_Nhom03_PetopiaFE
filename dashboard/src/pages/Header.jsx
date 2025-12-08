@@ -3,6 +3,7 @@
 import { HiBell, HiSearch, HiMoon, HiSun, HiLogout, HiCog } from "react-icons/hi";
 import { useState } from "react";
 import logo from "../assets/image.png";
+import { FaCat, FaDog } from "react-icons/fa";
 
 const notifications = [
   {
@@ -49,14 +50,34 @@ function Header({ darkMode, setDarkMode, user, logout }) {
         <div className="flex items-center gap-3">
           <img
             src={logo}
-            className="h-12 w-12 rounded-full object-cover"
-            alt="Logo"
+            alt="Petopia"
+            className="h-14 w-14 rounded-full object-cover ring-4 ring-amber-300/50 shadow-2xl
+                      animate-[float_6s_ease-in-out_infinite] 
+                      hover:animate-none hover:scale-125 hover:ring-amber-200 hover:ring-8
+                      transition-all duration-700"
           />
-          <span className="text-2xl font-bold text-white">Petpetopia</span>
+          <span className="flex items-center gap-1">
+            <span className="text-4xl md:text-5xl font-black text-white drop-shadow-2xl animate-[bounce_3s_infinite]">P</span>
+            
+            {/* Chữ "e" → thay bằng mèo quay đầu về phải */}
+            <div className="animate-[bounce_3s_infinite] [animation-delay:0.1s]">
+              <FaCat className="h-11 w-11 text-orange-400 drop-shadow-2xl" />
+            </div>
+            
+            <span className="text-4xl md:text-5xl font-black text-white drop-shadow-2xl animate-[bounce_3s_infinite] [animation-delay:0.2s]">t</span>
+            <span className="text-4xl md:text-5xl font-black text-white drop-shadow-2xl animate-[bounce_3s_infinite] [animation-delay:0.3s]">o</span>
+            <span className="text-4xl md:text-5xl font-black text-white drop-shadow-2xl animate-[bounce_3s_infinite] [animation-delay:0.4s]">p</span>
+            <span className="text-4xl md:text-5xl font-black text-white drop-shadow-2xl animate-[bounce_3s_infinite] [animation-delay:0.5s]">i</span>
+            
+            {/* Chữ "a" → thay bằng chó */}
+            <div className="animate-[bounce_3s_infinite] [animation-delay:0.6s]">
+              <FaDog className="h-12 w-12 text-amber-300 drop-shadow-2xl scale-x-[-1]" />
+            </div>
+          </span>
         </div>
 
         {/* Search Bar */}
-        <div className="flex-1 max-w-md mx-8">
+        {/* <div className="flex-1 max-w-md mx-8">
           <div className="relative">
             <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input
@@ -65,70 +86,18 @@ function Header({ darkMode, setDarkMode, user, logout }) {
               className="w-full pl-10 pr-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/20 transition-all"
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-4">
-          {/* Notification Bell */}
-          <div className="relative">
-            <button
-              onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-              className="relative p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <HiBell className="h-6 w-6" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-
-            {/* Notification Dropdown */}
-            {isNotificationOpen && (
-              <div className="absolute top-12 right-0 w-[360px] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="p-4 font-semibold border-b border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
-                  Notifications
-                </div>
-
-                <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
-                  {notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      className="flex p-4 gap-3 items-start hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-                    >
-                      <img
-                        src={n.avatar || "/placeholder.svg"}
-                        className="w-10 h-10 rounded-full object-cover"
-                        alt={n.name}
-                      />
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-900 dark:text-white">
-                          <span className="font-semibold">{n.name}</span>{" "}
-                          {n.message}
-                        </p>
-                        {n.action && (
-                          <div className="mt-2 flex gap-2">
-                            <button className="px-3 py-1 text-sm bg-[#7b4f35] text-white rounded-md hover:bg-[#6a4330] transition">
-                              Accept
-                            </button>
-                            <button className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 transition">
-                              Decline
-                            </button>
-                          </div>
-                        )}
-                        <span className="text-xs text-[#7b4f35] mt-1 block">
-                          {n.time}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="text-center p-3 border-t border-gray-200 dark:border-gray-700 text-sm text-[#7b4f35] hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition">
-                  View all
-                </div>
+          <div className="flex items-center gap-6 text-white">
+            <div className="text-right leading-tight">
+              <div className="text-xs opacity-80">Hôm nay</div>
+              <div className="text-lg font-bold tracking-wider animate-[gradient_6s_ease_infinite] bg-gradient-to-r from-amber-300 to-orange-400 bg-clip-text text-transparent">
+                {new Date().toLocaleDateString("vi-VN", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </div>
-            )}
+            </div>
+            <div className="w-px h-10 bg-white/30"></div>
           </div>
 
           {/* Dark Mode Toggle */}
@@ -159,10 +128,12 @@ function Header({ darkMode, setDarkMode, user, logout }) {
             {/* User Dropdown */}
             {isUserMenuOpen && (
               <div className="absolute top-14 right-0 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                  <p className="text-black dark:text-white">Chào Admin!</p>
-                  <p className="text-lg text-black dark:text-gray-400">{user?.fullName}</p>
-                </div>
+                <div className="px-4 py-4 text-black border-b border-gray-200">
+                <p className="text-xs">Chào Admin 👋</p>
+                <p className="text-base font-semibold">
+                  {user?.fullName}
+                </p>
+              </div>
 
                 <button className="w-full text-left px-4 py-3 text-sm text-gray-700 transition flex items-center gap-2">
                   <HiSearch className="h-4 w-4" />

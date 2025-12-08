@@ -192,40 +192,51 @@ export const useDashboard = () => {
   };
   const fetchRevenueChart = useCallback(async (year) => {
     try {
-      // Gọi API
       const res = await dashboardApi.getRevenueChart(year).catch((err) => {
         console.error("Chart API Error:", err);
         return null;
       });
 
       const rawData = extractData(res);
-      console.log(">>> Raw Data from API:", rawData); // [DEBUG 1] Xem dữ liệu gốc
+      console.log(">>> Raw Data Chart:", rawData);
 
-      // 1. Tạo khung dữ liệu cho 12 tháng (Mặc định là 0)
+      // 1. Tạo khung dữ liệu chuẩn 12 tháng
       const fullYearData = Array.from({ length: 12 }, (_, i) => ({
-        month: `T${i + 1}`, // Label: T1, T2...
+        month: `T${i + 1}`,
         revenue: 0,
         profit: 0,
       }));
 
-      // 2. Map dữ liệu từ API vào khung
+      // 2. Map dữ liệu (Xử lý linh hoạt các trường hợp key khác nhau)
       if (Array.isArray(rawData)) {
         rawData.forEach((item) => {
-          // Chuyển đổi sang số để đảm bảo an toàn
-          const monthIndex = parseInt(item.month);
-          const revenue = parseFloat(item.revenue);
-          const profit = parseFloat(item.profit);
+          // Xử lý Month: Backend có thể trả về "1", "01", hoặc "2025-01"
+          let monthIndex = -1;
+          const m = String(item.month || item.thang); // Thử lấy key 'month' hoặc 'thang'
 
-          // Kiểm tra tháng hợp lệ (1-12)
+          if (m.includes("-")) {
+            // Trường hợp: "2025-01"
+            monthIndex = parseInt(m.split("-")[1]);
+          } else {
+            // Trường hợp: "1", "01"
+            monthIndex = parseInt(m);
+          }
+
+          // Xử lý Revenue/Profit: Thử lấy nhiều key khác nhau đề phòng backend đổi tên
+          // item.revenue, item.totalRevenue, item.doanhThu...
+          const revenue = parseFloat(
+            item.revenue || item.totalRevenue || item.total_money || 0
+          );
+          const profit = parseFloat(item.profit || item.loiNhuan || 0);
+
           if (!isNaN(monthIndex) && monthIndex >= 1 && monthIndex <= 12) {
-            // Gán giá trị vào mảng (index = month - 1)
-            fullYearData[monthIndex - 1].revenue = revenue || 0;
-            fullYearData[monthIndex - 1].profit = profit || 0;
+            fullYearData[monthIndex - 1].revenue = revenue;
+            fullYearData[monthIndex - 1].profit = profit;
           }
         });
       }
 
-      console.log(">>> Mapped Chart Data:", fullYearData); // [DEBUG 2] Xem dữ liệu sau khi map
+      console.log(">>> Final Chart Data:", fullYearData);
       setRevenueChartData(fullYearData);
     } catch (error) {
       console.error("Lỗi xử lý biểu đồ:", error);

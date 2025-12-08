@@ -3,7 +3,7 @@
 import DeliveryTimeline from "./DeliveryTimeLine"
 import { HiOutlineMapPin, HiOutlinePhone, HiOutlineArchiveBox, HiOutlineClock } from "react-icons/hi2"
 
-export default function DeliveryCard({ delivery, darkMode = false }) {
+export default function DeliveryCard({ delivery, darkMode = false, onViewDetail }) {
   const defaults = {
     currentStatus: "Chuẩn bị",
     trackingNumber: "N/A",
@@ -44,7 +44,7 @@ export default function DeliveryCard({ delivery, darkMode = false }) {
       }`}
     >
       {/* Header */}
-      <div className="flex justify-between items-start gap-3 mb-3">
+      <div className="flex justify-between items-start gap-3 mb-1">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span
@@ -69,8 +69,20 @@ export default function DeliveryCard({ delivery, darkMode = false }) {
         </div>
       </div>
 
-      <div className={`-mx-4 px-4 mb-3 pb-3 border-b ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
+      <div className={`-mx-4 px-3 border-b ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
         <DeliveryTimeline currentStatus={delivery.currentStatus || delivery.deliveryStatus} delivery={delivery}/>
+      </div>
+
+        <div className="mt-3 mb-3 flex justify-center">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewDetail(delivery.deliveryId);
+            }}
+            className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105"
+          >
+            Xem chi tiết
+          </button>
         </div>
 
       <div className="space-y-2 mb-3">
