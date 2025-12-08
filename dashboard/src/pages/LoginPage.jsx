@@ -15,8 +15,10 @@ export default function LoginPage({ onLoginSuccess }) {
   const dispatch = useDispatch();
 
   const { loading: authLoading } = useSelector((state) => state.auth);
-  const { loading: otpSending } = useSelector((state) => state.forgot);     // khi gửi OTP
-  const { loading: otpVerifying, error: otpError } = useSelector((state) => state.forgot);   // khi xác minh OTP 
+  const { loading: otpSending } = useSelector((state) => state.forgot); // khi gửi OTP
+  const { loading: otpVerifying, error: otpError } = useSelector(
+    (state) => state.forgot
+  ); // khi xác minh OTP
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,7 +60,9 @@ export default function LoginPage({ onLoginSuccess }) {
     setIsSendingOtp(true);
 
     try {
-      const result = await dispatch(loginUser({ identifier: email.trim(), password }));
+      const result = await dispatch(
+        loginUser({ identifier: email.trim(), password })
+      );
 
       if (loginUser.fulfilled.match(result)) {
         setLoginTempData(result.payload);
@@ -90,10 +94,13 @@ export default function LoginPage({ onLoginSuccess }) {
         localStorage.removeItem("rememberedPassword");
       }
 
-      dispatch(setLoginSuccess({
-        user: loginTempData.user,
-        token: loginTempData.token
-      }));
+      dispatch(
+        setLoginSuccess({
+          user: loginTempData.user,
+          accessToken: loginTempData.accessToken, // Sửa key cho khớp DTO backend
+          refreshToken: loginTempData.refreshToken, // Lưu cái này
+        })
+      );
 
       onLoginSuccess?.();
     } else {
@@ -111,7 +118,6 @@ export default function LoginPage({ onLoginSuccess }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-
         <div className="hidden lg:block text-amber-900">
           <div className="space-y-12">
             <div className="relative group">
@@ -131,7 +137,9 @@ export default function LoginPage({ onLoginSuccess }) {
                       Admin Portal
                     </span>
                   </div>
-                  <h1 className="text-6xl font-black text-white tracking-tight">Petopia</h1>
+                  <h1 className="text-6xl font-black text-white tracking-tight">
+                    Petopia
+                  </h1>
                   <p className="text-2xl text-amber-100 font-medium mt-2">
                     Hệ thống quản trị toàn diện
                   </p>
@@ -157,7 +165,9 @@ export default function LoginPage({ onLoginSuccess }) {
                   <div className="relative mb-5">
                     <div className="absolute inset-0 bg-yellow-400/20 rounded-3xl blur-xl scale-110 group-hover:blur-2xl transition-all duration-500"></div>
                     <div className="relative w-24 h-24 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-3xl flex items-center justify-center shadow-2xl border border-yellow-300/40 transform group-hover:scale-110 transition-all duration-300">
-                      <span className="text-3xl font-black text-white">24/7</span>
+                      <span className="text-3xl font-black text-white">
+                        24/7
+                      </span>
                     </div>
                   </div>
                   <p className="font-bold text-amber-900 text-lg">Liên tục</p>
@@ -172,14 +182,15 @@ export default function LoginPage({ onLoginSuccess }) {
         ) : (
           <div className="w-full max-w-md mx-auto">
             <div className="bg-white rounded-3xl shadow-2xl p-8 border border-amber-100">
-
               {/* Header */}
               <div className="text-center mb-8">
                 <h1 className="text-3xl font-bold text-amber-900">
                   {showOtpForm ? "Xác minh OTP" : "Đăng nhập tài khoản"}
                 </h1>
                 <p className="text-amber-700 mt-2">
-                  {showOtpForm ? `Mã OTP đã gửi tới ${email}` : "Chào mừng bạn quay lại Petopia!"}
+                  {showOtpForm
+                    ? `Mã OTP đã gửi tới ${email}`
+                    : "Chào mừng bạn quay lại Petopia!"}
                 </p>
               </div>
 
@@ -200,7 +211,9 @@ export default function LoginPage({ onLoginSuccess }) {
                       type="text"
                       maxLength="6"
                       value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                      onChange={(e) =>
+                        setOtp(e.target.value.replace(/\D/g, ""))
+                      }
                       placeholder="Mã 6 số"
                       autoFocus
                       className="w-full text-center text-4xl font-bold tracking-widest py-5 border-2 border-amber-300 rounded-2xl focus:outline-none focus:border-amber-600 transition"
@@ -236,7 +249,10 @@ export default function LoginPage({ onLoginSuccess }) {
                       Email <span className="text-red-600">*</span>
                     </label>
                     <div className="relative">
-                      <HiOutlineMail className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400" size={20} />
+                      <HiOutlineMail
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400"
+                        size={20}
+                      />
                       <input
                         type="text"
                         value={email}
@@ -253,7 +269,10 @@ export default function LoginPage({ onLoginSuccess }) {
                       Mật khẩu <span className="text-red-600">*</span>
                     </label>
                     <div className="relative">
-                      <HiOutlineLockClosed className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400" size={20} />
+                      <HiOutlineLockClosed
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400"
+                        size={20}
+                      />
                       <input
                         type="password"
                         value={password}
@@ -290,11 +309,11 @@ export default function LoginPage({ onLoginSuccess }) {
                     disabled={authLoading || isSendingOtp}
                     className="w-full bg-gradient-to-r from-amber-700 to-orange-600 text-white font-bold py-4 rounded-full hover:from-amber-800 hover:to-orange-700 transform hover:scale-105 transition-all shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    {authLoading 
-                      ? "Đang kiểm tra tài khoản..." 
-                      : isSendingOtp 
-                        ? "Đang gửi mã OTP..." 
-                        : "Đăng nhập"}
+                    {authLoading
+                      ? "Đang kiểm tra tài khoản..."
+                      : isSendingOtp
+                      ? "Đang gửi mã OTP..."
+                      : "Đăng nhập"}
                   </button>
                 </form>
               )}

@@ -19,6 +19,7 @@ import LoginPage from "./pages/LoginPage";
 import useAuth from "./hooks/useAuth";
 import DeliveryManagement from "./components/delivery/DeliveryManagement";
 import DeliveryHome from "./components/delivery/DeliveryHome";
+import CategoryManagement from "./components/categories/CategoryManagement";
 
 function App() {
   const [darkMode, setDarkMode] = useState(false);
@@ -41,6 +42,8 @@ function App() {
         return <PetsManagement />;
       case "services":
         return <ServiceVice />;
+      case "categories":
+        return <CategoryManagement />;
       case "reviews":
         return <ReviewsManagement />;
       case "injections":

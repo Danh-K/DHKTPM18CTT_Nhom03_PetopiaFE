@@ -148,6 +148,16 @@ function Sidebar({ darkMode, onItemClick }) {
                   Products
                 </button> */}
                 <button
+                  onClick={() => onItemClick && onItemClick("categories")}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
+                    darkMode
+                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
+                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
+                  }`}
+                >
+                  Thể loại
+                </button>
+                <button
                   onClick={() => onItemClick && onItemClick("pets")}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
                     darkMode
@@ -240,8 +250,6 @@ function Sidebar({ darkMode, onItemClick }) {
             <HiUser className="h-5 w-5" />
             <span className="font-medium">Người dùng</span>
           </button>
-
-
 
           {/* Articles */}
           <button

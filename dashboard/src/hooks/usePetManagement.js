@@ -24,7 +24,7 @@ export const usePetManagement = () => {
     }
   }, []);
 
-  // 2. Load Pets (Giữ nguyên logic cũ)
+  // 2. Load Pets (Bổ sung bộ lọc mới)
   const fetchPets = useCallback(
     async (page = 1, searchQuery = "", filters = {}) => {
       setLoading(true);
@@ -57,11 +57,11 @@ export const usePetManagement = () => {
             image_id: img.imageId,
             image_url: img.imageUrl,
             is_thumbnail: img.isThumbnail,
-            is_existing: true, // Đánh dấu ảnh cũ
+            is_existing: true,
           })),
         }));
 
-        // ... (Giữ nguyên logic Filter Client-side cũ của bạn) ...
+        // --- LOGIC LỌC CŨ (GIỮ NGUYÊN) ---
         if (searchQuery)
           mappedPets = mappedPets.filter((p) =>
             p.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -72,6 +72,62 @@ export const usePetManagement = () => {
           );
         if (filters.status)
           mappedPets = mappedPets.filter((p) => p.status === filters.status);
+
+        // --- BỔ SUNG BỘ LỌC MỚI (SEARCH NÂNG CAO) ---
+
+        // 1. Giới tính
+        if (filters.gender) {
+          mappedPets = mappedPets.filter((p) => p.gender === filters.gender);
+        }
+
+        // 2. Khoảng giá (Min - Max Price)
+        if (filters.minPrice) {
+          mappedPets = mappedPets.filter(
+            (p) => p.price >= Number(filters.minPrice)
+          );
+        }
+        if (filters.maxPrice) {
+          mappedPets = mappedPets.filter(
+            (p) => p.price <= Number(filters.maxPrice)
+          );
+        }
+
+        // 3. Độ tuổi (Min - Max Age)
+        if (filters.minAge) {
+          mappedPets = mappedPets.filter(
+            (p) => p.age >= Number(filters.minAge)
+          );
+        }
+        if (filters.maxAge) {
+          mappedPets = mappedPets.filter(
+            (p) => p.age <= Number(filters.maxAge)
+          );
+        }
+
+        // 4. Cân nặng (Min - Max Weight)
+        if (filters.minWeight) {
+          mappedPets = mappedPets.filter(
+            (p) => p.weight >= Number(filters.minWeight)
+          );
+        }
+        if (filters.maxWeight) {
+          mappedPets = mappedPets.filter(
+            (p) => p.weight <= Number(filters.maxWeight)
+          );
+        }
+
+        // 5. Chiều cao (Min - Max Height)
+        if (filters.minHeight) {
+          mappedPets = mappedPets.filter(
+            (p) => p.height >= Number(filters.minHeight)
+          );
+        }
+        if (filters.maxHeight) {
+          mappedPets = mappedPets.filter(
+            (p) => p.height <= Number(filters.maxHeight)
+          );
+        }
+        // ---------------------------------------------
 
         setTotalElements(mappedPets.length);
         setTotalPages(Math.ceil(mappedPets.length / 10));
@@ -88,12 +144,10 @@ export const usePetManagement = () => {
     []
   );
 
-  // 3. SAVE (ĐÃ SỬA LOGIC BLOB JSON)
+  // 3. SAVE (Giữ nguyên)
   const savePet = async (petData) => {
     try {
       const formData = new FormData();
-
-      // A. Chuẩn bị DTO
       const oldImagesList = (petData.images || [])
         .filter((img) => img.is_existing === true)
         .map((img) => ({
@@ -122,25 +176,18 @@ export const usePetManagement = () => {
         oldImages: oldImagesList,
       };
 
-      // --- B. ĐÓNG GÓI JSON VÀO BLOB (FIX LỖI KHÔNG VÀO CONTROLLER) ---
-      // Backend dùng @RequestPart("pet"), cần content-type là application/json
       const jsonBlob = new Blob([JSON.stringify(petDto)], {
         type: "application/json",
       });
       formData.append("pet", jsonBlob);
 
-      // --- C. ĐÓNG GÓI FILE ---
       if (petData.images && petData.images.length > 0) {
         petData.images.forEach((img) => {
           if (img.file) {
-            // Chỉ lấy ảnh mới có file object
             formData.append("files", img.file);
           }
         });
       }
-
-      // Debug: Log formData (Chỉ check đc keys)
-      console.log("Submitting Pet DTO:", petDto);
 
       await petApi.createOrUpdate(formData);
       toast.success(
