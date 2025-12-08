@@ -45,7 +45,7 @@ const MiniCart = () => {
       <div
         aria-hidden
         onClick={animatedClose}
-        className="fixed inset-0 z-40"
+        className="fixed inset-0 z-[55]"
         style={{
           backgroundColor: '#000000',
           // reduce opacity so overlay is dimmer (more transparent)
@@ -55,7 +55,7 @@ const MiniCart = () => {
       />
 
       {/* Mini Cart - không có overlay, chỉ có shadow */}
-      <div className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out border-l border-gray-200 ${closing ? 'translate-x-96' : 'translate-x-0'}`}>
+      <div className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-[60] flex flex-col transform transition-transform duration-300 ease-in-out border-l border-gray-200 ${closing ? 'translate-x-96' : 'translate-x-0'}`}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-800">Giỏ hàng ({totalItems})</h2>
@@ -183,20 +183,8 @@ const MiniCart = () => {
             {/* Action Buttons */}
             <div>
               <Link href="/carts" onClick={animatedClose}>
-                <button className="w-full py-2 px-4 rounded-full font-medium transition-all duration-300 text-gray-800 hover:text-white bg-[#f9f5f0] hover:bg-[#FF6B6B] group relative overflow-hidden cursor-pointer">
-                  <span className="relative overflow-hidden block h-6">
-                    <span className="absolute inset-0 flex items-center justify-center transform transition-transform duration-300 group-hover:-translate-y-full">
-                      Xem giỏ hàng
-                    </span>
-                    <span className="absolute inset-0 flex items-center justify-center transform translate-y-full transition-transform duration-300 group-hover:translate-y-0">
-                      Xem giỏ hàng
-                    </span>
-                  </span>
-                </button>
-              </Link>
-              <Link href="/carts" onClick={animatedClose}>
                 <button 
-                  className="w-full py-2 px-4 rounded-full font-medium transition-colors duration-300 bg-[#FF6B6B] text-white hover:bg-black mt-4 cursor-pointer shadow"
+                  className="w-full py-2 px-4 rounded-full font-medium transition-colors duration-300 bg-[#FF6B6B] text-white hover:bg-black cursor-pointer shadow"
                 >
                   Thanh toán
                 </button>

@@ -8,7 +8,7 @@ import { useCart } from "@/store/useCartStore";
 import { Search, ChevronDown, Loader2 } from "lucide-react";
 import CategoryFilter from "@/app/pets/_components/CategoryFilter";
 import PriceRangeFilter from "@/app/pets/_components/PriceRangeFilter";
-import ProductCard from "@/app/pets/_components/ProductCard";
+import ProductCard from "@/app/components/product/ProductCard";
 import MiniCart from "@/app/carts/_components/MiniCart";
 
 import type { Pet } from "@/types/Pet";

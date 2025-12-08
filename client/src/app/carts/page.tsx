@@ -529,7 +529,7 @@ const CartPage = () => {
 
   return (
     <>
-      {ToastContainer}
+      <ToastContainer />
       <div className="min-h-screen bg-white">
         {/* Cart Title */}
         <div className="relative py-24">
