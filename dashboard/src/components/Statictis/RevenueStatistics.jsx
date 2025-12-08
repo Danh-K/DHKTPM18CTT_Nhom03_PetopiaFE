@@ -7,7 +7,6 @@ import {
   HiClock,
   HiXCircle,
   HiChartPie,
-  HiCalendar,
   HiDownload,
   HiFilter,
 } from "react-icons/hi";
@@ -33,6 +32,15 @@ import "react-tabs/style/react-tabs.css";
 import { useDashboard } from "../../hooks/useDashboard";
 import CountUp from "react-countup";
 
+// --- HELPER FORMAT AXIS (Để ngoài component) ---
+const formatYAxis = (value) => {
+  if (value === 0) return "0";
+  if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`; // Tỷ
+  if (value >= 1000000) return `${(value / 1000000).toFixed(0)}M`; // Triệu (bỏ thập phân)
+  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`; // Nghìn
+  return value;
+};
+
 export default function Revenue() {
   const {
     loading,
@@ -43,9 +51,8 @@ export default function Revenue() {
     setSelectedYear,
     dateRange,
     setDateRange,
-    fetchRevenueDashboardData, // Hàm gọi API tổng
-    fetchRevenueChart, // Hàm gọi API biểu đồ
-    formatCurrency,
+    fetchRevenueDashboardData,
+    fetchRevenueChart,
     exportToPDF,
   } = useDashboard();
 
@@ -56,25 +63,25 @@ export default function Revenue() {
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
   };
 
-  // 1. Load lần đầu khi vào trang
+  // 1. Load lần đầu
   useEffect(() => {
     fetchRevenueDashboardData();
-  }, []); // Chỉ chạy 1 lần mount (hoặc bạn có thể bỏ array này nếu muốn auto reload)
+  }, []);
 
-  // 2. Handle đổi năm (Gọi lại biểu đồ ngay)
+  // 2. Đổi Năm -> Gọi lại chart ngay
   const handleYearChange = (e) => {
     const year = Number(e.target.value);
     setSelectedYear(year);
     fetchRevenueChart(year);
   };
 
-  // 3. Handle đổi ngày (Chỉ update state, chưa gọi API)
+  // 3. Đổi Ngày -> Chỉ set state
   const handleDateChange = (e) => {
     const { name, value } = e.target;
     setDateRange((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 4. Handle nút LỌC (Mới gọi API Dashboard)
+  // 4. Bấm Lọc -> Gọi API
   const handleFilterSubmit = () => {
     fetchRevenueDashboardData();
   };
@@ -128,7 +135,6 @@ export default function Revenue() {
                 className="bg-slate-50 border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
-
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-slate-500 uppercase">
                 Đến ngày
@@ -141,16 +147,13 @@ export default function Revenue() {
                 className="bg-slate-50 border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
-
             <button
               onClick={handleFilterSubmit}
               className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-bold shadow-sm transition-all h-[38px]"
             >
               <HiFilter /> Lọc Dữ Liệu
             </button>
-
             <div className="h-8 w-[1px] bg-slate-200 mx-2 hidden md:block"></div>
-
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-slate-500 uppercase">
                 Năm biểu đồ
@@ -275,13 +278,17 @@ export default function Revenue() {
                       tick={{ fill: "#64748B", fontSize: 12 }}
                       dy={10}
                     />
+
+                    {/* Y-AXIS FIXED HERE */}
                     <YAxis
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#64748B", fontSize: 12 }}
-                      tickFormatter={(val) => `${val / 1000000}M`}
+                      tickFormatter={formatYAxis} // SỬ DỤNG HÀM MỚI
                       width={80}
+                      domain={[0, "auto"]} // FIX LỖI FLAT LINE
                     />
+
                     <Tooltip content={<CustomTooltip />} />
                     <Area
                       type="monotone"
@@ -319,12 +326,16 @@ export default function Revenue() {
                       axisLine={false}
                       tickLine={false}
                     />
+
+                    {/* Y-AXIS FIXED HERE */}
                     <YAxis
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(val) => `${val / 1000000}M`}
+                      tickFormatter={formatYAxis} // SỬ DỤNG HÀM MỚI
                       width={80}
+                      domain={[0, "auto"]} // FIX LỖI FLAT LINE
                     />
+
                     <Tooltip content={<CustomTooltip />} />
                     <Legend
                       verticalAlign="top"
@@ -356,7 +367,7 @@ export default function Revenue() {
             </div>
           </TabPanel>
 
-          {/* TAB 3: PIE CHART */}
+          {/* TAB 3: PIE CHART (Không đổi nhiều) */}
           <TabPanel>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
@@ -424,7 +435,7 @@ export default function Revenue() {
   );
 }
 
-// --- HELPER COMPONENTS ---
+// --- SUB COMPONENTS ---
 const StatsCard = ({ title, value, icon, color, subText, isCurrency }) => {
   const colorMap = {
     indigo: "bg-indigo-50 text-indigo-600",
@@ -462,7 +473,7 @@ const StatsCard = ({ title, value, icon, color, subText, isCurrency }) => {
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white p-4 border border-slate-100 shadow-xl rounded-xl">
+      <div className="bg-white p-4 border border-slate-100 shadow-xl rounded-xl z-50">
         <p className="text-sm font-bold text-slate-700 mb-2">{`Tháng ${label?.replace(
           "T",
           ""
@@ -475,9 +486,16 @@ const CustomTooltip = ({ active, payload, label }) => {
           >
             <span
               className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: entry.color }}
+              style={{ backgroundColor: entry.color || entry.fill }}
             ></span>
-            <span>{entry.name}:</span>
+            <span>
+              {entry.name === "revenue"
+                ? "Doanh Thu"
+                : entry.name === "profit"
+                ? "Lợi Nhuận"
+                : entry.name}
+              :
+            </span>
             <span>
               {new Intl.NumberFormat("vi-VN", {
                 style: "currency",
