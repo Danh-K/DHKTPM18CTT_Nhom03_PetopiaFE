@@ -166,7 +166,9 @@ export default function ServiceDetailPage() {
                     <Calendar size={20} />
                     Đặt Lịch Ngay
                  </button>
-                 <button  className="flex-1 bg-white hover:bg-gray-50 text-[#5A3E2B] border-2 border-[#F5E6D3] py-4 px-6 rounded-2xl font-bold transition-all hover:-translate-y-1 flex items-center justify-center gap-2">
+                 <button
+                 onClick={() => window.open('https://zalo.me/0352903906', '_blank')}
+                 className="flex-1 bg-white hover:bg-gray-50 text-[#5A3E2B] border-2 border-[#F5E6D3] py-4 px-6 rounded-2xl font-bold transition-all hover:-translate-y-1 flex items-center justify-center gap-2">
                     <Phone size={20} />
                     Liên Hệ Tư Vấn
                  </button>
