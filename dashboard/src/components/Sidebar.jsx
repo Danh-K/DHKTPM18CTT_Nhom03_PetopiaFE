@@ -37,7 +37,10 @@ function Sidebar({ darkMode, onItemClick }) {
         darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-800"
       }`}
     >
-      <div className="h-full overflow-y-auto py-4 px-3" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+      <div
+        className="h-full overflow-y-auto py-4 px-3"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
         <nav className="space-y-1">
           {/* Dashboard */}
           <button
@@ -49,7 +52,7 @@ function Sidebar({ darkMode, onItemClick }) {
             }`}
           >
             <HiChartPie className="h-5 w-5" />
-            <span className="font-medium">Dashboard</span>
+            <span className="font-medium">Tổng quan</span>
           </button>
 
           {/* Performance Statistics - Standalone */}
@@ -62,7 +65,7 @@ function Sidebar({ darkMode, onItemClick }) {
             }`}
           >
             <HiChartBar className="h-5 w-5" />
-            <span className="font-medium">Performance Statistics</span>
+            <span className="font-medium">Hiệu suất </span>
           </button>
 
           {/* Statistics Section */}

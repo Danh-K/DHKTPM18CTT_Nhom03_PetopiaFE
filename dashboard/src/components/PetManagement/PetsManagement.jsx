@@ -1161,7 +1161,7 @@ export default function PetsManagement() {
             </p>
             {item.discount_price > 0 && (
               <p className="text-xs text-gray-400 line-through">
-                {formatCurrency(item.price * 1.2)}
+                {formatCurrency(item.discount_price)}
               </p>
             )}
           </td>
