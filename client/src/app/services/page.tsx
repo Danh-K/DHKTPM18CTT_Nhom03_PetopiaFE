@@ -170,15 +170,15 @@ export function ServiceSection() {
                 
                 
                 <div className="flex-shrink-0 relative z-10">
-                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-md group-hover:bg-white transition-colors duration-300">
-                    <Image
-                        src={service.imageUrl || '/assets/imgs/imgService/service1.png'} 
-                        alt={service.name}
-                        width={40}
-                        height={40}
-                        className="object-contain group-hover:scale-110 transition-transform duration-300"
-                    />
-                    </div>
+                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-md group-hover:bg-white transition-colors duration-300 overflow-hidden">
+                          <Image
+                            src={service.imageUrl || '/assets/imgs/imgService/service1.png'}
+                            alt={service.name}
+                            width={64}
+                            height={64}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                        </div>
                 </div>
 
                 

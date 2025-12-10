@@ -100,14 +100,7 @@ export default function Header() {
 
       {/* Right: Action Buttons */}
       <div className="flex items-center gap-3">
-        {/* Search Button */}
-        <Link href="/pets">
-          <button
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-white hover:bg-[#F5D7B7] transition-all duration-300 hover:scale-110 shadow-md group"
-          >
-            <Search size={20} className="text-[#7B4F35] group-hover:text-[#6B3F25]" />
-          </button>
-        </Link>
+        
 
         {/* Wishlist Button */}
         <Link href="/favorites" className="relative">

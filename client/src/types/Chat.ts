@@ -1,12 +1,10 @@
 
 
-import { Pet } from "./Pet"; 
-
-
 
 export interface AiResponse {
   message: string;      
   actionType: "NONE" | "SHOW_PETS" | "SHOW_SERVICES" | "SHOW_ARTICLES" | "SHOW_VOUCHERS" | "SHOW_ORDER_STATUS";
+  dataType: "pet" | "service" | "article" | "voucher" | "order" | null; 
   data: any;            
 }
 
@@ -18,6 +16,7 @@ export interface ChatMessage {
   
   
   actionType?: string;
+  dataType?: string | null; 
   data?: any;
   timestamp: number;
 }
