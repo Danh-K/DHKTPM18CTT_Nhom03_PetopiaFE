@@ -87,7 +87,7 @@ export default function VoucherFormModal({
         minOrderAmount: formData.minOrderAmount ? Number(formData.minOrderAmount) : null,
         maxUsage: formData.maxUsage ? Number(formData.maxUsage) : null,
         imageUrl: imageUrl || null,
-        status: isEdit ? (formData.status === "active" ? "ACTIVE" : "INACTIVE") : "ACTIVE",
+        status: isEdit ? (formData.status === "ACTIVE" ? "ACTIVE" : "INACTIVE") : "ACTIVE",
       };
 
       if (isEdit) {
@@ -323,8 +323,8 @@ export default function VoucherFormModal({
                     darkMode ? "bg-gray-700" : "bg-white"
                   } focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
                 >
-                  <option value="active">Hoạt động</option>
-                  <option value="inactive">Tạm dừng</option>
+                  <option value="ACTIVE">Hoạt động</option>
+                  <option value="INACTIVE">Tạm dừng</option>
                 </select>
               </div>
             )}
