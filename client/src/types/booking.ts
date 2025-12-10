@@ -1,12 +1,17 @@
 
 export interface BookingRequest {
-
   serviceId: string; 
   appointmentDate: string; 
   note?: string;
   quantity?: number; 
   priceAtPurchase?: number;
+
+  
+  email: string;
+  name: string;
+  phone: string;
 }
+
 
 
 export interface ApiResponse<T> {
@@ -15,13 +20,13 @@ export interface ApiResponse<T> {
   data: T;
 }
 export interface Booking {
-    bookingId: string;
-    userId: string;
-    serviceId: string;
-    appointmentDate: string;
-    note?: string;
-    quantity: number;
-    priceAtPurchase: number;
+  bookingId: string;
+  userId: string;
+  serviceId: string;
+  appointmentDate: string;
+  note?: string;
+  quantity: number;
+  priceAtPurchase: number;
 }
 
 export interface PageResponse<T> {

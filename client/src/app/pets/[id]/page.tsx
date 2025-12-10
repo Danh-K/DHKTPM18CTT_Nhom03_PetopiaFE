@@ -474,7 +474,7 @@ export default function PetDetailPage() {
                   onClick={handleAddToCart}
                   className="flex-1 py-6 text-base font-semibold bg-[#102937] hover:bg-[#0d1f2a] text-white rounded-full transition-colors duration-300 cursor-pointer"
                 >
-                  Add To Cart
+                  Thêm vào giỏ hàng
                 </Button>
 
                 {/* Wishlist Button */}

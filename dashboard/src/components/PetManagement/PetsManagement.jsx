@@ -799,6 +799,7 @@ const EditPetModal = ({ pet, onClose, categories, onSave }) => {
 
 const FilterModal = ({ onClose, filters, onApply, categories }) => {
   const [localFilters, setLocalFilters] = useState(filters);
+
   const handleChange = (e) =>
     setLocalFilters({ ...localFilters, [e.target.name]: e.target.value });
 
@@ -811,61 +812,191 @@ const FilterModal = ({ onClose, filters, onApply, categories }) => {
       exit="hidden"
     >
       <motion.div
-        className="bg-white p-5 rounded-lg shadow-xl max-w-md w-full"
+        className="bg-white p-6 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         variants={modalVariants}
       >
-        <div className="flex justify-between items-center border-b pb-3 mb-4">
-          <h2 className="text-lg font-bold">Bộ lọc nâng cao</h2>
-          <button onClick={onClose}>
-            <HiX size={24} />
+        <div className="flex justify-between items-center border-b pb-4 mb-6">
+          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <HiFilter className="text-blue-600" /> Bộ lọc nâng cao
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-red-500 transition-colors"
+          >
+            <HiX size={28} />
           </button>
         </div>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Khoảng giá</label>
-            <select
-              name="price"
-              value={localFilters.price}
-              onChange={handleChange}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="">Tất cả mức giá</option>
-              <option value="under-5m">Dưới 5 triệu</option>
-              <option value="5m-10m">5 - 10 triệu</option>
-              <option value="over-10m">Trên 10 triệu</option>
-            </select>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Cột 1 */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Trạng thái
+              </label>
+              <select
+                name="status"
+                value={localFilters.status}
+                onChange={handleChange}
+                className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="AVAILABLE">Sẵn sàng bán</option>
+                <option value="SOLD">Đã bán</option>
+                <option value="DRAFT">Nháp</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Giới tính
+              </label>
+              <select
+                name="gender"
+                value={localFilters.gender}
+                onChange={handleChange}
+                className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Tất cả</option>
+                <option value="MALE">Đực</option>
+                <option value="FEMALE">Cái</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Khoảng giá (VNĐ)
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  name="minPrice"
+                  placeholder="Từ"
+                  value={localFilters.minPrice}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+                <span>-</span>
+                <input
+                  type="number"
+                  name="maxPrice"
+                  placeholder="Đến"
+                  value={localFilters.maxPrice}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Trạng thái</label>
-            <select
-              name="status"
-              value={localFilters.status}
-              onChange={handleChange}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="AVAILABLE">Sẵn sàng bán</option>
-              <option value="SOLD">Đã bán</option>
-              <option value="DRAFT">Nháp</option>
-            </select>
+
+          {/* Cột 2 */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Độ tuổi (Tháng)
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  name="minAge"
+                  placeholder="Từ"
+                  value={localFilters.minAge}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+                <span>-</span>
+                <input
+                  type="number"
+                  name="maxAge"
+                  placeholder="Đến"
+                  value={localFilters.maxAge}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Cân nặng (Kg)
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  name="minWeight"
+                  placeholder="Từ"
+                  value={localFilters.minWeight}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+                <span>-</span>
+                <input
+                  type="number"
+                  name="maxWeight"
+                  placeholder="Đến"
+                  value={localFilters.maxWeight}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Chiều cao (Cm)
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  name="minHeight"
+                  placeholder="Từ"
+                  value={localFilters.minHeight}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+                <span>-</span>
+                <input
+                  type="number"
+                  name="maxHeight"
+                  placeholder="Đến"
+                  value={localFilters.maxHeight}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+              </div>
+            </div>
           </div>
         </div>
-        <div className="flex justify-end mt-6 pt-4 border-t gap-3">
+
+        <div className="flex justify-end mt-8 pt-4 border-t gap-3">
           <button
             onClick={() => {
-              onApply({ ...filters, status: "", price: "" });
+              // Reset về rỗng hết
+              onApply({
+                category_id: filters.category_id, // Giữ lại category ở ngoài nếu muốn
+                status: "",
+                gender: "",
+                minPrice: "",
+                maxPrice: "",
+                minAge: "",
+                maxAge: "",
+                minWeight: "",
+                maxWeight: "",
+                minHeight: "",
+                maxHeight: "",
+              });
               onClose();
             }}
-            className="px-4 py-2 bg-gray-100 rounded text-sm"
+            className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
           >
-            Mặc định
+            Xóa bộ lọc
           </button>
           <button
             onClick={() => {
               onApply(localFilters);
               onClose();
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded text-sm"
+            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md transition-colors"
           >
             Áp dụng
           </button>
@@ -938,7 +1069,15 @@ export default function PetsManagement() {
   const [filters, setFilters] = useState({
     category_id: "",
     status: "",
-    price: "",
+    gender: "",
+    minPrice: "",
+    maxPrice: "",
+    minAge: "",
+    maxAge: "",
+    minWeight: "",
+    maxWeight: "",
+    minHeight: "",
+    maxHeight: "",
   });
   const [expandedItems, setExpandedItems] = useState({});
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -1022,7 +1161,7 @@ export default function PetsManagement() {
             </p>
             {item.discount_price > 0 && (
               <p className="text-xs text-gray-400 line-through">
-                {formatCurrency(item.price * 1.2)}
+                {formatCurrency(item.discount_price)}
               </p>
             )}
           </td>
@@ -1225,7 +1364,7 @@ export default function PetsManagement() {
         <h1 className="text-2xl font-extrabold text-gray-800 mb-6">
           Quản Lý Thú Cưng
         </h1>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+        {/* <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
             <div className="p-3 rounded-full bg-blue-100 text-blue-600">
               <HiOutlineCube size={24} />
@@ -1239,7 +1378,8 @@ export default function PetsManagement() {
               </p>
             </div>
           </div>
-        </div>
+        </div> */}
+        {/* FILTER BAR - CẬP NHẬT GỌI FILTER MODAL */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
           <div className="flex gap-2 w-full md:w-auto">
             <button
@@ -1265,6 +1405,8 @@ export default function PetsManagement() {
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
               />
             </div>
+
+            {/* Dropdown Category giữ nguyên, cập nhật state filters */}
             <select
               className="w-full md:w-48 border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
               value={filters.category_id}
@@ -1280,9 +1422,17 @@ export default function PetsManagement() {
                 </option>
               ))}
             </select>
+
             <button
               onClick={() => setIsFilterModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white text-gray-700 border border-gray-300 font-medium rounded-lg hover:bg-gray-50 transition-all active:scale-95"
+              className={`flex items-center gap-2 px-4 py-2.5 border font-medium rounded-lg transition-all active:scale-95 ${
+                // Đổi màu nút nếu có filter đang active
+                Object.values(filters).some(
+                  (val) => val && val !== filters.category_id
+                )
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              }`}
             >
               <HiFilter size={20} />{" "}
               <span className="hidden sm:inline">Bộ lọc</span>
@@ -1386,6 +1536,7 @@ export default function PetsManagement() {
               }}
             />
           )}
+          {/* FILTER MODAL MỚI */}
           {isFilterModalOpen && (
             <FilterModal
               onClose={() => setIsFilterModalOpen(false)}

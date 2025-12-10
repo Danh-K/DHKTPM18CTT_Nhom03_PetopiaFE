@@ -37,7 +37,10 @@ function Sidebar({ darkMode, onItemClick }) {
         darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-800"
       }`}
     >
-      <div className="h-full overflow-y-auto py-4 px-3" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+      <div
+        className="h-full overflow-y-auto py-4 px-3"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
         <nav className="space-y-1">
           {/* Dashboard */}
           <button
@@ -49,7 +52,20 @@ function Sidebar({ darkMode, onItemClick }) {
             }`}
           >
             <HiChartPie className="h-5 w-5" />
-            <span className="font-medium">Dashboard</span>
+            <span className="font-medium">Tổng quan</span>
+          </button>
+
+          {/* Performance Statistics - Standalone */}
+          <button
+            onClick={() => onItemClick && onItemClick("performance-statistics")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              darkMode
+                ? "hover:bg-gray-800 text-gray-300 hover:text-white"
+                : "hover:bg-[#f5d7b7] text-gray-700 hover:text-[#7b4f35]"
+            }`}
+          >
+            <HiChartBar className="h-5 w-5" />
+            <span className="font-medium">Hiệu suất </span>
           </button>
 
           {/* Statistics Section */}
@@ -134,6 +150,16 @@ function Sidebar({ darkMode, onItemClick }) {
                 >
                   Products
                 </button> */}
+                <button
+                  onClick={() => onItemClick && onItemClick("categories")}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
+                    darkMode
+                      ? "hover:bg-gray-800 text-gray-400 hover:text-white"
+                      : "hover:bg-[#f5d7b7] text-gray-600 hover:text-[#7b4f35]"
+                  }`}
+                >
+                  Thể loại
+                </button>
                 <button
                   onClick={() => onItemClick && onItemClick("pets")}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all ${
@@ -227,8 +253,6 @@ function Sidebar({ darkMode, onItemClick }) {
             <HiUser className="h-5 w-5" />
             <span className="font-medium">Người dùng</span>
           </button>
-
-
 
           {/* Articles */}
           <button

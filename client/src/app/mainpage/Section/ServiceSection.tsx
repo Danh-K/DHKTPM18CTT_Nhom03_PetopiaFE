@@ -40,13 +40,13 @@ export default function ServiceSection() {
             >
               
               <div className="flex-shrink-0 relative z-10">
-                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm">
+                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm overflow-hidden">
                   <Image
                     src={service.imageUrl || "/assets/imgs/service-default.png"}
                     alt={service.name}
-                    width={40}
-                    height={40}
-                    className="object-contain"
+                    width={64}
+                    height={64}
+                    className="w-full h-full object-cover"
                   />
                 </div>
               </div>

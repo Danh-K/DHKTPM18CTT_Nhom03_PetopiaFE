@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { HiX, HiUpload, HiCalendar } from "react-icons/hi";
 import toast from "react-hot-toast";
-import { useDispatch } from 'react-redux';
+import { useDispatch } from "react-redux";
 import { addVoucher, updateVoucher } from "../../../store/voucherSlice";
 import { uploadToCloudinary } from "../../../api/cloudinaryService";
 
@@ -24,11 +24,14 @@ export default function VoucherFormModal({
     .toISOString()
     .split("T")[0];
 
-    const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState({
     voucherId: voucher?.voucherId || null,
     code: voucher?.code || "",
     description: voucher?.description || "",
-    discountType: voucher?.discountType === "PERCENTAGE" ? "percentage" : "fixed" || "percentage",
+    discountType:
+      voucher?.discountType === "PERCENTAGE"
+        ? "percentage"
+        : "fixed" || "percentage",
     discountValue: voucher?.discountValue || "",
     minOrderAmount: voucher?.minOrderAmount || "",
     maxUsage: voucher?.maxUsage || "",
@@ -43,7 +46,7 @@ export default function VoucherFormModal({
     if (voucher?.imageUrl) setImagePreview(voucher.imageUrl);
   }, [voucher]);
 
-    const handleImageChange = (e) => {
+  const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
@@ -82,9 +85,16 @@ export default function VoucherFormModal({
         voucherId: isEdit ? formData.voucherId : null,
         code: formData.code.trim().toUpperCase(),
         description: formData.description.trim() || null,
-        discountType: formData.discountType === "percentage" ? "PERCENTAGE" : "FIXED_AMOUNT",
-        discountValue: formData.discountValue ? Number(formData.discountValue) : null,
-        minOrderAmount: formData.minOrderAmount ? Number(formData.minOrderAmount) : null,
+        discountType:
+          formData.discountType === "percentage"
+            ? "PERCENTAGE"
+            : "FIXED_AMOUNT",
+        discountValue: formData.discountValue
+          ? Number(formData.discountValue)
+          : null,
+        minOrderAmount: formData.minOrderAmount
+          ? Number(formData.minOrderAmount)
+          : null,
         maxUsage: formData.maxUsage ? Number(formData.maxUsage) : null,
         imageUrl: imageUrl || null,
         status: isEdit ? (formData.status === "ACTIVE" ? "ACTIVE" : "INACTIVE") : "ACTIVE",
@@ -100,7 +110,11 @@ export default function VoucherFormModal({
       onClose();
     } catch (err) {
       const msg = err?.response?.data?.message || "";
-      if (msg.includes("already exists") || msg.includes("Duplicate entry") || msg.includes("code")) {
+      if (
+        msg.includes("already exists") ||
+        msg.includes("Duplicate entry") ||
+        msg.includes("code")
+      ) {
         toast.error("Mã voucher đã tồn tại! Vui lòng chọn mã khác.");
       } else {
         toast.error(isEdit ? "Cập nhật thất bại!" : "Thêm thất bại!");
@@ -134,7 +148,9 @@ export default function VoucherFormModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Upload ảnh */}
           <div>
-            <label className="block text-sm font-medium mb-3">Hình ảnh Voucher</label>
+            <label className="block text-sm font-medium mb-3">
+              Hình ảnh Voucher
+            </label>
             <div className="flex gap-6 items-start">
               <label
                 className={`flex-1 h-48 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors ${
@@ -176,7 +192,9 @@ export default function VoucherFormModal({
                 required
                 type="text"
                 value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, code: e.target.value })
+                }
                 className={`w-full px-4 py-3 rounded-lg border ${
                   darkMode ? "bg-gray-700" : "bg-white"
                 } focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
@@ -220,7 +238,8 @@ export default function VoucherFormModal({
             {/* Giá trị giảm */}
             <div>
               <label className="block font-medium mb-2">
-                Giá trị giảm {formData.discountType === "percentage" ? "(%)" : "(VNĐ)"} *
+                Giá trị giảm{" "}
+                {formData.discountType === "percentage" ? "(%)" : "(VNĐ)"} *
               </label>
               <input
                 required
@@ -233,13 +252,17 @@ export default function VoucherFormModal({
                 className={`w-full px-4 py-3 rounded-lg border ${
                   darkMode ? "bg-gray-700" : "bg-white"
                 } focus:ring-2 focus:ring-[#7b4f35] focus:outline-none`}
-                placeholder={formData.discountType === "percentage" ? "20" : "50000"}
+                placeholder={
+                  formData.discountType === "percentage" ? "20" : "50000"
+                }
               />
             </div>
 
             {/* Đơn tối thiểu */}
             <div>
-              <label className="block font-medium mb-2">Đơn hàng tối thiểu (VNĐ)</label>
+              <label className="block font-medium mb-2">
+                Đơn hàng tối thiểu (VNĐ)
+              </label>
               <input
                 type="number"
                 min="0"
@@ -256,7 +279,9 @@ export default function VoucherFormModal({
 
             {/* Số lượng sử dụng */}
             <div>
-              <label className="block font-medium mb-2">Giới hạn sử dụng *</label>
+              <label className="block font-medium mb-2">
+                Giới hạn sử dụng *
+              </label>
               <input
                 required
                 type="number"
