@@ -6,7 +6,6 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Plus, Trash2 } from "lucide-react"; 
-
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -17,31 +16,38 @@ import { Loading } from "@/app/components/loading";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/hook/useToast";
 
-
+// ========== VALIDATION ==========
 const bookingServiceSchema = z.object({
   serviceId: z.string().min(1, "Vui lòng chọn dịch vụ"),
   quantity: z.number().min(1, "Số lượng tối thiểu là 1"),
-  price: z.number(), 
+  price: z.number(),
 });
 
 const bookingSchema = z.object({
   name: z.string().min(1, "Vui lòng nhập họ tên"),
   phone: z.string().regex(/^0\d{9,10}$/, "Số điện thoại không hợp lệ"),
   email: z.string().email("Email không hợp lệ"),
-  bookingDate: z.string().min(1, "Vui lòng chọn ngày hẹn"),
+
+  bookingDate: z.string()
+    .min(1, "Vui lòng chọn ngày hẹn")
+    .refine((value) => {
+      const selected = new Date(value);
+      const now = new Date();
+      return selected >= now;
+    }, "Ngày hẹn phải là ngày hiện tại hoặc tương lai"),
+
   note: z.string().optional(),
-  
+
   selectedServices: z.array(bookingServiceSchema).min(1, "Chọn ít nhất 1 dịch vụ"),
 });
 
 type BookingFormData = z.infer<typeof bookingSchema>;
 
+// ========== COMPONENT ==========
 const BookingSection = forwardRef<HTMLElement>((props, ref) => {
   const createBookingMutation = useCreateBooking();
   const { user } = useAuthStore();
   const { success, error: showError, ToastContainer } = useToast();
-  
-  
   const { data: services, isLoading, isError, error } = useShopServices();
 
   const {
@@ -60,26 +66,25 @@ const BookingSection = forwardRef<HTMLElement>((props, ref) => {
       email: "",
       note: "",
       bookingDate: "",
-      
       selectedServices: [{ serviceId: "", quantity: 1, price: 0 }],
     },
   });
+
   const [totalPrice, setTotalPrice] = useState(0);
-  
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: "selectedServices",
   });
 
-  
   const watchedServices = watch("selectedServices");
-const handleCalculateTotal = () => {
-    const currentServices = watchedServices;
-    const total = currentServices.reduce((acc, item) => {
-        return acc + (item.price || 0) * (item.quantity || 1);
+
+  const handleCalculateTotal = () => {
+    const total = watchedServices.reduce((acc, item) => {
+      return acc + (item.price || 0) * (item.quantity || 1);
     }, 0);
     setTotalPrice(total);
-};
+  };
 
   if (isLoading) return <Loading />;
   if (isError) return <div className="text-center py-10 text-red-500">Lỗi: {error.message}</div>;
@@ -92,45 +97,48 @@ const handleCalculateTotal = () => {
 
     const formattedDate = formatBookingDate(data.bookingDate);
 
-    
-    
-    
-    
-    
     const firstItem = data.selectedServices[0];
     const calculatedPrice = firstItem.price * firstItem.quantity;
 
-    createBookingMutation.mutate({
-      serviceId: firstItem.serviceId,
-      appointmentDate: formattedDate,
-      note: data.note,
-      quantity: firstItem.quantity,
-      priceAtPurchase: calculatedPrice, 
-    }, {
-      onSuccess: () => {
-        success("Thành công", `Đã đặt dịch vụ! Tổng tạm tính: ${totalPrice.toLocaleString()}đ`);
-        reset();
+    createBookingMutation.mutate(
+      {
+        serviceId: firstItem.serviceId,
+        appointmentDate: formattedDate,
+        note: data.note,
+        quantity: firstItem.quantity,
+        priceAtPurchase: calculatedPrice,
+        email: data.email,
+        name: data.name,
+        phone: data.phone,
       },
-      onError: (error: any) => {
-        const msg = error?.response?.data?.message || "Có lỗi xảy ra khi đặt lịch.";
-        showError("Lỗi", msg);
+      {
+        onSuccess: () => {
+          success("Thành công", `Đã đặt dịch vụ! Tổng tạm tính: ${totalPrice.toLocaleString()}đ`);
+          reset();
+        },
+        onError: (error: any) => {
+          const msg = error?.response?.data?.message || "Có lỗi xảy ra khi đặt lịch.";
+          showError("Lỗi", msg);
+        },
       }
-    });
+    );
   };
 
   return (
     <section ref={ref} className="relative py-16 px-4 bg-gradient-to-br from-[#f8f4f0] to-[#ede7e0] flex flex-col items-center justify-center">
       <ToastContainer />
-      
-      
+
+      {/* Background effects */}
       <Image src="/assets/iconAnimate/dog.gif" alt="Dog Icon" width={300} height={300} className="absolute top-10 left-5 md:left-12 z-0" />
       <Image src="/assets/icon/dog4.png" alt="Dog Icon" width={200} height={200} className="absolute top-4 right-0 md:right-12 z-0" />
+
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-10 -left-10 w-40 h-40 bg-[#7B4F35]/10 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-10 -right-10 w-60 h-60 bg-[#C46C2B]/10 rounded-full blur-3xl"></div>
       </div>
 
       <div className="relative z-10 w-full max-w-4xl">
+        {/* Title */}
         <div className="text-center mb-12">
           <h1 className="text-5xl text-[#8B4513] mb-4 tracking-wide font-bold">Đặt Lịch Ngay</h1>
           <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
@@ -142,9 +150,10 @@ const handleCalculateTotal = () => {
           <h2 className="text-4xl text-[#8B4513] mb-4 font-semibold">Đặt Lịch</h2>
         </div>
 
+        {/* FORM */}
         <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-3xl shadow-2xl p-8 max-w-3xl mx-auto border border-gray-100">
           
-          
+          {/* User Info */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div>
               <Input {...register("name")} placeholder="Họ tên" className="h-14 px-4 bg-gray-50 rounded-xl" />
@@ -160,104 +169,105 @@ const handleCalculateTotal = () => {
             </div>
           </div>
 
-          
+          {/* Service List */}
           <div className="mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-200">
-             <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-[#8B4513]">Dịch vụ</h3>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => append({ serviceId: "", quantity: 1, price: 0 })}
-                  className="text-[#8B4513] border-[#8B4513] hover:bg-[#8B4513] hover:text-white"
-                >
-                  <Plus size={16} className="mr-1"/> Thêm dịch vụ
-                </Button>
-             </div>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-[#8B4513]">Dịch vụ</h3>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => append({ serviceId: "", quantity: 1, price: 0 })}
+                className="text-[#8B4513] border-[#8B4513] hover:bg-[#8B4513] hover:text-white"
+              >
+                <Plus size={16} className="mr-1"/> Thêm dịch vụ
+              </Button>
+            </div>
 
-             <div className="space-y-3">
-               {fields.map((field, index) => (
-                 <div key={field.id} className="flex gap-3 items-start">
-                    
-                    <div className="flex-1">
-                      <Controller
-                        control={control}
-                        name={`selectedServices.${index}.serviceId`}
-                        render={({ field }) => (
-                          <Select 
-                            onValueChange={(val) => {
-                                field.onChange(val);
-                                
-                                const selectedService = services?.find(s => String(s.serviceId) === val);
-                                if (selectedService) {
-                                    setValue(`selectedServices.${index}.price`, selectedService.price || 0);
-                                }
-                            }} 
-                            defaultValue={field.value}
-                          >
-                            <SelectTrigger className="h-14 bg-white rounded-xl">
-                              <SelectValue placeholder="Chọn dịch vụ" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {services?.map((s) => (
-                                <SelectItem key={s.serviceId} value={String(s.serviceId)}>
-                                  {s.name} - {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(s.price || 0)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                      {errors.selectedServices?.[index]?.serviceId && (
-                          <span className="text-red-500 text-xs">Vui lòng chọn</span>
+            <div className="space-y-3">
+              {fields.map((field, index) => (
+                <div key={field.id} className="flex gap-3 items-start">
+
+                  {/* Select service */}
+                  <div className="flex-1">
+                    <Controller
+                      control={control}
+                      name={`selectedServices.${index}.serviceId`}
+                      render={({ field }) => (
+                        <Select 
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            const selectedService = services?.find(s => String(s.serviceId) === val);
+                            if (selectedService) {
+                              setValue(`selectedServices.${index}.price`, selectedService.price || 0);
+                            }
+                          }} 
+                          defaultValue={field.value}
+                        >
+                          <SelectTrigger className="h-14 bg-white rounded-xl">
+                            <SelectValue placeholder="Chọn dịch vụ" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {services?.map((s) => (
+                              <SelectItem key={s.serviceId} value={String(s.serviceId)}>
+                                {s.name} - {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(s.price || 0)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       )}
-                    </div>
+                    />
+                    {errors.selectedServices?.[index]?.serviceId && (
+                      <span className="text-red-500 text-xs">Vui lòng chọn</span>
+                    )}
+                  </div>
 
-                    
-                    <div className="w-24">
-                        <Input 
-                            type="number" 
-                            min={1}
-                            placeholder="SL"
-                            {...register(`selectedServices.${index}.quantity`, { valueAsNumber: true })}
-                            className="h-14 bg-white text-center rounded-xl"
-                        />
-                    </div>
+                  {/* Quantity */}
+                  <div className="w-24">
+                    <Input 
+                      type="number" 
+                      min={1}
+                      placeholder="SL"
+                      {...register(`selectedServices.${index}.quantity`, { valueAsNumber: true })}
+                      className="h-14 bg-white text-center rounded-xl"
+                    />
+                  </div>
 
-                    
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-14 w-14 text-red-500 hover:bg-red-50 rounded-xl"
-                        onClick={() => remove(index)}
-                        disabled={fields.length === 1} 
-                    >
-                        <Trash2 size={20} />
-                    </Button>
-                 </div>
-               ))}
-             </div>
-             
-             
-             <div className="mt-4 text-right border-t border-gray-200 pt-3">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleCalculateTotal  }
-                  className="mr-10 text-[#8B4513] border-[#8B4513] hover:bg-[#8B4513] hover:text-white"
-                >
-                  Xác nhận dịch vụ
-                </Button>
-                <span className="text-gray-600 mr-2">Tạm tính:</span>
-                <span className="text-xl font-bold text-[#8B4513]">
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalPrice)}
-                </span>
-             </div>
+                  {/* Remove */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-14 w-14 text-red-500 hover:bg-red-50 rounded-xl"
+                    onClick={() => remove(index)}
+                    disabled={fields.length === 1}
+                  >
+                    <Trash2 size={20} />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Total */}
+            <div className="mt-4 text-right border-t border-gray-200 pt-3">
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={handleCalculateTotal}
+                className="mr-10 text-[#8B4513] border-[#8B4513] hover:bg-[#8B4513] hover:text-white"
+              >
+                Xác nhận dịch vụ
+              </Button>
+
+              <span className="text-gray-600 mr-2">Tạm tính:</span>
+              <span className="text-xl font-bold text-[#8B4513]">
+                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalPrice)}
+              </span>
+            </div>
           </div>
-          
 
+          {/* Date + Note */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div>
               <label className="text-sm font-semibold text-gray-600 mb-2 block">Ngày giờ hẹn</label>
@@ -266,19 +276,20 @@ const handleCalculateTotal = () => {
                 type="datetime-local"
                 className="h-14 px-4 bg-gray-50 rounded-xl"
               />
-               {errors.bookingDate && <span className="text-red-500 text-xs mt-1">{errors.bookingDate.message}</span>}
+              {errors.bookingDate && <span className="text-red-500 text-xs mt-1">{errors.bookingDate.message}</span>}
             </div>
             
             <div className="md:col-span-2">
-                <label className="text-sm font-semibold text-gray-600 mb-2 block">Ghi chú thêm</label>
-                <textarea
+              <label className="text-sm font-semibold text-gray-600 mb-2 block">Ghi chú thêm</label>
+              <textarea
                 {...register("note")}
                 placeholder="Ví dụ: Thú cưng của tôi hơi nhát với người lạ..."
                 className="w-full min-h-[100px] px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-[#7B4F35] focus:border-transparent resize-none outline-none text-gray-700"
-                />
+              />
             </div>
           </div>
 
+          {/* Submit */}
           <Button 
             type="submit" 
             disabled={createBookingMutation.isPending}
@@ -293,10 +304,11 @@ const handleCalculateTotal = () => {
               "XÁC NHẬN ĐẶT LỊCH"
             )}
           </Button>
+
         </form>
       </div>
     </section>
-  )
+  );
 });
 
 BookingSection.displayName = "BookingSection";

@@ -46,7 +46,8 @@ export default function LoginPage() {
       if(isLoading) return;
       console.log("Submitting", values);
       const data = await authService.login(values)
-      if(!data.user && !data.accessToken) throw new Error("Đăng nhập thất bại");
+      console.log(data);
+      if(!data.user ) throw new Error("Đăng nhập thất bại");
       
       
       setAuth(data.user!, data.accessToken!)

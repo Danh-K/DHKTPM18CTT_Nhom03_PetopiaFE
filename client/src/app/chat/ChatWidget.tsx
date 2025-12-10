@@ -134,7 +134,8 @@ export default function ChatWidget() {
             <div className={`transition-all duration-300 delay-75 flex items-center gap-2 ${isMenuOpen ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
                 <span className="bg-white text-[#5A3E2B] text-xs font-bold py-1 px-3 rounded-lg shadow-sm border border-[#F5E6D3]">Chat Zalo</span>
                 <button 
-                    onClick={() => window.open('https://zalo.me/', '_blank')}
+                    onClick={() => window.open('https://zalo.me/0352903906', '_blank')}
+
                     className="w-12 h-12 bg-white rounded-full shadow-md border-2 border-blue-500 flex items-center justify-center text-blue-500 hover:bg-blue-500 hover:text-white transition-colors"
                 >
                     <MessageSquare size={20} />
@@ -145,7 +146,7 @@ export default function ChatWidget() {
             <div className={`transition-all duration-300 delay-100 flex items-center gap-2 ${isMenuOpen ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
                 <span className="bg-white text-[#5A3E2B] text-xs font-bold py-1 px-3 rounded-lg shadow-sm border border-[#F5E6D3]">Gọi ngay</span>
                 <button 
-                    onClick={() => window.location.href = 'tel:0909090909'}
+                    onClick={() => window.location.href = 'tel:0352903906'}
                     className="w-12 h-12 bg-white rounded-full shadow-md border-2 border-green-500 flex items-center justify-center text-green-500 hover:bg-green-500 hover:text-white transition-colors"
                 >
                     <Phone size={20} />
